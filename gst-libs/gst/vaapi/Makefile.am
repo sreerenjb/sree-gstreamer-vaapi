@@ -7,6 +7,10 @@ if USE_GLX
 lib_LTLIBRARIES += libgstvaapi-glx-@GST_MAJORMINOR@.la
 endif
 
+if USE_WAYLAND
+lib_LTLIBRARIES += libgstvaapi-wayland-@GST_MAJORMINOR@.la
+endif
+
 libgstvaapi_includedir =			\
 	$(includedir)/gstreamer-@GST_MAJORMINOR@/gst/vaapi
 
@@ -123,6 +127,26 @@ libgstvaapi_glx_source_priv_h =			\
 	gstvaapiutils_x11.h			\
 	$(NULL)
 
+libgstvaapi_wayland_source_c =                  \
+        gstvaapidisplay_wayland.c                       \
+        gstvaapiutils.c                         \
+        gstvaapiutils_wayland.c                 \
+        gstvaapiwindow_wayland.c                        \
+        $(NULL)
+
+libgstvaapi_wayland_source_h =                  \
+        gstvaapidisplay_wayland.h                       \
+        gstvaapiwindow_wayland.h                        \
+        $(NULL)
+
+libgstvaapi_wayland_source_priv_h =                     \
+        gstvaapicompat.h                        \
+        gstvaapidisplay_wayland_priv.h          \
+        gstvaapiutils.h                         \
+        gstvaapiutils_wayland.h                 \
+        $(NULL)
+
+
 libgstvaapi_@GST_MAJORMINOR@_la_SOURCES =	\
 	$(libgstvaapi_source_c)			\
 	$(libgstvaapi_source_priv_h)		\
@@ -215,6 +239,37 @@ libgstvaapi_glx_@GST_MAJORMINOR@_la_LIBADD =	\
 libgstvaapi_glx_@GST_MAJORMINOR@_la_LDFLAGS =	\
 	$(GST_ALL_LDFLAGS)			\
 	$(NULL)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@_la_SOURCES =   \
+        $(libgstvaapi_wayland_source_c)             \
+        $(libgstvaapi_wayland_source_priv_h)        \
+        $(NULL)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@include_HEADERS = \
+        $(libgstvaapi_wayland_source_h)             \
+        $(NULL)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@includedir =    \
+        $(libgstvaapi_includedir)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@_la_CFLAGS =    \
+        -I$(top_srcdir)/gst-libs                \
+        $(GLIB_CFLAGS)                          \
+        $(GST_BASE_CFLAGS)                      \
+        $(WAYLAND_CFLAGS)                           \
+        $(LIBVA_WAYLAND_CFLAGS)                     \
+        $(NULL)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@_la_LIBADD =    \
+        $(GLIB_LIBS)                            \
+        $(WAYLAND_LIBS)                             \
+        $(LIBVA_WAYLAND_LIBS)                       \
+        libgstvaapi-@GST_MAJORMINOR@.la         \
+        $(NULL)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@_la_LDFLAGS =   \
+        $(GST_ALL_LDFLAGS)                      \
+        $(NULL)
 
 # Extra clean files so that maintainer-clean removes *everything*
 MAINTAINERCLEANFILES = Makefile.in
