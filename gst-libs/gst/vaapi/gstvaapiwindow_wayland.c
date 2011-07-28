@@ -136,10 +136,7 @@ gst_vaapi_window_wayland_render(
     );
     GST_VAAPI_OBJECT_UNLOCK_DISPLAY(window);
     if (!vaapi_check_status(status, "vaPutSurface()"))
-    {
-	g_message ("vaPutsurface failed in subclass putsurface...");
         return FALSE;
-    }
     return TRUE;
 }
 
