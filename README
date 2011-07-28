@@ -72,6 +72,11 @@ Wayland rendering
    ./autogen.sh --prefix=$path --enable-wayland --enable-vaapi-wayland --enable-vaapisink-wayland
    make; make install
 
+eg:
+
+  Run wayland compositor in one terminal (http://cgit.freedesktop.org/wayland/wayland-demos/)
+  gst-launch filesrc location=vid.mp4 ! qtdemux ! queue ! vaapidecode ! queue ! vaapisink  
+
 Caveats
 -------
 
