@@ -20,14 +20,20 @@
 
 #ifndef GST_VAAPISINK_H
 #define GST_VAAPISINK_H
-
 #include <gst/video/gstvideosink.h>
 #include <gst/vaapi/gstvaapidisplay.h>
 #include <gst/vaapi/gstvaapiwindow.h>
 #if USE_VAAPISINK_GLX
 #include <gst/vaapi/gstvaapitexture.h>
-#endif
 #include <X11/Xlib.h>
+#endif
+#if USE_VAAPISINK_WAYLAND
+#include <wayland-client.h>
+#include <wayland-egl.h>
+#include <va/va_wayland.h>
+#else
+#include <X11/Xlib.h>
+#endif
 
 G_BEGIN_DECLS
 
@@ -81,6 +87,7 @@ struct _GstVaapiSink {
     guint               fullscreen      : 1;
     guint               synchronous     : 1;
     guint               use_glx         : 1;
+    guint               use_wayland     : 1;
     guint               use_reflection  : 1;
 };
 

@@ -4,13 +4,19 @@ libgstvaapi_CFLAGS = \
 	$(LIBVA_CFLAGS)		\
 	-I$(top_srcdir)/gst-libs
 
+libgstvaapi_LIBS = \
+	$(top_builddir)/gst-libs/gst/vaapi/libgstvaapi-x11-$(GST_MAJORMINOR).la
+
 if USE_VAAPISINK_GLX
 libgstvaapi_LIBS = \
 	$(top_builddir)/gst-libs/gst/vaapi/libgstvaapi-glx-$(GST_MAJORMINOR).la
-else
-libgstvaapi_LIBS = \
-	$(top_builddir)/gst-libs/gst/vaapi/libgstvaapi-x11-$(GST_MAJORMINOR).la
 endif
+
+if USE_VAAPISINK_WAYLAND
+libgstvaapi_LIBS = \
+	$(top_builddir)/gst-libs/gst/vaapi/libgstvaapi-wayland-$(GST_MAJORMINOR).la
+endif
+
 
 libgstvaapisink_la_SOURCES =	\
 	gstvaapisink.c		\
