@@ -158,14 +158,14 @@ gst_base_video_decoder_sink_setcaps (GstPad * pad, GstCaps * caps)
 
   /* framerate default: 25 fps */
   if (!gst_structure_get_fraction (structure, "framerate",
-                                   &state->fps_n, &state->fps_d)) {
+          &state->fps_n, &state->fps_d)) {
     state->fps_n = 25;
     state->fps_d = 1;
   }
 
   /* pixel-aspect-ratio default: 1/1 */
   if (!gst_structure_get_fraction (structure, "pixel-aspect-ratio",
-                                   &state->par_n, &state->par_d)) {
+          &state->par_n, &state->par_d)) {
     state->par_n = 1;
     state->par_d = 1;
   }
@@ -1453,7 +1453,7 @@ gst_base_video_decoder_set_src_caps (GstBaseVideoDecoder * base_video_decoder)
     caps = gst_caps_copy (caps);
   else {
     caps = gst_pad_get_allowed_caps
-      (GST_BASE_VIDEO_CODEC_SRC_PAD (base_video_decoder));
+        (GST_BASE_VIDEO_CODEC_SRC_PAD (base_video_decoder));
     if (!caps)
       goto null_caps;
     if (gst_caps_is_empty (caps))
@@ -1468,7 +1468,7 @@ gst_base_video_decoder_set_src_caps (GstBaseVideoDecoder * base_video_decoder)
       NULL);
   if (state->have_interlaced)
     gst_caps_set_simple (caps,
-      "interlaced", G_TYPE_BOOLEAN, state->interlaced, NULL);
+        "interlaced", G_TYPE_BOOLEAN, state->interlaced, NULL);
   gst_pad_fixate_caps (GST_BASE_VIDEO_CODEC_SRC_PAD (base_video_decoder), caps);
 
   GST_DEBUG ("setting caps %" GST_PTR_FORMAT, caps);

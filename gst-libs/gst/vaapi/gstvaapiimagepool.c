@@ -30,81 +30,75 @@
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
-G_DEFINE_TYPE(
-    GstVaapiImagePool,
-    gst_vaapi_image_pool,
-    GST_VAAPI_TYPE_VIDEO_POOL);
+G_DEFINE_TYPE (GstVaapiImagePool,
+    gst_vaapi_image_pool, GST_VAAPI_TYPE_VIDEO_POOL);
 
 #define GST_VAAPI_IMAGE_POOL_GET_PRIVATE(obj)                   \
     (G_TYPE_INSTANCE_GET_PRIVATE((obj),                         \
                                  GST_VAAPI_TYPE_IMAGE_POOL,	\
                                  GstVaapiImagePoolPrivate))
 
-struct _GstVaapiImagePoolPrivate {
-    GstVaapiImageFormat format;
-    guint               width;
-    guint               height;
+struct _GstVaapiImagePoolPrivate
+{
+  GstVaapiImageFormat format;
+  guint width;
+  guint height;
 };
 
 static void
-gst_vaapi_image_pool_set_caps(GstVaapiVideoPool *pool, GstCaps *caps)
+gst_vaapi_image_pool_set_caps (GstVaapiVideoPool * pool, GstCaps * caps)
 {
-    GstVaapiImagePoolPrivate * const priv = GST_VAAPI_IMAGE_POOL(pool)->priv;
-    GstStructure *structure;
-    gint width, height;
+  GstVaapiImagePoolPrivate *const priv = GST_VAAPI_IMAGE_POOL (pool)->priv;
+  GstStructure *structure;
+  gint width, height;
 
-    structure = gst_caps_get_structure(caps, 0);
-    gst_structure_get_int(structure, "width", &width);
-    gst_structure_get_int(structure, "height", &height);
+  structure = gst_caps_get_structure (caps, 0);
+  gst_structure_get_int (structure, "width", &width);
+  gst_structure_get_int (structure, "height", &height);
 
-    priv->format        = gst_vaapi_image_format_from_caps(caps);
-    priv->width         = width;
-    priv->height        = height;
+  priv->format = gst_vaapi_image_format_from_caps (caps);
+  priv->width = width;
+  priv->height = height;
 }
 
 gpointer
-gst_vaapi_image_pool_alloc_object(
-    GstVaapiVideoPool *pool,
-    GstVaapiDisplay   *display
-)
+gst_vaapi_image_pool_alloc_object (GstVaapiVideoPool * pool,
+    GstVaapiDisplay * display)
 {
-    GstVaapiImagePoolPrivate * const priv = GST_VAAPI_IMAGE_POOL(pool)->priv;
+  GstVaapiImagePoolPrivate *const priv = GST_VAAPI_IMAGE_POOL (pool)->priv;
 
-    return gst_vaapi_image_new(display,
-                               priv->format,
-                               priv->width,
-                               priv->height);
+  return gst_vaapi_image_new (display, priv->format, priv->width, priv->height);
 }
 
 static void
-gst_vaapi_image_pool_finalize(GObject *object)
+gst_vaapi_image_pool_finalize (GObject * object)
 {
-    G_OBJECT_CLASS(gst_vaapi_image_pool_parent_class)->finalize(object);
+  G_OBJECT_CLASS (gst_vaapi_image_pool_parent_class)->finalize (object);
 }
 
 static void
-gst_vaapi_image_pool_class_init(GstVaapiImagePoolClass *klass)
+gst_vaapi_image_pool_class_init (GstVaapiImagePoolClass * klass)
 {
-    GObjectClass * const object_class = G_OBJECT_CLASS(klass);
-    GstVaapiVideoPoolClass * const pool_class = GST_VAAPI_VIDEO_POOL_CLASS(klass);
+  GObjectClass *const object_class = G_OBJECT_CLASS (klass);
+  GstVaapiVideoPoolClass *const pool_class = GST_VAAPI_VIDEO_POOL_CLASS (klass);
 
-    g_type_class_add_private(klass, sizeof(GstVaapiImagePoolPrivate));
+  g_type_class_add_private (klass, sizeof (GstVaapiImagePoolPrivate));
 
-    object_class->finalize      = gst_vaapi_image_pool_finalize;
+  object_class->finalize = gst_vaapi_image_pool_finalize;
 
-    pool_class->set_caps        = gst_vaapi_image_pool_set_caps;
-    pool_class->alloc_object    = gst_vaapi_image_pool_alloc_object;
+  pool_class->set_caps = gst_vaapi_image_pool_set_caps;
+  pool_class->alloc_object = gst_vaapi_image_pool_alloc_object;
 }
 
 static void
-gst_vaapi_image_pool_init(GstVaapiImagePool *pool)
+gst_vaapi_image_pool_init (GstVaapiImagePool * pool)
 {
-    GstVaapiImagePoolPrivate *priv = GST_VAAPI_IMAGE_POOL_GET_PRIVATE(pool);
+  GstVaapiImagePoolPrivate *priv = GST_VAAPI_IMAGE_POOL_GET_PRIVATE (pool);
 
-    pool->priv          = priv;
-    priv->format        = 0;
-    priv->width         = 0;
-    priv->height        = 0;
+  pool->priv = priv;
+  priv->format = 0;
+  priv->width = 0;
+  priv->height = 0;
 }
 
 /**
@@ -118,10 +112,8 @@ gst_vaapi_image_pool_init(GstVaapiImagePool *pool)
  * Return value: the newly allocated #GstVaapiVideoPool
  */
 GstVaapiVideoPool *
-gst_vaapi_image_pool_new(GstVaapiDisplay *display, GstCaps *caps)
+gst_vaapi_image_pool_new (GstVaapiDisplay * display, GstCaps * caps)
 {
-    return g_object_new(GST_VAAPI_TYPE_IMAGE_POOL,
-                        "display", display,
-                        "caps",    caps,
-                        NULL);
+  return g_object_new (GST_VAAPI_TYPE_IMAGE_POOL,
+      "display", display, "caps", caps, NULL);
 }

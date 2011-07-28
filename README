@@ -38,7 +38,7 @@ Features
   * VA-API support from 0.29 to 0.31
   * OpenGL rendering through VA/GLX or GLX texture-from-pixmap + FBO
   * Support for major HW video decoding solutions on Linux (AMD, Intel, NVIDIA)
-
+  * Wayland Support
 
 Requirements
 ------------
@@ -66,6 +66,11 @@ Usage
   $ gst-launch-0.10 -v filesrc location=/path/to/video.mp4 ! \
       qtdemux ! vaapidecode ! vaapisink fullscreen=true
 
+Wayland rendering
+-----------------
+
+   ./autogen.sh --prefix=$path --enable-wayland --enable-vaapi-wayland --enable-vaapisink-wayland
+   make; make install
 
 Caveats
 -------

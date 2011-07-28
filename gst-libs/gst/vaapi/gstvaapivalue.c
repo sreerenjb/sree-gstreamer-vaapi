@@ -29,20 +29,20 @@
 #include "gstvaapivalue.h"
 
 static GTypeInfo gst_vaapi_type_info = {
-    0,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    0,
-    0,
-    NULL,
-    NULL,
+  0,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  0,
+  0,
+  NULL,
+  NULL,
 };
 
 static GTypeFundamentalInfo gst_vaapi_type_finfo = {
-    0
+  0
 };
 
 #define GST_VAAPI_TYPE_DEFINE(type, name)                               \
@@ -78,60 +78,52 @@ GType gst_vaapi_ ## type ## _get_type(void)                             \
 #define GST_VAAPI_VALUE_ID(value)       GST_VAAPI_VALUE_ID_((value)->data[0])
 
 static void
-gst_vaapi_value_id_init(GValue *value)
+gst_vaapi_value_id_init (GValue * value)
 {
-    GST_VAAPI_VALUE_ID(value) = 0;
+  GST_VAAPI_VALUE_ID (value) = 0;
 }
 
 static void
-gst_vaapi_value_id_copy(const GValue *src_value, GValue *dst_value)
+gst_vaapi_value_id_copy (const GValue * src_value, GValue * dst_value)
 {
-    GST_VAAPI_VALUE_ID(dst_value) = GST_VAAPI_VALUE_ID(src_value);
+  GST_VAAPI_VALUE_ID (dst_value) = GST_VAAPI_VALUE_ID (src_value);
 }
 
 static gchar *
-gst_vaapi_value_id_collect(
-    GValue      *value,
-    guint        n_collect_values,
-    GTypeCValue *collect_values,
-    guint        collect_flags
-)
+gst_vaapi_value_id_collect (GValue * value,
+    guint n_collect_values, GTypeCValue * collect_values, guint collect_flags)
 {
-    GST_VAAPI_VALUE_ID(value) = GST_VAAPI_VALUE_ID_(collect_values[0]);
+  GST_VAAPI_VALUE_ID (value) = GST_VAAPI_VALUE_ID_ (collect_values[0]);
 
-    return NULL;
+  return NULL;
 }
 
 static gchar *
-gst_vaapi_value_id_lcopy(
-    const GValue *value,
-    guint         n_collect_values,
-    GTypeCValue  *collect_values,
-    guint         collect_flags
-)
+gst_vaapi_value_id_lcopy (const GValue * value,
+    guint n_collect_values, GTypeCValue * collect_values, guint collect_flags)
 {
-    GstVaapiID *id_p = collect_values[0].v_pointer;
+  GstVaapiID *id_p = collect_values[0].v_pointer;
 
-    if (!id_p)
-        return g_strdup_printf("value location for `%s' passed as NULL",
-                               G_VALUE_TYPE_NAME(value));
+  if (!id_p)
+    return g_strdup_printf ("value location for `%s' passed as NULL",
+        G_VALUE_TYPE_NAME (value));
 
-    *id_p = GST_VAAPI_VALUE_ID(value);
-    return NULL;
+  *id_p = GST_VAAPI_VALUE_ID (value);
+  return NULL;
 }
 
 static const GTypeValueTable gst_vaapi_id_value_table = {
-    gst_vaapi_value_id_init,
-    NULL,
-    gst_vaapi_value_id_copy,
-    NULL,
-    GST_VAAPI_VALUE_ID_CFORMAT,
-    gst_vaapi_value_id_collect,
-    "p",
-    gst_vaapi_value_id_lcopy
+  gst_vaapi_value_id_init,
+  NULL,
+  gst_vaapi_value_id_copy,
+  NULL,
+  GST_VAAPI_VALUE_ID_CFORMAT,
+  gst_vaapi_value_id_collect,
+  "p",
+  gst_vaapi_value_id_lcopy
 };
 
-GST_VAAPI_TYPE_DEFINE(id, "GstVaapiID");
+GST_VAAPI_TYPE_DEFINE (id, "GstVaapiID");
 
 /**
  * gst_vaapi_value_get_id:
@@ -142,11 +134,11 @@ GST_VAAPI_TYPE_DEFINE(id, "GstVaapiID");
  * Return value: the integer contained in @value
  */
 GstVaapiID
-gst_vaapi_value_get_id(const GValue *value)
+gst_vaapi_value_get_id (const GValue * value)
 {
-    g_return_val_if_fail(GST_VAAPI_VALUE_HOLDS_ID(value), 0);
+  g_return_val_if_fail (GST_VAAPI_VALUE_HOLDS_ID (value), 0);
 
-    return GST_VAAPI_VALUE_ID(value);
+  return GST_VAAPI_VALUE_ID (value);
 }
 
 /**
@@ -157,9 +149,9 @@ gst_vaapi_value_get_id(const GValue *value)
  * Sets the integer contained in @id to @value.
  */
 void
-gst_vaapi_value_set_id(GValue *value, GstVaapiID id)
+gst_vaapi_value_set_id (GValue * value, GstVaapiID id)
 {
-    g_return_if_fail(GST_VAAPI_VALUE_HOLDS_ID(value));
+  g_return_if_fail (GST_VAAPI_VALUE_HOLDS_ID (value));
 
-    GST_VAAPI_VALUE_ID(value) = id;
+  GST_VAAPI_VALUE_ID (value) = id;
 }

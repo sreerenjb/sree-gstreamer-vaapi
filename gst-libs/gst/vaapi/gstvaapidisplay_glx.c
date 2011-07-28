@@ -36,34 +36,33 @@
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
-G_DEFINE_TYPE(GstVaapiDisplayGLX,
-              gst_vaapi_display_glx,
-              GST_VAAPI_TYPE_DISPLAY_X11);
+G_DEFINE_TYPE (GstVaapiDisplayGLX,
+    gst_vaapi_display_glx, GST_VAAPI_TYPE_DISPLAY_X11);
 
 static void
-gst_vaapi_display_glx_finalize(GObject *object)
+gst_vaapi_display_glx_finalize (GObject * object)
 {
-    G_OBJECT_CLASS(gst_vaapi_display_glx_parent_class)->finalize(object);
+  G_OBJECT_CLASS (gst_vaapi_display_glx_parent_class)->finalize (object);
 }
 
 static VADisplay
-gst_vaapi_display_glx_get_va_display(GstVaapiDisplay *display)
+gst_vaapi_display_glx_get_va_display (GstVaapiDisplay * display)
 {
-    return vaGetDisplayGLX(GST_VAAPI_DISPLAY_XDISPLAY(display));
+  return vaGetDisplayGLX (GST_VAAPI_DISPLAY_XDISPLAY (display));
 }
 
 static void
-gst_vaapi_display_glx_class_init(GstVaapiDisplayGLXClass *klass)
+gst_vaapi_display_glx_class_init (GstVaapiDisplayGLXClass * klass)
 {
-    GObjectClass * const object_class = G_OBJECT_CLASS(klass);
-    GstVaapiDisplayClass * const dpy_class = GST_VAAPI_DISPLAY_CLASS(klass);
+  GObjectClass *const object_class = G_OBJECT_CLASS (klass);
+  GstVaapiDisplayClass *const dpy_class = GST_VAAPI_DISPLAY_CLASS (klass);
 
-    object_class->finalize      = gst_vaapi_display_glx_finalize;
-    dpy_class->get_display      = gst_vaapi_display_glx_get_va_display;
+  object_class->finalize = gst_vaapi_display_glx_finalize;
+  dpy_class->get_display = gst_vaapi_display_glx_get_va_display;
 }
 
 static void
-gst_vaapi_display_glx_init(GstVaapiDisplayGLX *display)
+gst_vaapi_display_glx_init (GstVaapiDisplayGLX * display)
 {
 }
 
@@ -78,11 +77,10 @@ gst_vaapi_display_glx_init(GstVaapiDisplayGLX *display)
  * Return value: a newly allocated #GstVaapiDisplay object
  */
 GstVaapiDisplay *
-gst_vaapi_display_glx_new(const gchar *display_name)
+gst_vaapi_display_glx_new (const gchar * display_name)
 {
-    return g_object_new(GST_VAAPI_TYPE_DISPLAY_GLX,
-                        "display-name", display_name,
-                        NULL);
+  return g_object_new (GST_VAAPI_TYPE_DISPLAY_GLX,
+      "display-name", display_name, NULL);
 }
 
 /**
@@ -97,9 +95,8 @@ gst_vaapi_display_glx_new(const gchar *display_name)
  * Return value: a newly allocated #GstVaapiDisplay object
  */
 GstVaapiDisplay *
-gst_vaapi_display_glx_new_with_display(Display *x11_display)
+gst_vaapi_display_glx_new_with_display (Display * x11_display)
 {
-    return g_object_new(GST_VAAPI_TYPE_DISPLAY_GLX,
-                        "x11-display", x11_display,
-                        NULL);
+  return g_object_new (GST_VAAPI_TYPE_DISPLAY_GLX,
+      "x11-display", x11_display, NULL);
 }

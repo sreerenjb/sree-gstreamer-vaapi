@@ -31,57 +31,55 @@
 /* --- GstVaapiParamSpecID --- */
 
 static void
-gst_vaapi_param_id_init(GParamSpec *pspec)
+gst_vaapi_param_id_init (GParamSpec * pspec)
 {
-    GST_VAAPI_PARAM_SPEC_ID(pspec)->default_value = GST_VAAPI_ID_NONE;
+  GST_VAAPI_PARAM_SPEC_ID (pspec)->default_value = GST_VAAPI_ID_NONE;
 }
 
 static void
-gst_vaapi_param_id_set_default(GParamSpec *pspec, GValue *value)
+gst_vaapi_param_id_set_default (GParamSpec * pspec, GValue * value)
 {
-    gst_vaapi_value_set_id(value, GST_VAAPI_PARAM_SPEC_ID(pspec)->default_value);
+  gst_vaapi_value_set_id (value,
+      GST_VAAPI_PARAM_SPEC_ID (pspec)->default_value);
 }
 
 static gboolean
-gst_vaapi_param_id_validate(GParamSpec *pspec, GValue *value)
+gst_vaapi_param_id_validate (GParamSpec * pspec, GValue * value)
 {
-    /* Return FALSE if everything is OK, otherwise TRUE */
-    return FALSE;
+  /* Return FALSE if everything is OK, otherwise TRUE */
+  return FALSE;
 }
 
 static gint
-gst_vaapi_param_id_compare(
-    GParamSpec   *pspec,
-    const GValue *value1,
-    const GValue *value2
-)
+gst_vaapi_param_id_compare (GParamSpec * pspec,
+    const GValue * value1, const GValue * value2)
 {
-    const GstVaapiID v1 = gst_vaapi_value_get_id(value1);
-    const GstVaapiID v2 = gst_vaapi_value_get_id(value2);
+  const GstVaapiID v1 = gst_vaapi_value_get_id (value1);
+  const GstVaapiID v2 = gst_vaapi_value_get_id (value2);
 
-    return (v1 < v2 ? -1 : (v1 > v2 ? 1 : 0));
+  return (v1 < v2 ? -1 : (v1 > v2 ? 1 : 0));
 }
 
 GType
-gst_vaapi_param_spec_id_get_type(void)
+gst_vaapi_param_spec_id_get_type (void)
 {
-    static GType type;
+  static GType type;
 
-    if (G_UNLIKELY(type == 0)) {
-        static GParamSpecTypeInfo pspec_info = {
-            sizeof(GstVaapiParamSpecID),        /* instance_size     */
-            0,                                  /* n_preallocs       */
-            gst_vaapi_param_id_init,            /* instance_init     */
-            G_TYPE_INVALID,                     /* value_type        */
-            NULL,                               /* finalize          */
-            gst_vaapi_param_id_set_default,     /* value_set_default */
-            gst_vaapi_param_id_validate,        /* value_validate    */
-            gst_vaapi_param_id_compare,         /* values_cmp        */
-        };
-        pspec_info.value_type = GST_VAAPI_TYPE_ID;
-        type = g_param_type_register_static("GstVaapiParamSpecID", &pspec_info);
-    }
-    return type;
+  if (G_UNLIKELY (type == 0)) {
+    static GParamSpecTypeInfo pspec_info = {
+      sizeof (GstVaapiParamSpecID),     /* instance_size     */
+      0,                        /* n_preallocs       */
+      gst_vaapi_param_id_init,  /* instance_init     */
+      G_TYPE_INVALID,           /* value_type        */
+      NULL,                     /* finalize          */
+      gst_vaapi_param_id_set_default,   /* value_set_default */
+      gst_vaapi_param_id_validate,      /* value_validate    */
+      gst_vaapi_param_id_compare,       /* values_cmp        */
+    };
+    pspec_info.value_type = GST_VAAPI_TYPE_ID;
+    type = g_param_type_register_static ("GstVaapiParamSpecID", &pspec_info);
+  }
+  return type;
 }
 
 /**
@@ -100,41 +98,32 @@ gst_vaapi_param_spec_id_get_type(void)
  * Return value: a newly created parameter specification
  */
 GParamSpec *
-gst_vaapi_param_spec_id(
-    const gchar *name,
-    const gchar *nick,
-    const gchar *blurb,
-    GstVaapiID   default_value,
-    GParamFlags  flags
-)
+gst_vaapi_param_spec_id (const gchar * name,
+    const gchar * nick,
+    const gchar * blurb, GstVaapiID default_value, GParamFlags flags)
 {
-    GstVaapiParamSpecID *ispec;
-    GParamSpec *pspec;
-    GValue value = { 0, };
+  GstVaapiParamSpecID *ispec;
+  GParamSpec *pspec;
+  GValue value = { 0, };
 
-    ispec = g_param_spec_internal(
-        GST_VAAPI_TYPE_PARAM_ID,
-        name,
-        nick,
-        blurb,
-        flags
-    );
-    if (!ispec)
-        return NULL;
+  ispec = g_param_spec_internal (GST_VAAPI_TYPE_PARAM_ID,
+      name, nick, blurb, flags);
+  if (!ispec)
+    return NULL;
 
-    ispec->default_value = default_value;
-    pspec = G_PARAM_SPEC(ispec);
+  ispec->default_value = default_value;
+  pspec = G_PARAM_SPEC (ispec);
 
-    /* Validate default value */
-    g_value_init(&value, GST_VAAPI_TYPE_ID);
-    gst_vaapi_value_set_id(&value, default_value);
-    if (gst_vaapi_param_id_validate(pspec, &value)) {
-        g_param_spec_ref(pspec);
-        g_param_spec_sink(pspec);
-        g_param_spec_unref(pspec);
-        pspec = NULL;
-    }
-    g_value_unset(&value);
+  /* Validate default value */
+  g_value_init (&value, GST_VAAPI_TYPE_ID);
+  gst_vaapi_value_set_id (&value, default_value);
+  if (gst_vaapi_param_id_validate (pspec, &value)) {
+    g_param_spec_ref (pspec);
+    g_param_spec_sink (pspec);
+    g_param_spec_unref (pspec);
+    pspec = NULL;
+  }
+  g_value_unset (&value);
 
-    return pspec;
+  return pspec;
 }

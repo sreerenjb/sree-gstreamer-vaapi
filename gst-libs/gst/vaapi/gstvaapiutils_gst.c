@@ -28,51 +28,51 @@
 #include "gstvaapidebug.h"
 
 static GstVaapiDisplay *
-lookup_through_vaapisink_iface(GstElement *element)
+lookup_through_vaapisink_iface (GstElement * element)
 {
-    GstVaapiDisplay *display;
-    GstVaapiVideoSink *sink;
+  GstVaapiDisplay *display;
+  GstVaapiVideoSink *sink;
 
-    GST_DEBUG("looking for a downstream vaapisink");
+  GST_DEBUG ("looking for a downstream vaapisink");
 
-    /* Look for a downstream vaapisink */
-    sink = gst_vaapi_video_sink_lookup(element);
-    if (!sink)
-        return NULL;
+  /* Look for a downstream vaapisink */
+  sink = gst_vaapi_video_sink_lookup (element);
+  if (!sink)
+    return NULL;
 
-    display = gst_vaapi_video_sink_get_display(sink);
-    GST_DEBUG("  found display %p", display);
-    return display;
+  display = gst_vaapi_video_sink_get_display (sink);
+  GST_DEBUG ("  found display %p", display);
+  return display;
 }
 
 static GstVaapiDisplay *
-lookup_through_peer_buffer(GstElement *element)
+lookup_through_peer_buffer (GstElement * element)
 {
-    GstVaapiDisplay *display;
-    GstPad *pad;
-    GstBuffer *buffer;
-    GstFlowReturn ret;
+  GstVaapiDisplay *display;
+  GstPad *pad;
+  GstBuffer *buffer;
+  GstFlowReturn ret;
 
-    GST_DEBUG("looking for a GstVaapiVideoBuffer from peer");
+  GST_DEBUG ("looking for a GstVaapiVideoBuffer from peer");
 
-    /* Look for a GstVaapiVideoBuffer from peer */
-    pad = gst_element_get_static_pad(element, "src");
-    if (!pad)
-        return NULL;
+  /* Look for a GstVaapiVideoBuffer from peer */
+  pad = gst_element_get_static_pad (element, "src");
+  if (!pad)
+    return NULL;
 
-    buffer = NULL;
-    ret = gst_pad_alloc_buffer(pad, 0, 0, GST_PAD_CAPS(pad), &buffer);
-    g_object_unref(pad);
-    if (ret != GST_FLOW_OK || !buffer)
-        return NULL;
+  buffer = NULL;
+  ret = gst_pad_alloc_buffer (pad, 0, 0, GST_PAD_CAPS (pad), &buffer);
+  g_object_unref (pad);
+  if (ret != GST_FLOW_OK || !buffer)
+    return NULL;
 
-    display = GST_VAAPI_IS_VIDEO_BUFFER(buffer) ?
-        gst_vaapi_video_buffer_get_display(GST_VAAPI_VIDEO_BUFFER(buffer)) :
-        NULL;
-    gst_buffer_unref(buffer);
+  display = GST_VAAPI_IS_VIDEO_BUFFER (buffer) ?
+      gst_vaapi_video_buffer_get_display (GST_VAAPI_VIDEO_BUFFER (buffer)) :
+      NULL;
+  gst_buffer_unref (buffer);
 
-    GST_DEBUG("  found display %p", display);
-    return display;
+  GST_DEBUG ("  found display %p", display);
+  return display;
 }
 
 /**
@@ -92,17 +92,17 @@ lookup_through_peer_buffer(GstElement *element)
  *   %NULL if none was found
  */
 GstVaapiDisplay *
-gst_vaapi_display_lookup_downstream(GstElement *element)
+gst_vaapi_display_lookup_downstream (GstElement * element)
 {
-    GstVaapiDisplay *display;
+  GstVaapiDisplay *display;
 
-    display = lookup_through_vaapisink_iface(element);
-    if (display)
-        return display;
+  display = lookup_through_vaapisink_iface (element);
+  if (display)
+    return display;
 
-    display = lookup_through_peer_buffer(element);
-    if (display)
-        return display;
+  display = lookup_through_peer_buffer (element);
+  if (display)
+    return display;
 
-    return NULL;
+  return NULL;
 }

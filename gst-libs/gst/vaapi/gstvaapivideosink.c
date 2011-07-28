@@ -28,35 +28,31 @@
 #include "gstvaapivideosink.h"
 
 static void
-gst_vaapi_video_sink_base_init(gpointer g_class)
+gst_vaapi_video_sink_base_init (gpointer g_class)
 {
-    static gboolean is_initialized = FALSE;
+  static gboolean is_initialized = FALSE;
 
-    if (!is_initialized) {
-        is_initialized = TRUE;
-    }
+  if (!is_initialized) {
+    is_initialized = TRUE;
+  }
 }
 
 GType
-gst_vaapi_video_sink_get_type(void)
+gst_vaapi_video_sink_get_type (void)
 {
-    static GType iface_type = 0;
+  static GType iface_type = 0;
 
-    if (G_UNLIKELY(!iface_type)) {
-        static const GTypeInfo info = {
-            sizeof(GstVaapiVideoSinkInterface),
-            gst_vaapi_video_sink_base_init,     /* base_init */
-            NULL,                               /* base_finalize */
-        };
+  if (G_UNLIKELY (!iface_type)) {
+    static const GTypeInfo info = {
+      sizeof (GstVaapiVideoSinkInterface),
+      gst_vaapi_video_sink_base_init,   /* base_init */
+      NULL,                     /* base_finalize */
+    };
 
-        iface_type = g_type_register_static(
-            G_TYPE_INTERFACE,
-            "GstVaapiVideoSink",
-            &info,
-            0
-        );
-    }
-    return iface_type;
+    iface_type = g_type_register_static (G_TYPE_INTERFACE,
+        "GstVaapiVideoSink", &info, 0);
+  }
+  return iface_type;
 }
 
 /**
@@ -68,11 +64,11 @@ gst_vaapi_video_sink_get_type(void)
  * Return value: the #GstVaapiDisplay created by the @sink element
  */
 GstVaapiDisplay *
-gst_vaapi_video_sink_get_display(GstVaapiVideoSink *sink)
+gst_vaapi_video_sink_get_display (GstVaapiVideoSink * sink)
 {
-    g_return_val_if_fail(GST_VAAPI_IS_VIDEO_SINK(sink), NULL);
+  g_return_val_if_fail (GST_VAAPI_IS_VIDEO_SINK (sink), NULL);
 
-    return GST_VAAPI_VIDEO_SINK_GET_INTERFACE(sink)->get_display(sink);
+  return GST_VAAPI_VIDEO_SINK_GET_INTERFACE (sink)->get_display (sink);
 }
 
 /**
@@ -88,31 +84,31 @@ gst_vaapi_video_sink_get_display(GstVaapiVideoSink *sink)
  * element, or %NULL if none was found
  */
 GstVaapiVideoSink *
-gst_vaapi_video_sink_lookup(GstElement *element)
+gst_vaapi_video_sink_lookup (GstElement * element)
 {
-    GstVaapiVideoSink *sink = NULL;
-    GstPad *pad, *peer;
+  GstVaapiVideoSink *sink = NULL;
+  GstPad *pad, *peer;
 
-    g_return_val_if_fail(GST_IS_ELEMENT(element), NULL);
+  g_return_val_if_fail (GST_IS_ELEMENT (element), NULL);
 
-    while (!sink) {
-        pad = gst_element_get_static_pad(element, "src");
-        if (!pad)
-            break;
+  while (!sink) {
+    pad = gst_element_get_static_pad (element, "src");
+    if (!pad)
+      break;
 
-        peer = gst_pad_get_peer(pad);
-        g_object_unref(pad);
-        if (!peer)
-            break;
+    peer = gst_pad_get_peer (pad);
+    g_object_unref (pad);
+    if (!peer)
+      break;
 
-        element = gst_pad_get_parent_element(peer);
-        g_object_unref(peer);
-        if (!element)
-            break;
+    element = gst_pad_get_parent_element (peer);
+    g_object_unref (peer);
+    if (!element)
+      break;
 
-        if (GST_VAAPI_IS_VIDEO_SINK(element))
-            sink = GST_VAAPI_VIDEO_SINK(element);
-        g_object_unref(element);
-    }
-    return sink;
+    if (GST_VAAPI_IS_VIDEO_SINK (element))
+      sink = GST_VAAPI_VIDEO_SINK (element);
+    g_object_unref (element);
+  }
+  return sink;
 }
