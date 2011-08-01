@@ -69,6 +69,7 @@ struct _GstVaapiDecode {
     GCond              *decoder_ready;
     GstCaps            *decoder_caps;
     GstCaps            *allowed_caps;
+    gboolean            ready;
     unsigned int        use_ffmpeg      : 1;
 };
 
