@@ -94,6 +94,18 @@ gst_vaapi_window_wayland_create (GstVaapiWindow * window, guint * width,
   return TRUE;
 }
 
+static void
+gst_vaapi_window_wayland_destroy (GstVaapiWindow * window)
+{
+  GstVaapiWindowWayland *wayland_window = GST_VAAPI_WINDOW_WAYLAND (window);
+  if (wayland_window->win) {
+    GST_VAAPI_OBJECT_LOCK_DISPLAY (window);
+    wl_egl_window_destroy (wayland_window->win);
+    GST_VAAPI_OBJECT_UNLOCK_DISPLAY (window);
+    GST_VAAPI_OBJECT_ID (window) = None;
+  }
+}
+
 static gboolean
 gst_vaapi_window_wayland_resize (GstVaapiWindow * window, guint width,
     guint height)
@@ -153,6 +165,7 @@ gst_vaapi_window_wayland_class_init (GstVaapiWindowWaylandClass * klass)
   object_class->finalize = gst_vaapi_window_wayland_finalize;
   object_class->constructed = gst_vaapi_window_wayland_constructed;
   window_class->create = gst_vaapi_window_wayland_create;
+  window_class->destroy = gst_vaapi_window_wayland_destroy;
   window_class->render = gst_vaapi_window_wayland_render;
   window_class->resize = gst_vaapi_window_wayland_resize;
 }
