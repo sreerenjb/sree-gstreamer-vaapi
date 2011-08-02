@@ -199,7 +199,7 @@ gst_vaapi_display_wayland_open_display (GstVaapiDisplay * display)
 
     d->display = wl_display_connect (NULL);
     if (!d->display)
-      return NULL;
+      return FALSE;
 
     wl_display_set_user_data (d->display, d);
     wl_display_add_global_listener (d->display, display_handle_global, d);
