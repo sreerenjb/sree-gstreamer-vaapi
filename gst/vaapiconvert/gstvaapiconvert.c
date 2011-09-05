@@ -159,8 +159,10 @@ gst_vaapiconvert_set_property (GObject * object,
 
   switch (prop_id) {
     case PROP_DIRECT_RENDERING:
-      convert->direct_rendering = g_value_get_uint (value);
-      break;
+        GST_OBJECT_LOCK(convert);
+        convert->direct_rendering = g_value_get_uint(value);
+        GST_OBJECT_UNLOCK(convert);
+        break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
