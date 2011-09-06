@@ -428,32 +428,37 @@ gst_vaapiconvert_ensure_image_pool (GstVaapiConvert * convert, GstCaps * caps)
 static gboolean
 gst_vaapiconvert_ensure_surface_pool (GstVaapiConvert * convert, GstCaps * caps)
 {
-  GstStructure *const structure = gst_caps_get_structure (caps, 0);
-  GstVaapiSurface *surface;
-  GstVaapiImage *image;
-  gint width, height;
+    GstStructure * const structure = gst_caps_get_structure(caps, 0);
+    GstVaapiSurface *surface;
+    GstVaapiImage *image;
+    gint width, height;
 
-  gst_structure_get_int (structure, "width", &width);
-  gst_structure_get_int (structure, "height", &height);
+    gst_structure_get_int(structure, "width",  &width);
+    gst_structure_get_int(structure, "height", &height);
 
-  if (width != convert->surface_width || height != convert->surface_height) {
-    convert->surface_width = width;
-    convert->surface_height = height;
-    if (convert->surfaces)
-      g_object_unref (convert->surfaces);
-    convert->surfaces = gst_vaapi_surface_pool_new (convert->display, caps);
-    if (!convert->surfaces)
-      return FALSE;
+    if (width != convert->surface_width || height != convert->surface_height) {
+        convert->surface_width  = width;
+        convert->surface_height = height;
+        if (convert->surfaces)
+            g_object_unref(convert->surfaces);
+        convert->surfaces = gst_vaapi_surface_pool_new(convert->display, caps);
+        if (!convert->surfaces)
+            return FALSE;
 
-    /* Check if we can access to the surface pixels directly */
-    surface = gst_vaapi_video_pool_get_object (convert->surfaces);
-    if (surface) {
-      image = gst_vaapi_surface_derive_image (surface);
-      if (image) {
-        if (gst_vaapi_image_map (image)) {
-          if (convert->direct_rendering_caps == 1)
-            convert->direct_rendering_caps = 2;
-          gst_vaapi_image_unmap (image);
+        /* Check if we can access to the surface pixels directly */
+        surface = gst_vaapi_video_pool_get_object(convert->surfaces);
+        if (surface) {
+            image = gst_vaapi_surface_derive_image(surface);
+            if (image) {
+                if (gst_vaapi_image_map(image)) {
+                    if (convert->direct_rendering_caps == 1 &&
+                        gst_vaapi_image_is_linear(image))
+                        convert->direct_rendering_caps = 2;
+                    gst_vaapi_image_unmap(image);
+                }
+                g_object_unref(image);
+            }
+            gst_vaapi_video_pool_put_object(convert->surfaces, surface);
         }
         g_object_unref (image);
       }
@@ -536,7 +541,7 @@ gst_vaapiconvert_buffer_alloc (GstBaseTransform * trans,
 
         surface = gst_vaapi_video_buffer_get_surface(vbuffer);
         image   = gst_vaapi_surface_derive_image(surface);
-        if (image) {
+        if (image && gst_vaapi_image_get_data_size(image) == size) {
             gst_vaapi_video_buffer_set_image(vbuffer, image);
             gst_object_unref(image); /* video buffer owns an extra reference */
             break;
