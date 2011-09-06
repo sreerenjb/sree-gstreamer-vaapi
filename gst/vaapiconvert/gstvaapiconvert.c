@@ -538,6 +538,7 @@ gst_vaapiconvert_buffer_alloc (GstBaseTransform * trans,
         image   = gst_vaapi_surface_derive_image(surface);
         if (image) {
             gst_vaapi_video_buffer_set_image(vbuffer, image);
+            gst_object_unref(image); /* video buffer owns an extra reference */
             break;
         }
 
