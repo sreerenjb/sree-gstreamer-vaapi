@@ -294,6 +294,7 @@ gst_vaapiconvert_transform (GstBaseTransform * trans,
     GstVaapiVideoBuffer *vbuffer;
     GstVaapiSurface *surface;
     GstVaapiImage *image;
+    gboolean success;
 
     vbuffer = GST_VAAPI_VIDEO_BUFFER(outbuf);
     surface = gst_vaapi_video_buffer_get_surface(vbuffer);
@@ -313,8 +314,10 @@ gst_vaapiconvert_transform (GstBaseTransform * trans,
         if (!gst_vaapi_image_unmap(image))
             return GST_FLOW_UNEXPECTED;
 
-        if (convert->direct_rendering < 2)
-            gst_vaapi_surface_put_image(surface, image);
+        if (convert->direct_rendering < 2) {
+            if (!gst_vaapi_surface_put_image(surface, image))
+                goto error_put_image;
+        }
         return GST_FLOW_OK;
     }
 
@@ -324,19 +327,21 @@ gst_vaapiconvert_transform (GstBaseTransform * trans,
     if (!gst_vaapi_image_unmap (image))
       return GST_FLOW_UNEXPECTED;
 
-    if (convert->direct_rendering < 2)
-      gst_vaapi_surface_put_image (surface, image);
+    gst_vaapi_image_update_from_buffer(image, inbuf);
+    success = gst_vaapi_surface_put_image(surface, image);
+    gst_vaapi_video_pool_put_object(convert->images, image);
+    if (!success)
+        goto error_put_image;
     return GST_FLOW_OK;
-  }
 
-  image = gst_vaapi_video_pool_get_object (convert->images);
-  if (!image)
-    return GST_FLOW_UNEXPECTED;
-
-  gst_vaapi_image_update_from_buffer (image, inbuf);
-  gst_vaapi_surface_put_image (surface, image);
-  gst_vaapi_video_pool_put_object (convert->images, image);
-  return GST_FLOW_OK;
+error_put_image:
+    {
+        GST_WARNING("failed to upload %" GST_FOURCC_FORMAT " image "
+                    "to surface 0x%08x",
+                    GST_FOURCC_ARGS(gst_vaapi_image_get_format(image)),
+                    gst_vaapi_surface_get_id(surface));
+        return GST_FLOW_OK;
+    }
 }
 
 static GstCaps *
