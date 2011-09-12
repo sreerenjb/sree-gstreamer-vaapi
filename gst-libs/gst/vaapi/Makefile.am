@@ -74,6 +74,7 @@ libgstvaapi_source_h =				\
 	$(NULL)
 
 libgstvaapi_source_priv_h =			\
+	gstvaapi_priv.h				\
 	gstvaapicompat.h			\
 	gstvaapidebug.h				\
 	gstvaapidecoder_priv.h			\
@@ -81,7 +82,6 @@ libgstvaapi_source_priv_h =			\
 	gstvaapiobject_priv.h			\
 	gstvaapiutils.h				\
 	gstvaapiutils_gst.h			\
-	gstvaapi_priv.h				\
 	$(libgst_vaapi_ffmpeg_source_priv_h)	\
 	$(NULL)
 
