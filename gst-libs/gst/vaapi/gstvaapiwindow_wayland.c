@@ -102,7 +102,7 @@ gst_vaapi_window_wayland_destroy (GstVaapiWindow * window)
     GST_VAAPI_OBJECT_LOCK_DISPLAY (window);
     wl_egl_window_destroy (wayland_window->win);
     GST_VAAPI_OBJECT_UNLOCK_DISPLAY (window);
-    GST_VAAPI_OBJECT_ID (window) = None;
+    GST_VAAPI_OBJECT_ID (window) = 0;
   }
 }
 
@@ -201,5 +201,5 @@ gst_vaapi_window_wayland_new (GstVaapiDisplay * display, guint width,
 
   return g_object_new (GST_VAAPI_TYPE_WINDOW_WAYLAND,
       "display", display,
-      "id", GST_VAAPI_ID (None), "width", width, "height", height, NULL);
+      "id", GST_VAAPI_ID (0), "width", width, "height", height, NULL);
 }
