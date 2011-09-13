@@ -94,7 +94,7 @@ AC_ARG_ENABLE(vaapisink-glx,
 AC_ARG_ENABLE(wayland,
     AC_HELP_STRING([--enable-wayland],
                    [enable wayland @<:@default=yes@:>@]),
-    [], [enable_wayland="yes"])
+    [], [enable_wayland="no"])
 
 AC_ARG_ENABLE(vaapi-wayland,
     AC_HELP_STRING([--enable-vaapi-wayland],
