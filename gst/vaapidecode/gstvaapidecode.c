@@ -49,10 +49,7 @@ GST_ELEMENT_DETAILS ("VA-API decoder",
     "Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>");
 
 /* Default templates */
-#define GST_CAPS_CODEC(CODEC)                   \
-    CODEC ", "                                  \
-    "width  = (int) [ 1, MAX ], "               \
-    "height = (int) [ 1, MAX ]; "
+#define GST_CAPS_CODEC(CODEC) CODEC "; "
 
 static const char gst_vaapidecode_sink_caps_str[] =
     GST_CAPS_CODEC("video/mpeg, mpegversion=2, systemstream=(boolean)false")
