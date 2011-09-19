@@ -487,7 +487,7 @@ gst_vaapi_surface_put_image (GstVaapiSurface * surface, GstVaapiImage * image)
   image_id = GST_VAAPI_OBJECT_ID (image);
   if (image_id == VA_INVALID_ID)
     return FALSE;
-
+  g_message ("putting image from image to surf");
   GST_VAAPI_DISPLAY_LOCK (display);
   status = vaPutImage (GST_VAAPI_DISPLAY_VADISPLAY (display),
       GST_VAAPI_OBJECT_ID (surface),

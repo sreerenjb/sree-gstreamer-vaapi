@@ -75,19 +75,10 @@ gst_vaapi_window_wayland_create (GstVaapiWindow * window, guint * width,
   int done = 0;
 
   GST_DEBUG ("Creating wayland window");
-  if (!d->rgb_visual) {
-    wl_display_sync_callback (d->display, sync_callback, &done);
-    while (!done)
-      wl_display_iterate (d->display, d->mask);
-    if (!d->rgb_visual) {
-      fprintf (stderr, "rgb visual missing\n");
-      exit (1);
-    }
-  }
 
   surface = wl_compositor_create_surface (d->compositor);
 
-  win = wl_egl_window_create (surface, *width, *height, d->rgb_visual);
+  win = wl_egl_window_create (surface, *width, *height);
   //wl_shell_set_toplevel(d->shell, surface);
   wayland_window->win = win;
 

@@ -138,33 +138,15 @@ gst_vaapi_display_wayland_constructed (GObject * object)
 }
 
 static void
-compositor_handle_visual (void *data,
-    struct wl_compositor *compositor, uint32_t id, uint32_t token)
-{
-  struct WDisplay *d = data;
-
-  switch (token) {
-    case WL_COMPOSITOR_VISUAL_XRGB32:
-      d->rgb_visual = wl_visual_create (d->display, id, 1);
-      break;
-  }
-}
-
-static const struct wl_compositor_listener compositor_listener = {
-  compositor_handle_visual,
-};
-
-static void
 display_handle_global (struct wl_display *display, uint32_t id,
     const char *interface, uint32_t version, void *data)
 {
   struct WDisplay *d = data;
 
   if (strcmp (interface, "wl_compositor") == 0) {
-    d->compositor = wl_compositor_create (display, id, 1);
-    wl_compositor_add_listener (d->compositor, &compositor_listener, d);
+    d->compositor = wl_display_bind (display, id, &wl_compositor_interface);
   } else if (strcmp (interface, "wl_shell") == 0) {
-    d->shell = wl_shell_create (display, id, 1);
+    d->shm = wl_display_bind (display, id, &wl_shm_interface);
   }
 }
 

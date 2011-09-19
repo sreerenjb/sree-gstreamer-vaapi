@@ -51,7 +51,6 @@ G_BEGIN_DECLS
 
 struct WDisplay {
         struct wl_display *display;
-        struct wl_visual *rgb_visual;
         struct wl_compositor *compositor;
         struct wl_shell *shell;
         uint32_t mask;
