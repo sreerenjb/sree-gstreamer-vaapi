@@ -238,8 +238,8 @@ gst_vaapi_profile_from_caps (GstCaps * caps)
     }
     if (!profile)
       profile =
-          gst_vaapi_profile_from_codec_data (gst_vaapi_profile_get_codec (m->
-              profile), codec_data);
+          gst_vaapi_profile_from_codec_data (gst_vaapi_profile_get_codec
+          (m->profile), codec_data);
     gst_caps_unref (caps_test);
   }
   return profile ? profile : best_profile;

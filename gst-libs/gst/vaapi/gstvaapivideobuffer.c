@@ -40,14 +40,15 @@ G_DEFINE_TYPE (GstVaapiVideoBuffer, gst_vaapi_video_buffer, GST_TYPE_BUFFER);
                                  GST_VAAPI_TYPE_VIDEO_BUFFER,	\
                                  GstVaapiVideoBufferPrivate))
 
-struct _GstVaapiVideoBufferPrivate {
-    GstVaapiDisplay            *display;
-    GstVaapiVideoPool          *image_pool;
-    GstVaapiImage              *image;
-    GstVaapiVideoPool          *surface_pool;
-    GstVaapiSurface            *surface;
-    GstVaapiSurfaceProxy       *proxy;
-    GstBuffer                  *buffer;
+struct _GstVaapiVideoBufferPrivate
+{
+  GstVaapiDisplay *display;
+  GstVaapiVideoPool *image_pool;
+  GstVaapiImage *image;
+  GstVaapiVideoPool *surface_pool;
+  GstVaapiSurface *surface;
+  GstVaapiSurfaceProxy *proxy;
+  GstBuffer *buffer;
 };
 
 static void
@@ -100,30 +101,30 @@ gst_vaapi_video_buffer_destroy_image (GstVaapiVideoBuffer * buffer)
 static void
 gst_vaapi_video_buffer_destroy_surface (GstVaapiVideoBuffer * buffer)
 {
-    GstVaapiVideoBufferPrivate * const priv = buffer->priv;
+  GstVaapiVideoBufferPrivate *const priv = buffer->priv;
 
-    if (priv->proxy) {
-        g_object_unref(priv->proxy);
-        priv->proxy = NULL;
-    }
+  if (priv->proxy) {
+    g_object_unref (priv->proxy);
+    priv->proxy = NULL;
+  }
 
-    if (priv->surface) {
-        if (priv->surface_pool)
-            gst_vaapi_video_pool_put_object(priv->surface_pool, priv->surface);
-        else
-            g_object_unref(priv->surface);
-        priv->surface = NULL;
-    }
+  if (priv->surface) {
+    if (priv->surface_pool)
+      gst_vaapi_video_pool_put_object (priv->surface_pool, priv->surface);
+    else
+      g_object_unref (priv->surface);
+    priv->surface = NULL;
+  }
 
-    if (priv->surface_pool) {
-        g_object_unref(priv->surface_pool);
-        priv->surface_pool = NULL;
-    }
+  if (priv->surface_pool) {
+    g_object_unref (priv->surface_pool);
+    priv->surface_pool = NULL;
+  }
 
-    if (priv->buffer) {
-        gst_buffer_unref(priv->buffer);
-        priv->buffer = NULL;
-    }
+  if (priv->buffer) {
+    gst_buffer_unref (priv->buffer);
+    priv->buffer = NULL;
+  }
 }
 
 static void
@@ -155,17 +156,17 @@ gst_vaapi_video_buffer_class_init (GstVaapiVideoBufferClass * klass)
 static void
 gst_vaapi_video_buffer_init (GstVaapiVideoBuffer * buffer)
 {
-    GstVaapiVideoBufferPrivate *priv;
+  GstVaapiVideoBufferPrivate *priv;
 
-    priv                = GST_VAAPI_VIDEO_BUFFER_GET_PRIVATE(buffer);
-    buffer->priv        = priv;
-    priv->display       = NULL;
-    priv->image_pool    = NULL;
-    priv->image         = NULL;
-    priv->surface_pool  = NULL;
-    priv->surface       = NULL;
-    priv->proxy         = NULL;
-    priv->buffer        = NULL;
+  priv = GST_VAAPI_VIDEO_BUFFER_GET_PRIVATE (buffer);
+  buffer->priv = priv;
+  priv->display = NULL;
+  priv->image_pool = NULL;
+  priv->image = NULL;
+  priv->surface_pool = NULL;
+  priv->surface = NULL;
+  priv->proxy = NULL;
+  priv->buffer = NULL;
 }
 
 /**
@@ -249,30 +250,30 @@ gst_vaapi_video_buffer_new_from_pool (GstVaapiVideoPool * pool)
  * Return value: the newly allocated #GstBuffer, or %NULL on error
  */
 GstBuffer *
-gst_vaapi_video_buffer_new_from_buffer(GstBuffer *buffer)
+gst_vaapi_video_buffer_new_from_buffer (GstBuffer * buffer)
 {
-    GstVaapiVideoBuffer *inbuf, *outbuf;
+  GstVaapiVideoBuffer *inbuf, *outbuf;
 
-    if (!GST_VAAPI_IS_VIDEO_BUFFER(buffer)) {
-        if (!buffer->parent || !GST_VAAPI_IS_VIDEO_BUFFER(buffer->parent))
-            return NULL;
-        buffer = buffer->parent;
-    }
-    inbuf = GST_VAAPI_VIDEO_BUFFER(buffer);
+  if (!GST_VAAPI_IS_VIDEO_BUFFER (buffer)) {
+    if (!buffer->parent || !GST_VAAPI_IS_VIDEO_BUFFER (buffer->parent))
+      return NULL;
+    buffer = buffer->parent;
+  }
+  inbuf = GST_VAAPI_VIDEO_BUFFER (buffer);
 
-    outbuf = _gst_vaapi_video_buffer_new();
-    if (!outbuf)
-        return NULL;
+  outbuf = _gst_vaapi_video_buffer_new ();
+  if (!outbuf)
+    return NULL;
 
-    if (inbuf->priv->image)
-        gst_vaapi_video_buffer_set_image(outbuf, inbuf->priv->image);
-    if (inbuf->priv->surface)
-        gst_vaapi_video_buffer_set_surface(outbuf, inbuf->priv->surface);
-    if (inbuf->priv->proxy)
-        gst_vaapi_video_buffer_set_surface_proxy(outbuf, inbuf->priv->proxy);
+  if (inbuf->priv->image)
+    gst_vaapi_video_buffer_set_image (outbuf, inbuf->priv->image);
+  if (inbuf->priv->surface)
+    gst_vaapi_video_buffer_set_surface (outbuf, inbuf->priv->surface);
+  if (inbuf->priv->proxy)
+    gst_vaapi_video_buffer_set_surface_proxy (outbuf, inbuf->priv->proxy);
 
-    outbuf->priv->buffer = gst_buffer_ref(buffer);
-    return GST_BUFFER(outbuf);
+  outbuf->priv->buffer = gst_buffer_ref (buffer);
+  return GST_BUFFER (outbuf);
 }
 
 /**

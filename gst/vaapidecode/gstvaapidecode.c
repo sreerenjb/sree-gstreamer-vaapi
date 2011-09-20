@@ -52,49 +52,44 @@ GST_ELEMENT_DETAILS ("VA-API decoder",
 #define GST_CAPS_CODEC(CODEC) CODEC "; "
 
 static const char gst_vaapidecode_sink_caps_str[] =
-    GST_CAPS_CODEC("video/mpeg, mpegversion=2, systemstream=(boolean)false")
-    GST_CAPS_CODEC("video/mpeg, mpegversion=4")
-    GST_CAPS_CODEC("video/x-divx")
-    GST_CAPS_CODEC("video/x-xvid")
-    GST_CAPS_CODEC("video/x-h263")
-    GST_CAPS_CODEC("video/x-h264")
-    GST_CAPS_CODEC("video/x-wmv")
-    ;
+GST_CAPS_CODEC ("video/mpeg, mpegversion=2, systemstream=(boolean)false")
+    GST_CAPS_CODEC ("video/mpeg, mpegversion=4")
+    GST_CAPS_CODEC ("video/x-divx")
+    GST_CAPS_CODEC ("video/x-xvid")
+    GST_CAPS_CODEC ("video/x-h263")
+    GST_CAPS_CODEC ("video/x-h264")
+    GST_CAPS_CODEC ("video/x-wmv");
 
-static const char gst_vaapidecode_src_caps_str[] =
-    GST_VAAPI_SURFACE_CAPS;
+     static const char gst_vaapidecode_src_caps_str[] = GST_VAAPI_SURFACE_CAPS;
 
-static GstStaticPadTemplate gst_vaapidecode_sink_factory =
-    GST_STATIC_PAD_TEMPLATE(
-        "sink",
-        GST_PAD_SINK,
-        GST_PAD_ALWAYS,
-        GST_STATIC_CAPS(gst_vaapidecode_sink_caps_str));
+     static GstStaticPadTemplate gst_vaapidecode_sink_factory =
+         GST_STATIC_PAD_TEMPLATE ("sink",
+    GST_PAD_SINK,
+    GST_PAD_ALWAYS,
+    GST_STATIC_CAPS (gst_vaapidecode_sink_caps_str));
 
-static GstStaticPadTemplate gst_vaapidecode_src_factory =
-    GST_STATIC_PAD_TEMPLATE(
-        "src",
-        GST_PAD_SRC,
-        GST_PAD_ALWAYS,
-        GST_STATIC_CAPS(gst_vaapidecode_src_caps_str));
+     static GstStaticPadTemplate gst_vaapidecode_src_factory =
+         GST_STATIC_PAD_TEMPLATE ("src",
+    GST_PAD_SRC,
+    GST_PAD_ALWAYS,
+    GST_STATIC_CAPS (gst_vaapidecode_src_caps_str));
 
-GST_BOILERPLATE(
-    GstVaapiDecode,
-    gst_vaapidecode,
-    GstElement,
-    GST_TYPE_ELEMENT);
+GST_BOILERPLATE (GstVaapiDecode, gst_vaapidecode, GstElement, GST_TYPE_ELEMENT);
 
-enum {
-    PROP_0,
+     enum
+     {
+       PROP_0,
 
-    PROP_USE_FFMPEG,
-};
+       PROP_USE_FFMPEG,
+     };
 
-static gboolean
-gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps);
+     static gboolean
+         gst_vaapidecode_update_src_caps (GstVaapiDecode * decode,
+    GstCaps * caps);
 
-static void
-gst_vaapi_decoder_notify_caps(GObject *obj, GParamSpec *pspec, void *user_data)
+     static void
+         gst_vaapi_decoder_notify_caps (GObject * obj, GParamSpec * pspec,
+    void *user_data)
 {
   GstVaapiDecode *const decode = GST_VAAPIDECODE (user_data);
   GstCaps *caps;
@@ -526,12 +521,12 @@ gst_vaapidecode_get_caps (GstPad * pad)
 {
   GstVaapiDecode *const decode = GST_VAAPIDECODE (GST_OBJECT_PARENT (pad));
 
-  if (!decode->ready)
-  {
+  if (!decode->ready) {
     GST_DEBUG ("decoder is still in NULL state, returing the caps template..");
-    return gst_caps_copy (gst_static_pad_template_get_caps (&gst_vaapidecode_sink_factory));
-  } 
-  else if (!gst_vaapidecode_ensure_allowed_caps (decode))
+    return
+        gst_caps_copy (gst_static_pad_template_get_caps
+        (&gst_vaapidecode_sink_factory));
+  } else if (!gst_vaapidecode_ensure_allowed_caps (decode))
     return gst_caps_new_empty ();
 
   return gst_caps_ref (decode->allowed_caps);
