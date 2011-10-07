@@ -53,6 +53,7 @@ struct WDisplay {
         struct wl_display *display;
         struct wl_compositor *compositor;
         struct wl_shell *shell;
+        struct wl_shm *shm;
         uint32_t mask;
         int event_fd;
 };

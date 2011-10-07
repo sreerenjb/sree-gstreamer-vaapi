@@ -146,6 +146,8 @@ display_handle_global (struct wl_display *display, uint32_t id,
   if (strcmp (interface, "wl_compositor") == 0) {
     d->compositor = wl_display_bind (display, id, &wl_compositor_interface);
   } else if (strcmp (interface, "wl_shell") == 0) {
+    d->shell = wl_display_bind (display, id, &wl_shell_interface);
+  } else if (strcmp (interface, "wl_shm") == 0) {
     d->shm = wl_display_bind (display, id, &wl_shm_interface);
   }
 }
