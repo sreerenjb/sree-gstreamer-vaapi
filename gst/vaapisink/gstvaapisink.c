@@ -61,7 +61,7 @@ static const GstElementDetails gst_vaapisink_details =
 GST_ELEMENT_DETAILS ("VA-API sink",
     "Sink/Video",
     GST_PLUGIN_DESC,
-    "Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>");
+    "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
 
 /* Default template */
 static GstStaticPadTemplate gst_vaapisink_sink_factory =
@@ -364,9 +364,9 @@ gst_vaapisink_ensure_window_xid (GstVaapiSink * sink, guintptr window_id)
     return FALSE;
 
   gst_vaapi_display_lock (sink->display);
-  XGetGeometry (gst_vaapi_display_x11_get_display (GST_VAAPI_DISPLAY_X11 (sink->
-              display)), xid, &rootwin, &x, &y, &width, &height, &border_width,
-      &depth);
+  XGetGeometry (gst_vaapi_display_x11_get_display (GST_VAAPI_DISPLAY_X11
+          (sink->display)), xid, &rootwin, &x, &y, &width, &height,
+      &border_width, &depth);
   gst_vaapi_display_unlock (sink->display);
 
   if ((width != sink->window_width || height != sink->window_height) &&

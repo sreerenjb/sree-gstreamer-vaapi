@@ -46,7 +46,7 @@ static const GstElementDetails gst_vaapiconvert_details =
 GST_ELEMENT_DETAILS ("VA-API colorspace converter",
     "Filter/Converter/Video",
     GST_PLUGIN_DESC,
-    "Gwenole Beauchesne <gbeauchesne@splitted-desktop.com>");
+    "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
 
 /* Default templates */
 static const char gst_vaapiconvert_yuv_caps_str[] =
