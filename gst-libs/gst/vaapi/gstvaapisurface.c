@@ -50,6 +50,7 @@ struct _GstVaapiSurfacePrivate {
     GstVaapiChromaType  chroma_type;
     GPtrArray          *subpictures;
     GstVaapiContext    *parent_context;
+    GstVaapiSurfaceRenderFlags render_flag;
 };
 
 enum {
@@ -58,7 +59,8 @@ enum {
     PROP_WIDTH,
     PROP_HEIGHT,
     PROP_CHROMA_TYPE,
-    PROP_PARENT_CONTEXT
+    PROP_PARENT_CONTEXT,
+    PROP_RENDER_FLAG
 };
 
 static gboolean
@@ -194,6 +196,9 @@ gst_vaapi_surface_set_property(
     case PROP_PARENT_CONTEXT:
         gst_vaapi_surface_set_parent_context(surface, g_value_get_object(value));
         break;
+    case PROP_RENDER_FLAG:
+        priv->render_flag = g_value_get_uint(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -223,6 +228,9 @@ gst_vaapi_surface_get_property(
     case PROP_PARENT_CONTEXT:
         g_value_set_object(value, gst_vaapi_surface_get_parent_context(surface));
         break;
+    case PROP_RENDER_FLAG:
+        g_value_set_uint(value, gst_vaapi_surface_get_render_flag(surface));
+	break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -289,6 +297,16 @@ gst_vaapi_surface_class_init(GstVaapiSurfaceClass *klass)
                              "The parent context, if any",
                              GST_VAAPI_TYPE_CONTEXT,
                              G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY));
+
+    g_object_class_install_property
+        (object_class,
+         PROP_RENDER_FLAG,
+         g_param_spec_uint("render-flag",
+                           "Render Flag",
+                           "The render flag of the surface",
+                           0, 3, GST_VAAPI_PICTURE_STRUCTURE_FRAME,
+                           G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY));
+
 }
 
 static void
@@ -302,6 +320,7 @@ gst_vaapi_surface_init(GstVaapiSurface *surface)
     priv->chroma_type    = 0;
     priv->subpictures    = NULL;
     priv->parent_context = NULL;
+    priv->render_flag    = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
 }
 
 /**
@@ -469,6 +488,40 @@ gst_vaapi_surface_get_parent_context(GstVaapiSurface *surface)
     g_return_val_if_fail(GST_VAAPI_IS_SURFACE(surface), NULL);
 
     return surface->priv->parent_context;
+}
+
+/**
+ * gst_vaapi_surface_set_render_flag:
+ * @surface: a #GstVaapiSurface
+ *
+ * Set the render flag of surface
+ */
+void
+gst_vaapi_surface_set_render_flag(
+    GstVaapiSurface *surface,
+    GstVaapiSurfaceRenderFlags flag
+)
+{
+    g_return_if_fail(GST_VAAPI_IS_SURFACE(surface));
+    
+    surface->priv->render_flag = flag;
+}
+
+/**
+ * gst_vaapi_surface_get_render_flag:
+ * @surface: a #GstVaapiSurface
+ *
+ * Retrieves the render flag of surface or -1 if there is 
+ * no surface
+ *
+ * Return value: the render flag of surface.
+ */
+GstVaapiSurfaceRenderFlags
+gst_vaapi_surface_get_render_flag(GstVaapiSurface *surface)
+{
+    g_return_val_if_fail(GST_VAAPI_IS_SURFACE(surface), -1);
+    
+    return surface->priv->render_flag;
 }
 
 /**

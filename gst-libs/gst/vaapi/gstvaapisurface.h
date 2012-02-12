@@ -236,6 +236,15 @@ gst_vaapi_surface_set_subpictures_from_composition(
     gboolean                    propagate_context
 );
 
+void
+gst_vaapi_surface_set_render_flag(
+    GstVaapiSurface *surface,
+    GstVaapiSurfaceRenderFlags flag
+);
+
+GstVaapiSurfaceRenderFlags
+gst_vaapi_surface_get_render_flag(GstVaapiSurface *surface);
+
 G_END_DECLS
 
 #endif /* GST_VAAPI_SURFACE_H */
