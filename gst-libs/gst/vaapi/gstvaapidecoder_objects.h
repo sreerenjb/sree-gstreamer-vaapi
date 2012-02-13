@@ -116,6 +116,7 @@ struct _GstVaapiPicture {
     GstVaapiIqMatrix           *iq_matrix;
     GstVaapiBitPlane           *bitplane;
     GstClockTime                pts;
+    GstVaapiSurfaceRenderFlags  render_flag;
 };
 
 /**

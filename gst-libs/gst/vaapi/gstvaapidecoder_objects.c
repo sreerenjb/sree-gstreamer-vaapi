@@ -135,6 +135,7 @@ gst_vaapi_picture_init(GstVaapiPicture *picture)
     picture->iq_matrix  = NULL;
     picture->bitplane   = NULL;
     picture->pts        = GST_CLOCK_TIME_NONE;
+    picture->render_flag = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
 }
 
 GstVaapiPicture *

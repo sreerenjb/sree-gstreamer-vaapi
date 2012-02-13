@@ -552,6 +552,19 @@ fill_picture(GstVaapiDecoderMpeg2 *decoder, GstVaapiPicture *picture)
     COPY_FIELD(picture_coding_extension, bits, repeat_first_field);
     COPY_FIELD(picture_coding_extension, bits, progressive_frame);
 
+    if (pic_ext->progressive_frame == 1)
+        picture->render_flag = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
+    else {
+        switch (pic_ext->picture_structure) {
+          case 1: picture->render_flag = GST_VAAPI_PICTURE_STRUCTURE_TOP_FIELD;
+                  break;
+          case 2: picture->render_flag = GST_VAAPI_PICTURE_STRUCTURE_BOTTOM_FIELD;
+                  break;
+          case 3: picture->render_flag = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
+                  break;
+        }
+    }
+
     switch (pic_hdr->pic_type) {
     case GST_MPEG_VIDEO_PICTURE_TYPE_B:
         if (priv->next_picture)
@@ -583,6 +596,7 @@ decode_slice(
     guint8 quantiser_scale_code;
     guint8 intra_slice_flag, intra_slice = 0;
     guint8 extra_bit_slice, junk8;
+    int field_pic = 0;
 
     GST_DEBUG("slice %d @ %p, %u bytes)", slice_no, buf, buf_size);
 
@@ -594,7 +608,10 @@ decode_slice(
             priv->is_first_field ^= 1;
     }
 
-    priv->mb_y = slice_no;
+    field_pic = picture->render_flag != GST_VAAPI_PICTURE_STRUCTURE_FRAME;
+    priv->mb_y = slice_no << field_pic;
+    if (picture->render_flag == GST_VAAPI_PICTURE_STRUCTURE_BOTTOM_FIELD)
+        priv->mb_y++;
 
     slice = GST_VAAPI_SLICE_NEW(MPEG2, decoder, buf, buf_size);
     if (!slice) {
@@ -635,6 +652,9 @@ decode_slice(
     slice_param->intra_slice_flag          = intra_slice;
 
     /* Commit picture for decoding if we reached the last slice */
+    if (field_pic && (priv->mb_y%2==0))
+        ++priv->mb_y;
+   
     if (++priv->mb_y >= priv->mb_height) {
         status = decode_current_picture(decoder);
         if (status != GST_VAAPI_DECODER_STATUS_SUCCESS)
