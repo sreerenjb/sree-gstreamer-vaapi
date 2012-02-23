@@ -99,6 +99,22 @@ AC_ARG_ENABLE(vaapisink-glx,
                    [enable OpenGL/X11 to vaapisink @<:@default=yes@:>@]),
     [], [enable_vaapisink_glx="no"])
 
+AC_ARG_ENABLE(wayland,
+    AC_HELP_STRING([--enable-wayland],
+                   [enable wayland @<:@default=yes@:>@]),
+    [], [enable_wayland="no"])
+
+AC_ARG_ENABLE(vaapi-wayland,
+    AC_HELP_STRING([--enable-vaapi-wayland],
+                   [enable VA/wayland extensions @<:@default=yes@:>@]),
+    [], [enable_vaapi_wayland="yes"])
+
+AC_ARG_ENABLE(vaapisink-wayland,
+    AC_HELP_STRING([--enable-vaapisink-wayland],
+                   [enable wayland to vaapisink @<:@default=yes@:>@]),
+    [], [enable_vaapisink_wayland="no"])
+
+
 AC_ARG_ENABLE(ffmpeg,
     AC_HELP_STRING([--enable-ffmpeg],
                    [enable bitstream parsing from FFmpeg @<:@default=yes@:>@]),
@@ -296,6 +312,18 @@ AC_CHECK_LIB(GL, glXCreateContext, [GLX_LIBS="-lGL"], [USE_GLX=0])
 AC_SUBST(GLX_CFLAGS)
 AC_SUBST(GLX_LIBS)
 
+dnl Check for Wayland
+USE_WAYLAND=1
+if test "$enable_wayland" != "yes"; then
+    USE_WAYLAND=0
+fi
+AC_CHECK_HEADERS([wayland-client.h wayland-client-protocol.h wayland-egl.h  wayland-server-protocol.h wayland-util.h], [], [USE_WAYLAND=0], [
+])
+WAYLAND_CFLAGS=""
+WAYLAND_LIBS="-lwayland-client -lwayland-egl"
+AC_SUBST(WAYLAND_CFLAGS)
+AC_SUBST(WAYLAND_LIBS)
+
 dnl Check for VA-API
 LIBVA_PKGNAME="libva"
 PKG_CHECK_MODULES(LIBVA, [$LIBVA_PKGNAME])
@@ -354,6 +382,20 @@ if test $USE_GLX -eq 1; then
 fi
 AC_SUBST(LIBVA_GLX_PKGNAME)
 
+dnl Check for Wayland suppor to vaapisink
+USE_VAAPI_WAYLAND=0
+if test $USE_WAYLAND -eq 1; then
+    if test "$enable_vaapi_wayland" = "yes"; then
+        LIBVA_WAYLAND_PKGNAME="libva-wayland"
+        PKG_CHECK_MODULES(LIBVA_WAYLAND, [$LIBVA_WAYLAND_PKGNAME],
+            [ac_cv_have_vaapi_wayland="yes" USE_VAAPI_WAYLAND=1],
+            [ac_cv_have_vaapi_wayland="no"]
+        )
+    fi
+fi
+LIBVA_WAYLAND_PKGNAME="libva-wayland"
+AC_SUBST(LIBVA_WAYLAND_PKGNAME)
+
 AC_SUBST(LIBVA_EXTRA_CFLAGS)
 AC_SUBST(LIBVA_EXTRA_LIBS)
 
@@ -362,6 +404,13 @@ if test "$enable_vaapisink_glx:$USE_GLX" = "yes:1"; then
     USE_VAAPISINK_GLX=1
 else
     USE_VAAPISINK_GLX=0
+fi
+
+dnl Check for Wayland support to vaapisink
+if test "$enable_vaapisink_wayland:$USE_WAYLAND" = "yes:1"; then
+    USE_VAAPISINK_WAYLAND=1
+else
+    USE_VAAPISINK_WAYLAND=0
 fi
 
 dnl Check for FFmpeg
@@ -399,6 +448,18 @@ AM_CONDITIONAL(USE_VAAPI_GLX, test $USE_VAAPI_GLX -eq 1)
 AC_DEFINE_UNQUOTED(USE_VAAPISINK_GLX, $USE_VAAPISINK_GLX,
     [Defined to 1 to enable GLX support to vaapisink])
 AM_CONDITIONAL(USE_VAAPISINK_GLX, test $USE_VAAPISINK_GLX -eq 1)
+
+AC_DEFINE_UNQUOTED(USE_WAYLAND, $USE_WAYLAND,
+    [Defined to 1 if WAYLAND is enabled])
+AM_CONDITIONAL(USE_WAYLAND, test $USE_WAYLAND -eq 1)
+
+AC_DEFINE_UNQUOTED(USE_VAAPI_WAYLAND, $USE_VAAPI_WAYLAND,
+    [Defined to 1 if VA/WAYLAND is enabled])
+AM_CONDITIONAL(USE_VAAPI_WAYLAND, test $USE_VAAPI_WAYLAND -eq 1)
+
+AC_DEFINE_UNQUOTED(USE_VAAPISINK_WAYLAND, $USE_VAAPISINK_WAYLAND,
+    [Defined to 1 to enable WAYLAND support to vaapisink])
+AM_CONDITIONAL(USE_VAAPISINK_WAYLAND, test $USE_VAAPISINK_WAYLAND -eq 1)
 
 VA_VERSION=`$PKG_CONFIG --modversion libva`
 VA_MAJOR_VERSION=`echo "$VA_VERSION" | cut -d'.' -f1`
@@ -442,6 +503,8 @@ pkgconfig/gstreamer-vaapi.pc.in
 pkgconfig/gstreamer-vaapi-glx.pc.in
     pkgconfig/gstreamer-vaapi-x11-$GST_MAJORMINOR.pc:\
 pkgconfig/gstreamer-vaapi-x11.pc.in
+    pkgconfig/gstreamer-vaapi-wayland-$GST_MAJORMINOR.pc:\
+pkgconfig/gstreamer-vaapi-wayland.pc.in
     gst/Makefile
     gst/vaapi/Makefile
     tests/Makefile
@@ -459,6 +522,9 @@ echo VA-API version ................... : $VA_VERSION_STR
 echo GLX support ...................... : $(yesno $USE_GLX)
 echo VA/GLX support ................... : $(yesno $USE_VAAPI_GLX)
 echo VaapiSink/GL ..................... : $(yesno $USE_VAAPISINK_GLX)
+echo WAYLAND support ...................... : $(yesno $USE_WAYLAND)
+echo VA/WAYLAND support ................... : $(yesno $USE_VAAPI_WAYLAND)
+echo VaapiSink/WAYLAND ..................... : $(yesno $USE_VAAPISINK_WAYLAND)
 echo FFmpeg bitstream parsers ......... : $(yesno $USE_FFMPEG)
 echo GStreamer bitstream parsers ...... : $(yesno $USE_CODEC_PARSERS)
 echo
