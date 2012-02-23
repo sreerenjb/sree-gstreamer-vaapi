@@ -10,6 +10,12 @@ libgstvaapi_CFLAGS = \
 if USE_VAAPI_GLX
 libgstvaapi_LIBS = \
 	$(top_builddir)/gst-libs/gst/vaapi/libgstvaapi-glx-$(GST_MAJORMINOR).la
+endif
+
+if USE_VAAPI_WAYLAND
+libgstvaapi_LIBS = \
+        $(top_builddir)/gst-libs/gst/vaapi/libgstvaapi-wayland-$(GST_MAJORMINOR).la
+
 else
 libgstvaapi_LIBS = \
 	$(top_builddir)/gst-libs/gst/vaapi/libgstvaapi-x11-$(GST_MAJORMINOR).la
