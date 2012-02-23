@@ -248,6 +248,7 @@ gst_vaapisink_destroy(GstVaapiSink *sink)
     }
 }
 
+#if !USE_VAAPISINK_WAYLAND
 /* Checks whether a ConfigureNotify event is in the queue */
 typedef struct _ConfigureNotifyEventPendingArgs ConfigureNotifyEventPendingArgs;
 struct _ConfigureNotifyEventPendingArgs {
@@ -257,7 +258,6 @@ struct _ConfigureNotifyEventPendingArgs {
     gboolean    match;
 };
 
-#if !USE_VAAPISINK_WAYLAND
 static Bool
 configure_notify_event_pending_cb(Display *dpy, XEvent *xev, XPointer arg)
 {
@@ -381,10 +381,10 @@ gst_vaapisink_ensure_window(GstVaapiSink *sink, guint width, guint height)
 static gboolean
 gst_vaapisink_ensure_window_xid(GstVaapiSink *sink, guintptr window_id)
 {
-    Window rootwin;
     unsigned int width, height, border_width, depth;
     int x, y;
 #if !USE_VAAPISINK_WAYLAND
+    Window rootwin;
     XID xid = window_id;
 
     if (!gst_vaapi_ensure_display(sink, &sink->display))
@@ -750,7 +750,6 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buffer)
     success = gst_vaapisink_show_frame_x11 (sink, surface, flags);
 #endif
 
-    success = gst_vaapisink_show_frame_x11(sink, surface, flags);
     return success ? GST_FLOW_OK : GST_FLOW_UNEXPECTED;
 }
 

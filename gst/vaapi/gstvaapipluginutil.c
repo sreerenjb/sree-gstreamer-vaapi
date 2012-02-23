@@ -173,6 +173,7 @@ gst_vaapi_reply_to_query (GstQuery *query, GstVaapiDisplay *display)
      GstVaapiDisplayWayland *wvadpy = GST_VAAPI_DISPLAY_WAYLAND (display);
      struct wl_display *wldpy = gst_vaapi_display_wayland_get_display (wvadpy);
      gst_video_context_query_set_pointer (query, type, wldpy);
+   }
 #endif
     else {
       continue;
