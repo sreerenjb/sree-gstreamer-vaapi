@@ -29,10 +29,14 @@
 
 #include <string.h>
 
+#if USE_VAAPI_WAYLAND
+#include <gst/vaapi/gstvaapidisplay_wayland.h>
+#else
 #ifdef USE_VAAPI_GLX
 #include <gst/vaapi/gstvaapidisplay_glx.h>
 #else
 #include <gst/vaapi/gstvaapidisplay_x11.h>
+#endif
 #endif
 
 /* Preferred first */
@@ -41,6 +45,7 @@ static const char *display_types[] = {
   "vaapi-display",
   "x11-display",
   "x11-display-name",
+  "wayland-display",
   NULL
 };
 
@@ -61,10 +66,14 @@ gst_vaapi_ensure_display (gpointer element, GstVaapiDisplay **display)
 
   /* If no neighboor, or application not interested, use system default */
   if (!*display)
+#if USE_VAAPI_WAYLAND
+    *display = gst_vaapi_display_wayland_new (NULL);
+#else
 #if USE_VAAPI_GLX
     *display = gst_vaapi_display_glx_new (NULL);
 #else
     *display = gst_vaapi_display_x11_new (NULL);
+#endif
 #endif
 
   /* FIXME allocator should return NULL in case of failure */
@@ -85,6 +94,7 @@ gst_vaapi_set_display (const gchar *type,
 
   if (!strcmp (type, "x11-display-name")) {
     g_return_if_fail (G_VALUE_HOLDS_STRING (value));
+#if !USE_VAAPI_WAYLAND
 #if USE_VAAPI_GLX
     dpy = gst_vaapi_display_glx_new (g_value_get_string (value));
 #else
@@ -96,6 +106,11 @@ gst_vaapi_set_display (const gchar *type,
     dpy = gst_vaapi_display_glx_new_with_display (g_value_get_pointer (value));
 #else
     dpy = gst_vaapi_display_x11_new_with_display (g_value_get_pointer (value));
+#endif
+#else
+  } else if (!strcmp (type, "wayland-display")) {
+      g_return_if_fail (G_VALUE_HOLDS_POINTER (value));
+      dpy = gst_vaapi_display_wayland_new_with_display (g_value_get_pointer (value));
 #endif
   } else if (!strcmp (type, "vaapi-display")) {
     g_return_if_fail (G_VALUE_HOLDS_POINTER (value));
@@ -137,8 +152,9 @@ gst_vaapi_reply_to_query (GstQuery *query, GstVaapiDisplay *display)
     } else if (!strcmp (type, "vaapi-display")) {
       VADisplay vadpy = gst_vaapi_display_get_display(display);
       gst_video_context_query_set_pointer (query, type, vadpy);
-
-    } else if (!strcmp (type, "x11-display") &&
+    }
+#if !USE_VAAPI_WAYLAND 
+    else if (!strcmp (type, "x11-display") &&
         GST_VAAPI_IS_DISPLAY_X11(display)) {
       GstVaapiDisplayX11 *xvadpy = GST_VAAPI_DISPLAY_X11 (display);
       Display *x11dpy = gst_vaapi_display_x11_get_display (xvadpy);
@@ -150,7 +166,15 @@ gst_vaapi_reply_to_query (GstQuery *query, GstVaapiDisplay *display)
       Display *x11dpy = gst_vaapi_display_x11_get_display (xvadpy);
       gst_video_context_query_set_string (query, type, DisplayString(x11dpy));
 
-    } else {
+    }
+#else
+    else if (!strcmp (type, "wayland-display") &&
+       GST_VAAPI_IS_DISPLAY_WAYLAND(display)) {
+     GstVaapiDisplayWayland *wvadpy = GST_VAAPI_DISPLAY_WAYLAND (display);
+     struct wl_display *wldpy = gst_vaapi_display_wayland_get_display (wvadpy);
+     gst_video_context_query_set_pointer (query, type, wldpy);
+#endif
+    else {
       continue;
     }
 

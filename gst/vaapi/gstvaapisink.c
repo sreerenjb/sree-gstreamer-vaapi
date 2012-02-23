@@ -36,11 +36,16 @@
 #include <gst/video/videocontext.h>
 #include <gst/vaapi/gstvaapivideobuffer.h>
 #include <gst/vaapi/gstvaapivideosink.h>
-#include <gst/vaapi/gstvaapidisplay_x11.h>
-#include <gst/vaapi/gstvaapiwindow_x11.h>
 #if USE_VAAPISINK_GLX
 #include <gst/vaapi/gstvaapidisplay_glx.h>
 #include <gst/vaapi/gstvaapiwindow_glx.h>
+#endif
+#if USE_VAAPISINK_WAYLAND
+#include <gst/vaapi/gstvaapidisplay_wayland.h>
+#include <gst/vaapi/gstvaapiwindow_wayland.h>
+#else
+#include <gst/vaapi/gstvaapidisplay_x11.h>
+#include <gst/vaapi/gstvaapiwindow_x11.h>
 #endif
 
 /* Supported interfaces */
@@ -90,6 +95,7 @@ enum {
     PROP_0,
 
     PROP_USE_GLX,
+    PROP_USE_WAYLAND,
     PROP_FULLSCREEN,
     PROP_SYNCHRONOUS,
     PROP_USE_REFLECTION
@@ -251,6 +257,7 @@ struct _ConfigureNotifyEventPendingArgs {
     gboolean    match;
 };
 
+#if !USE_VAAPISINK_WAYLAND
 static Bool
 configure_notify_event_pending_cb(Display *dpy, XEvent *xev, XPointer arg)
 {
@@ -344,6 +351,7 @@ gst_vaapisink_ensure_render_rect(GstVaapiSink *sink, guint width, guint height)
               display_rect->width, display_rect->height);
     return TRUE;
 }
+#endif
 
 static inline gboolean
 gst_vaapisink_ensure_window(GstVaapiSink *sink, guint width, guint height)
@@ -351,6 +359,9 @@ gst_vaapisink_ensure_window(GstVaapiSink *sink, guint width, guint height)
     GstVaapiDisplay * const display = sink->display;
 
     if (!sink->window) {
+#if USE_VAAPISINK_WAYLAND 
+	 sink->window = gst_vaapi_window_wayland_new (display, width, height);
+#else
 #if USE_VAAPISINK_GLX
         if (sink->use_glx)
             sink->window = gst_vaapi_window_glx_new(display, width, height);
@@ -362,6 +373,7 @@ gst_vaapisink_ensure_window(GstVaapiSink *sink, guint width, guint height)
                 GST_X_OVERLAY(sink),
                 gst_vaapi_window_x11_get_xid(GST_VAAPI_WINDOW_X11(sink->window))
             );
+#endif
     }
     return sink->window != NULL;
 }
@@ -372,6 +384,7 @@ gst_vaapisink_ensure_window_xid(GstVaapiSink *sink, guintptr window_id)
     Window rootwin;
     unsigned int width, height, border_width, depth;
     int x, y;
+#if !USE_VAAPISINK_WAYLAND
     XID xid = window_id;
 
     if (!gst_vaapi_ensure_display(sink, &sink->display))
@@ -409,6 +422,7 @@ gst_vaapisink_ensure_window_xid(GstVaapiSink *sink, guintptr window_id)
     else
 #endif
         sink->window = gst_vaapi_window_x11_new_with_xid(sink->display, xid);
+#endif
     return sink->window != NULL;
 }
 
@@ -453,7 +467,13 @@ gst_vaapisink_set_caps(GstBaseSink *base_sink, GstCaps *caps)
         return FALSE;
     sink->video_width  = video_width;
     sink->video_height = video_height;
-
+#if USE_VAAPISINK_WAYLAND
+    sink->window_width = video_width;
+    sink->window_height = video_height;
+    if (!gst_vaapisink_ensure_window (sink, sink->window_width,
+          sink->window_height))
+    return FALSE;
+#else
     gst_video_parse_caps_pixel_aspect_ratio(caps, &video_par_n, &video_par_d);
     sink->video_par_n  = video_par_n;
     sink->video_par_d  = video_par_d;
@@ -492,6 +512,8 @@ gst_vaapisink_set_caps(GstBaseSink *base_sink, GstCaps *caps)
     GST_DEBUG("window size %ux%u", win_width, win_height);
 
     return gst_vaapisink_ensure_render_rect(sink, win_width, win_height);
+#endif
+    return TRUE;
 }
 
 #if USE_VAAPISINK_GLX
@@ -649,6 +671,7 @@ error_transfer_surface:
 }
 #endif
 
+#if !USE_VAAPISINK_WAYLAND
 static inline gboolean
 gst_vaapisink_show_frame_x11(
     GstVaapiSink    *sink,
@@ -663,6 +686,25 @@ gst_vaapisink_show_frame_x11(
     }
     return TRUE;
 }
+#else
+static inline gboolean
+gst_vaapisink_show_frame_wayland (GstVaapiSink * sink,
+    GstVaapiSurface * surface, guint flags)
+{
+
+  sink->display_rect.x = 0;
+  sink->display_rect.y = 0;
+  sink->display_rect.width = sink->video_width;
+  sink->display_rect.height = sink->video_height;
+
+  if (!gst_vaapi_window_put_surface (sink->window, surface,
+          NULL, &sink->display_rect, flags)) {
+    GST_DEBUG ("could not render VA surface");
+    return FALSE;
+  }
+  return TRUE;
+}
+#endif
 
 static GstFlowReturn
 gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buffer)
@@ -702,7 +744,13 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buffer)
         success = gst_vaapisink_show_frame_glx(sink, surface, flags);
     else
 #endif
-        success = gst_vaapisink_show_frame_x11(sink, surface, flags);
+#if USE_VAAPISINK_WAYLAND
+    success = gst_vaapisink_show_frame_wayland (sink, surface, flags);
+#else
+    success = gst_vaapisink_show_frame_x11 (sink, surface, flags);
+#endif
+
+    success = gst_vaapisink_show_frame_x11(sink, surface, flags);
     return success ? GST_FLOW_OK : GST_FLOW_UNEXPECTED;
 }
 
@@ -736,6 +784,9 @@ gst_vaapisink_set_property(
     case PROP_USE_GLX:
         sink->use_glx = g_value_get_boolean(value);
         break;
+    case PROP_USE_WAYLAND:
+      sink->use_wayland = g_value_get_boolean (value);
+      break;
     case PROP_FULLSCREEN:
         sink->fullscreen = g_value_get_boolean(value);
         break;
@@ -765,6 +816,9 @@ gst_vaapisink_get_property(
     case PROP_USE_GLX:
         g_value_set_boolean(value, sink->use_glx);
         break;
+    case PROP_USE_WAYLAND:
+      g_value_set_boolean (value, sink->use_wayland);
+      break;
     case PROP_FULLSCREEN:
         g_value_set_boolean(value, sink->fullscreen);
         break;
@@ -832,7 +886,14 @@ gst_vaapisink_class_init(GstVaapiSinkClass *klass)
                               FALSE,
                               G_PARAM_READWRITE));
 #endif
-
+#if USE_VAAPISINK_WAYLAND
+    g_object_class_install_property
+        (object_class,
+        PROP_USE_WAYLAND,
+        g_param_spec_boolean ("use-wayland",
+            "WAYLAND rendering",
+            "Enables WAYLAND rendering", TRUE, G_PARAM_READWRITE));
+#else
     g_object_class_install_property
         (object_class,
          PROP_FULLSCREEN,
@@ -856,6 +917,7 @@ gst_vaapisink_class_init(GstVaapiSinkClass *klass)
                               "Toggles X display synchronous mode",
                               FALSE,
                               G_PARAM_READWRITE));
+#endif
 }
 
 static void
@@ -874,5 +936,6 @@ gst_vaapisink_init(GstVaapiSink *sink, GstVaapiSinkClass *klass)
     sink->fullscreen     = FALSE;
     sink->synchronous    = FALSE;
     sink->use_glx        = USE_VAAPISINK_GLX;
+    sink->use_wayland    = USE_VAAPISINK_WAYLAND;
     sink->use_reflection = FALSE;
 }
