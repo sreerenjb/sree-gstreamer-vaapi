@@ -409,6 +409,9 @@ fi
 dnl Check for Wayland support to vaapisink
 if test "$enable_vaapisink_wayland:$USE_WAYLAND" = "yes:1"; then
     USE_VAAPISINK_WAYLAND=1
+    USE_GLX=0
+    USE_VAAPI_GLX=0
+    USE_VAAPISINK_GLX=0
 else
     USE_VAAPISINK_WAYLAND=0
 fi
