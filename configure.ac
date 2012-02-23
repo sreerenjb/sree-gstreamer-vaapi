@@ -507,7 +507,6 @@ pkgconfig/gstreamer-vaapi-x11.pc.in
 pkgconfig/gstreamer-vaapi-wayland.pc.in
     gst/Makefile
     gst/vaapi/Makefile
-    tests/Makefile
 ])
 
 dnl Print summary
