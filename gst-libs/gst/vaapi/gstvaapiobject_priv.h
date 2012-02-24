@@ -76,6 +76,18 @@ G_BEGIN_DECLS
     GST_VAAPI_DISPLAY_GLX_CAST(GST_VAAPI_OBJECT_DISPLAY(object))
 
 /**
+ * GST_VAAPI_OBJECT_DISPLAY_WAYLAND:
+ * @object: a #GstVaapiObject
+ *
+ * Macro that evaluates to the #GstVaapiDisplayWayland the @object is bound to.
+ * This is an internal macro that does not do any run-time type check
+ * and requires #include "gstvaapidisplay_wayland_priv.h"
+ */
+#define GST_VAAPI_OBJECT_DISPLAY_WAYLAND(object) \
+    GST_VAAPI_DISPLAY_WAYLAND_CAST(GST_VAAPI_OBJECT_DISPLAY(object))
+
+
+/**
  * GST_VAAPI_OBJECT_VADISPLAY:
  * @object: a #GstVaapiObject
  *
@@ -96,6 +108,17 @@ G_BEGIN_DECLS
  */
 #define GST_VAAPI_OBJECT_XDISPLAY(object) \
     GST_VAAPI_DISPLAY_XDISPLAY(GST_VAAPI_OBJECT_DISPLAY(object))
+
+/**
+ * GST_VAAPI_OBJECT_XDISPLAY:
+ * @object: a #GstVaapiObject
+ *
+ * Macro that evaluates to the underlying Wayland #Display of @display.
+ * This is an internal macro that does not do any run-time type check
+ * and requires #include "gstvaapidisplay_wayland_priv.h".
+ */
+#define GST_VAAPI_OBJECT_WDISPLAY(object) \
+    GST_VAAPI_DISPLAY_WDISPLAY(GST_VAAPI_OBJECT_DISPLAY(object))
 
 /**
  * GST_VAAPI_OBJECT_XSCREEN:
