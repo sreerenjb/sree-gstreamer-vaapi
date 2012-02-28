@@ -9,4 +9,4 @@ Description: Streaming media framework, VA-API (wayland) plugins libraries
 Requires: gstreamer-vaapi-@GST_MAJORMINOR@ @LIBVA_WAYLAND_PKGNAME@
 Version: @VERSION@
 Libs: -L${libdir} -lgstvaapi-wayland-@GST_MAJORMINOR@ @LIBVA_EXTRA_LIBS@
-Cflags: -I${includedir} @LIBVA_EXTRA_CFLAGS1@
+Cflags: -I${includedir} @LIBVA_EXTRA_CFLAGS@
