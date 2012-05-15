@@ -11,8 +11,8 @@ m4_append([gst_vaapi_version], gst_vaapi_pre_version, [.pre])
 
 # gst version number
 m4_define([gst_major_version], [0])
-m4_define([gst_minor_version], [10])
-m4_define([gst_micro_version], [10])
+m4_define([gst_minor_version], [11])
+m4_define([gst_micro_version], [90])
 m4_define([gst_major_minor_version],
           [gst_major_version.gst_minor_version])
 m4_define([gst_version],
@@ -20,8 +20,8 @@ m4_define([gst_version],
 
 # gst plugins-base version number
 m4_define([gst_plugins_base_major_version], [0])
-m4_define([gst_plugins_base_minor_version], [10])
-m4_define([gst_plugins_base_micro_version], [16])
+m4_define([gst_plugins_base_minor_version], [11])
+m4_define([gst_plugins_base_micro_version], [90])
 m4_define([gst_plugins_base_version],
           [gst_plugins_base_major_version.gst_plugins_base_minor_version.gst_plugins_base_micro_version])
 
@@ -31,8 +31,8 @@ m4_define([va_api_glx_version], [0.32.0])
 
 # gst plugins-bad version number
 m4_define([gst_plugins_bad_major_version], [0])
-m4_define([gst_plugins_bad_minor_version], [10])
-m4_define([gst_plugins_bad_micro_version], [22])
+m4_define([gst_plugins_bad_minor_version], [11])
+m4_define([gst_plugins_bad_micro_version], [90])
 m4_define([gst_plugins_bad_version],
           [gst_plugins_bad_major_version.gst_plugins_bad_minor_version.gst_plugins_bad_micro_version])
 
@@ -65,7 +65,7 @@ LIBVA_PACKAGE_VERSION=libva_x11_package_version
 AC_SUBST(LIBVA_PACKAGE_VERSION)
 
 dnl Versions for GStreamer and plugins-base
-GST_MAJORMINOR=gst_major_minor_version
+GST_MAJORMINOR=1.0
 GST_VERSION_REQUIRED=gst_version
 GST_PLUGINS_BASE_VERSION_REQUIRED=gst_plugins_base_version
 GST_PLUGINS_BAD_VERSION_REQUIRED=gst_plugins_bad_version
@@ -207,24 +207,24 @@ PKG_CHECK_MODULES([GST_VIDEO],
 AC_SUBST(GST_VIDEO_CFLAGS)
 AC_SUBST(GST_VIDEO_LIBS)
 
-AC_CACHE_CHECK([for GstVideoOverlayComposition],
-    ac_cv_have_gst_video_overlay_composition, [
-    saved_CFLAGS="$CFLAGS"
-    CFLAGS="$CFLAGS $GST_CFLAGS"
-    saved_LIBS="$LIBS"
-    LIBS="$LIBS $GST_LIBS"
-    AC_TRY_COMPILE(
-        [#include <gst/video/video-overlay-composition.h>],
-        [GstVideoOverlayComposition *c = gst_video_overlay_composition_new(0);],
-        [ac_cv_have_gst_video_overlay_composition="yes"],
-        [ac_cv_have_gst_video_overlay_composition="no"]
-    )
-    CFLAGS="$saved_CFLAGS"
-    LIBS="$saved_LIBS"
-])
-if test "$ac_cv_have_gst_video_overlay_composition" != "yes"; then
-    AC_MSG_ERROR([GstVideoOverlayComposition is not available])
-fi
+dnl AC_CACHE_CHECK([for GstVideoOverlayComposition],
+dnl     ac_cv_have_gst_video_overlay_composition, [
+dnl     saved_CFLAGS="$CFLAGS"
+dnl     CFLAGS="$CFLAGS $GST_CFLAGS"
+dnl     saved_LIBS="$LIBS"
+dnl     LIBS="$LIBS $GST_LIBS"
+dnl     AC_TRY_COMPILE(
+dnl         [#include <gst/video/video-overlay-composition.h>],
+dnl         [GstVideoOverlayComposition *c = gst_video_overlay_composition_new(0);],
+dnl         [ac_cv_have_gst_video_overlay_composition="yes"],
+dnl         [ac_cv_have_gst_video_overlay_composition="no"]
+dnl     )
+dnl     CFLAGS="$saved_CFLAGS"
+dnl     LIBS="$saved_LIBS"
+dnl ])
+dnl if test "$ac_cv_have_gst_video_overlay_composition" != "yes"; then
+dnl     AC_MSG_ERROR([GstVideoOverlayComposition is not available])
+dnl fi
 
 dnl Check for GStreamer basevideo
 PKG_CHECK_MODULES([GST_BASEVIDEO],
@@ -518,7 +518,6 @@ pkgconfig/gstreamer-vaapi-glx.pc.in
 pkgconfig/gstreamer-vaapi-x11.pc.in
     gst/Makefile
     gst/vaapi/Makefile
-    tests/Makefile
 ])
 
 dnl Print summary
