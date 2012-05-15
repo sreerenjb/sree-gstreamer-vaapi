@@ -34,7 +34,7 @@ libgstvaapi_source_c =				\
 	gstvaapidisplaycache.c			\
 	gstvaapiimage.c				\
 	gstvaapiimageformat.c			\
-	gstvaapiimagepool.c			\
+#	gstvaapiimagepool.c			\
 	gstvaapimarshal.c			\
 	gstvaapiobject.c			\
 	gstvaapiparamspecs.c			\
@@ -46,7 +46,6 @@ libgstvaapi_source_c =				\
 	gstvaapiutils.c				\
 	gstvaapiutils_tsb.c			\
 	gstvaapivalue.c				\
-	gstvaapivideobuffer.c			\
 	gstvaapivideopool.c			\
 	gstvaapivideosink.c			\
 	gstvaapiwindow.c			\
@@ -59,7 +58,7 @@ libgstvaapi_source_h =				\
 	gstvaapidisplaycache.h			\
 	gstvaapiimage.h				\
 	gstvaapiimageformat.h			\
-	gstvaapiimagepool.h			\
+#	gstvaapiimagepool.h			\
 	gstvaapiobject.h			\
 	gstvaapiparamspecs.h			\
 	gstvaapiprofile.h			\
@@ -69,7 +68,6 @@ libgstvaapi_source_h =				\
 	gstvaapisurfaceproxy.h			\
 	gstvaapitypes.h				\
 	gstvaapivalue.h				\
-	gstvaapivideobuffer.h			\
 	gstvaapivideopool.h			\
 	gstvaapivideosink.h			\
 	gstvaapiwindow.h			\
@@ -117,16 +115,14 @@ libgstvaapi_glx_source_c =			\
 	gstvaapiutils.c				\
 	gstvaapiutils_glx.c			\
 	gstvaapiutils_x11.c			\
-	gstvaapivideobuffer_glx.c		\
-	gstvaapivideoconverter_glx.c		\
+	#gstvaapivideoconverter_glx.c		\
 	gstvaapiwindow_glx.c			\
 	$(NULL)
 
 libgstvaapi_glx_source_h =			\
 	gstvaapidisplay_glx.h			\
 	gstvaapitexture.h			\
-	gstvaapivideobuffer_glx.h		\
-	gstvaapivideoconverter_glx.h		\
+	#gstvaapivideoconverter_glx.h		\
 	gstvaapiwindow_glx.h			\
 	$(NULL)
 
@@ -221,6 +217,8 @@ libgstvaapi_x11_@GST_MAJORMINOR@_la_CFLAGS =	\
 	-I$(top_srcdir)/gst-libs		\
 	$(GLIB_CFLAGS)				\
 	$(GST_BASE_CFLAGS)			\
+	$(GST_BASEVIDEO_CFLAGS)			\
+	$(GST_VIDEO_CFLAGS)			\
 	$(X11_CFLAGS)				\
 	$(LIBVA_X11_CFLAGS)			\
 	$(NULL)
@@ -228,6 +226,8 @@ libgstvaapi_x11_@GST_MAJORMINOR@_la_CFLAGS =	\
 libgstvaapi_x11_@GST_MAJORMINOR@_la_LIBADD =	\
 	$(GLIB_LIBS)				\
 	$(X11_LIBS)				\
+	$(GST_BASEVIDEO_LIBS)			\
+	$(GST_VIDEO_LIBS)			\
 	$(LIBVA_X11_LIBS)			\
 	libgstvaapi-@GST_MAJORMINOR@.la		\
 	$(NULL)
@@ -253,6 +253,8 @@ libgstvaapi_glx_@GST_MAJORMINOR@_la_CFLAGS =	\
 	-I$(top_srcdir)/gst-libs		\
 	$(GLIB_CFLAGS)				\
 	$(GST_BASE_CFLAGS)			\
+	$(GST_BASEVIDEO_CFLAGS)			\
+	$(GST_VIDEO_CFLAGS)			\
 	$(GLX_CFLAGS)				\
 	$(LIBVA_GLX_CFLAGS)			\
 	$(NULL)
@@ -260,6 +262,8 @@ libgstvaapi_glx_@GST_MAJORMINOR@_la_CFLAGS =	\
 libgstvaapi_glx_@GST_MAJORMINOR@_la_LIBADD =	\
 	$(GLIB_LIBS)				\
 	$(GLX_LIBS)				\
+	$(GST_VIDEO_LIBS)			\
+	$(GST_BASEVIDEO_LIBS)			\
 	$(LIBVA_GLX_LIBS)			\
 	libgstvaapi-x11-@GST_MAJORMINOR@.la	\
 	$(NULL)
