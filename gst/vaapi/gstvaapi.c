@@ -27,27 +27,27 @@
 
 #include <gst/gst.h>
 
-#include "gstvaapidownload.h"
+/*#include "gstvaapidownload.h"
 #include "gstvaapiupload.h"
+#include "gstvaapipostproc.h"*/
 #include "gstvaapidecode.h"
-#include "gstvaapipostproc.h"
 #include "gstvaapisink.h"
 
 static gboolean
 plugin_init (GstPlugin *plugin)
 {
-    gst_element_register(plugin, "vaapidownload",
+    /*gst_element_register(plugin, "vaapidownload",
                          GST_RANK_SECONDARY,
                          GST_TYPE_VAAPIDOWNLOAD);
     gst_element_register(plugin, "vaapiupload",
                          GST_RANK_PRIMARY,
                          GST_TYPE_VAAPIUPLOAD);
+    gst_element_register(plugin, "vaapipostproc",
+                         GST_RANK_PRIMARY,
+                         GST_TYPE_VAAPIPOSTPROC);*/
     gst_element_register(plugin, "vaapidecode",
                          GST_RANK_PRIMARY,
                          GST_TYPE_VAAPIDECODE);
-    gst_element_register(plugin, "vaapipostproc",
-                         GST_RANK_PRIMARY,
-                         GST_TYPE_VAAPIPOSTPROC);
     gst_element_register(plugin, "vaapisink",
                          GST_RANK_PRIMARY,
                          GST_TYPE_VAAPISINK);
