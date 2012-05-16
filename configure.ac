@@ -294,13 +294,6 @@ if test "$ac_cv_have_gst_jpeg_parser" = "yes"; then
 fi
 AM_CONDITIONAL(USE_LOCAL_CODEC_PARSERS, test $USE_LOCAL_CODEC_PARSERS -eq 1)
 
-dnl Check for GStreamer interfaces
-PKG_CHECK_MODULES([GST_INTERFACES],
-    [gstreamer-interfaces-$GST_MAJORMINOR >= $GST_PLUGINS_BASE_VERSION_REQUIRED]
-)
-AC_SUBST(GST_INTERFACES_CFLAGS)
-AC_SUBST(GST_INTERFACES_LIBS)
-
 dnl GST_ALL_LDFLAGS:
 dnl LDFLAGS really should only contain flags, not libs - they get added before
 dnl whatevertarget_LIBS and -L flags here affect the rest of the linking
