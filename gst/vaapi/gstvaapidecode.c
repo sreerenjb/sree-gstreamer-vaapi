@@ -32,14 +32,13 @@
 
 #include <gst/vaapi/gstvaapidisplay.h>
 #include <gst/vaapi/gstvaapivideosink.h>
-#include <gst/vaapi/gstvaapivideobuffer.h>
 #include <gst/video/videocontext.h>
 
-#if USE_VAAPI_GLX
+/*#if USE_VAAPI_GLX
 #include <gst/vaapi/gstvaapivideobuffer_glx.h>
 #define gst_vaapi_video_buffer_new(display) \
     gst_vaapi_video_buffer_glx_new(GST_VAAPI_DISPLAY_GLX(display))
-#endif
+#endif*/
 
 #include "gstvaapidecode.h"
 #include "gstvaapipluginutil.h"
@@ -65,14 +64,6 @@
 GST_DEBUG_CATEGORY_STATIC(gst_debug_vaapidecode);
 #define GST_CAT_DEFAULT gst_debug_vaapidecode
 
-/* ElementFactory information */
-static const GstElementDetails gst_vaapidecode_details =
-    GST_ELEMENT_DETAILS(
-        "VA-API decoder",
-        "Codec/Decoder/Video",
-        GST_PLUGIN_DESC,
-        "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
-
 /* Default templates */
 #define GST_CAPS_CODEC(CODEC) CODEC "; "
 
@@ -87,9 +78,6 @@ static const char gst_vaapidecode_sink_caps_str[] =
     GST_CAPS_CODEC("image/jpeg")
     ;
 
-static const char gst_vaapidecode_src_caps_str[] =
-    GST_VAAPI_SURFACE_CAPS;
-
 static GstStaticPadTemplate gst_vaapidecode_sink_factory =
     GST_STATIC_PAD_TEMPLATE(
         "sink",
@@ -102,17 +90,15 @@ static GstStaticPadTemplate gst_vaapidecode_src_factory =
         "src",
         GST_PAD_SRC,
         GST_PAD_ALWAYS,
-        GST_STATIC_CAPS(gst_vaapidecode_src_caps_str));
+        GST_STATIC_CAPS("video/x-raw"));
 
 #define GstVideoContextClass GstVideoContextInterface
-GST_BOILERPLATE_WITH_INTERFACE(
+G_DEFINE_TYPE_WITH_CODE (
     GstVaapiDecode,
     gst_vaapidecode,
-    GstElement,
     GST_TYPE_ELEMENT,
-    GstVideoContext,
-    GST_TYPE_VIDEO_CONTEXT,
-    gst_video_context);
+    G_IMPLEMENT_INTERFACE (GST_TYPE_VIDEO_CONTEXT,
+        gst_video_context_interface_init));
 
 enum {
     PROP_0,
@@ -153,7 +139,7 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
     gboolean success;
 
     if (!decode->srcpad_caps) {
-        decode->srcpad_caps = gst_caps_from_string(GST_VAAPI_SURFACE_CAPS_NAME);
+        decode->srcpad_caps = gst_caps_from_string("video/x-raw");
         if (!decode->srcpad_caps)
             return FALSE;
     }
@@ -179,6 +165,7 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
 
     gst_structure_set(structure, "type", G_TYPE_STRING, "vaapi", NULL);
     gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_VAAPI_GLX, NULL);
+    gst_structure_set(structure, "format", G_TYPE_STRING, "YV12", NULL); /*Fixme*/
 
     other_caps = gst_caps_copy(decode->srcpad_caps);
     success = gst_pad_set_caps(decode->srcpad, other_caps);
@@ -199,7 +186,7 @@ gst_vaapidecode_step(GstVaapiDecode *decode)
 {
     GstVaapiSurfaceProxy *proxy;
     GstVaapiDecoderStatus status;
-    GstBuffer *buffer;
+    GstBuffer  *surface_buffer;
     GstFlowReturn ret;
     guint tries;
 
@@ -207,6 +194,9 @@ gst_vaapidecode_step(GstVaapiDecode *decode)
         tries = 0;
     again:
         proxy = gst_vaapi_decoder_get_surface(decode->decoder, &status);
+        if (proxy)
+          surface_buffer = gst_vaapi_surface_proxy_get_surface_buffer (proxy);
+
         if (!proxy) {
             if (status == GST_VAAPI_DECODER_STATUS_ERROR_NO_SURFACE) {
                 /* Wait for a VA surface to be displayed and free'd */
@@ -236,22 +226,15 @@ gst_vaapidecode_step(GstVaapiDecode *decode)
             decode
         );
 
-        buffer = gst_vaapi_video_buffer_new(decode->display);
-        if (!buffer)
-            goto error_create_buffer;
 
-        GST_BUFFER_TIMESTAMP(buffer) = GST_VAAPI_SURFACE_PROXY_TIMESTAMP(proxy);
-        gst_buffer_set_caps(buffer, GST_PAD_CAPS(decode->srcpad));
+        GST_BUFFER_TIMESTAMP(suface_buffer) = GST_VAAPI_SURFACE_PROXY_TIMESTAMP(proxy);
+        /*gst_buffer_set_caps(buffer, GST_PAD_CAPS(decode->srcpad));
 
         if (GST_VAAPI_SURFACE_PROXY_TFF(proxy))
             GST_BUFFER_FLAG_SET(buffer, GST_VIDEO_BUFFER_TFF);
+        */ 
 
-        gst_vaapi_video_buffer_set_surface_proxy(
-            GST_VAAPI_VIDEO_BUFFER(buffer),
-            proxy
-        );
-
-        ret = gst_pad_push(decode->srcpad, buffer);
+        ret = gst_pad_push(decode->srcpad, surface_buffer);
         if (ret != GST_FLOW_OK)
             goto error_commit_buffer;
 
@@ -476,7 +459,7 @@ gst_vaapidecode_finalize(GObject *object)
         decode->delayed_new_seg = NULL;
     }
 
-    G_OBJECT_CLASS(parent_class)->finalize(object);
+    G_OBJECT_CLASS(gst_vaapidecode_parent_class)->finalize(object);
 }
 
 static void
@@ -585,6 +568,19 @@ gst_vaapidecode_class_init(GstVaapiDecodeClass *klass)
                               USE_FFMPEG_DEFAULT,
                               G_PARAM_READWRITE));
 #endif
+
+    gst_element_class_set_static_metadata (element_class,
+      "VA-API decoder",
+      "Codec/Decoder/Video", GST_PLUGIN_DESC,
+      "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
+
+
+   /* sink pad */
+    gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&gst_vaapidecode_sink_factory));
+
+    /* src pad */
+    gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&gst_vaapidecode_src_factory));
+
 }
 
 static gboolean
@@ -649,9 +645,8 @@ error_no_memory:
 }
 
 static GstCaps *
-gst_vaapidecode_get_caps(GstPad *pad)
+gst_vaapidecode_get_caps(GstVaapiDecode *decode, GstPad *pad, GstCaps *filter)
 {
-    GstVaapiDecode * const decode = GST_VAAPIDECODE(GST_OBJECT_PARENT(pad));
 
     if (!decode->is_ready)
         return gst_static_pad_template_get_caps(&gst_vaapidecode_sink_factory);
@@ -663,11 +658,8 @@ gst_vaapidecode_get_caps(GstPad *pad)
 }
 
 static gboolean
-gst_vaapidecode_set_caps(GstPad *pad, GstCaps *caps)
+gst_vaapidecode_set_caps(GstVaapiDecode *decode, GstCaps *caps)
 {
-    GstVaapiDecode * const decode = GST_VAAPIDECODE(GST_OBJECT_PARENT(pad));
-
-    g_return_val_if_fail(pad == decode->sinkpad, FALSE);
 
     if (!gst_vaapidecode_update_sink_caps(decode, caps))
         return FALSE;
@@ -686,9 +678,9 @@ gst_vaapidecode_set_caps(GstPad *pad, GstCaps *caps)
 }
 
 static GstFlowReturn
-gst_vaapidecode_chain(GstPad *pad, GstBuffer *buf)
+gst_vaapidecode_chain(GstPad *pad, GstObject *parent, GstBuffer *buf)
 {
-    GstVaapiDecode * const decode = GST_VAAPIDECODE(GST_OBJECT_PARENT(pad));
+    GstVaapiDecode * const decode = GST_VAAPIDECODE(parent);
 
     if (!gst_vaapi_decoder_put_buffer(decode->decoder, buf))
         goto error_push_buffer;
@@ -706,9 +698,11 @@ error_push_buffer:
 }
 
 static gboolean
-gst_vaapidecode_sink_event(GstPad *pad, GstEvent *event)
+gst_vaapidecode_sink_event(GstPad *pad, GstObject * parent, GstEvent *event)
 {
-    GstVaapiDecode * const decode = GST_VAAPIDECODE(GST_OBJECT_PARENT(pad));
+    GstVaapiDecode * const decode = GST_VAAPIDECODE(parent);
+    gboolean ret = TRUE;
+    GstCaps *caps;
 
     GST_DEBUG("handle sink event '%s'", GST_EVENT_TYPE_NAME(event));
 
@@ -724,16 +718,23 @@ gst_vaapidecode_sink_event(GstPad *pad, GstEvent *event)
             return TRUE;
         }
         break;
+    case GST_EVENT_CAPS:
+        gst_event_parse_caps (event, &caps);
+        ret = gst_vaapidecode_setcaps (decode, caps);
+        gst_event_unref (event);
+        break;
+
     default:
+	ret = gst_pad_event_default (pad, parent, event);
         break;
     }
-    return gst_pad_push_event(decode->srcpad, event);
+    return ret;
 }
 
 static gboolean
-gst_vaapidecode_src_event(GstPad *pad, GstEvent *event)
+gst_vaapidecode_src_event(GstPad *pad, GstObject *parent, GstEvent *event)
 {
-    GstVaapiDecode * const decode = GST_VAAPIDECODE(GST_OBJECT_PARENT(pad));
+    GstVaapiDecode * const decode = GST_VAAPIDECODE(parent);
 
     GST_DEBUG("handle src event '%s'", GST_EVENT_TYPE_NAME(event));
 
@@ -742,25 +743,40 @@ gst_vaapidecode_src_event(GstPad *pad, GstEvent *event)
 }
 
 static gboolean
-gst_vaapidecode_query (GstPad *pad, GstQuery *query) {
-    GstVaapiDecode *decode = GST_VAAPIDECODE (gst_pad_get_parent_element (pad));
-    gboolean res;
+gst_vaapidecode_query (GstPad *pad, GstObject *parent,GstQuery *query) {
+    GstVaapiDecode *decode = GST_VAAPIDECODE (parent);
+    gboolean res = FALSE;
+
+    switch (GST_QUERY_TYPE (query)) {
+    case GST_QUERY_CAPS:
+    {
+      GstCaps *filter, *caps;
+      gst_query_parse_caps (query, &filter);
+      caps = gst_vaapidecode_get_caps (decode, pad, filter);
+      gst_query_set_caps_result (query, caps);
+      gst_caps_unref (caps);
+      res = TRUE;
+      goto beach;
+      break;
+    }
+    default:
+      break;
+   }
 
     GST_DEBUG ("sharing display %p", decode->display);
 
     if (gst_vaapi_reply_to_query (query, decode->display))
       res = TRUE;
     else
-      res = gst_pad_query_default (pad, query);
+      res = gst_pad_query_default (pad, parent, query);
 
-    g_object_unref (decode);
+beach:
     return res;
 }
 
 static void
-gst_vaapidecode_init(GstVaapiDecode *decode, GstVaapiDecodeClass *klass)
+gst_vaapidecode_init(GstVaapiDecode *decode)
 {
-    GstElementClass * const element_class = GST_ELEMENT_CLASS(klass);
 
     decode->display             = NULL;
     decode->decoder             = NULL;
@@ -773,24 +789,18 @@ gst_vaapidecode_init(GstVaapiDecode *decode, GstVaapiDecodeClass *klass)
     decode->is_ready            = FALSE;
 
     /* Pad through which data comes in to the element */
-    decode->sinkpad = gst_pad_new_from_template(
-        gst_element_class_get_pad_template(element_class, "sink"),
-        "sink"
-    );
+    decode->sinkpad =
+        gst_pad_new_from_static_template(&gst_vaapidecode_sink_factory ,"sink");
     decode->sinkpad_caps = NULL;
 
-    gst_pad_set_getcaps_function(decode->sinkpad, gst_vaapidecode_get_caps);
-    gst_pad_set_setcaps_function(decode->sinkpad, gst_vaapidecode_set_caps);
     gst_pad_set_chain_function(decode->sinkpad, gst_vaapidecode_chain);
     gst_pad_set_event_function(decode->sinkpad, gst_vaapidecode_sink_event);
-    gst_pad_set_query_function(decode->sinkpad, gst_vaapidecode_query);
+    //gst_pad_set_query_function(decode->sinkpad, gst_vaapidecode_query);
     gst_element_add_pad(GST_ELEMENT(decode), decode->sinkpad);
 
     /* Pad through which data goes out of the element */
-    decode->srcpad = gst_pad_new_from_template(
-        gst_element_class_get_pad_template(element_class, "src"),
-        "src"
-    );
+    decode->srcpad =
+        gst_pad_new_from_static_template(&gst_vaapidecode_src_factory ,"src");
     decode->srcpad_caps = NULL;
 
     gst_pad_use_fixed_caps(decode->srcpad);
