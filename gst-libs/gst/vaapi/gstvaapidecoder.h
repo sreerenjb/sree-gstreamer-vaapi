@@ -129,6 +129,12 @@ gst_vaapi_decoder_get_surface(
     GstVaapiDecoderStatus *pstatus
 );
 
+GstBuffer *
+gst_vaapi_decoder_get_surface_buffer(
+    GstVaapiDecoder       *decoder,
+    GstVaapiDecoderStatus *pstatus
+);
+
 G_END_DECLS
 
 #endif /* GST_VAAPI_DECODER_H */

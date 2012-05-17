@@ -63,7 +63,7 @@ push_buffer(GstVaapiDecoder *decoder, GstBuffer *buffer)
     }
 
     GST_DEBUG("queue encoded data buffer %p (%d bytes)",
-              buffer, GST_BUFFER_SIZE(buffer));
+              buffer, gst_buffer_get_size(buffer));
 
     g_queue_push_tail(priv->buffers, buffer);
     return TRUE;
@@ -75,7 +75,7 @@ push_back_buffer(GstVaapiDecoder *decoder, GstBuffer *buffer)
     GstVaapiDecoderPrivate * const priv = decoder->priv;
 
     GST_DEBUG("requeue encoded data buffer %p (%d bytes)",
-              buffer, GST_BUFFER_SIZE(buffer));
+              buffer, gst_buffer_get_size(buffer));
 
     g_queue_push_head(priv->buffers, buffer);
 }
@@ -91,7 +91,7 @@ pop_buffer(GstVaapiDecoder *decoder)
         return NULL;
 
     GST_DEBUG("dequeue buffer %p for decoding (%d bytes)",
-              buffer, GST_BUFFER_SIZE(buffer));
+              buffer, gst_buffer_get_size(buffer));
 
     return buffer;
 }
@@ -350,6 +350,7 @@ gst_vaapi_decoder_init(GstVaapiDecoder *decoder)
     priv->par_d                 = 0;
     priv->buffers               = g_queue_new();
     priv->surfaces              = g_queue_new();
+    priv->surface_buffers       = g_queue_new();
     priv->is_interlaced         = FALSE;
 }
 
@@ -429,6 +430,45 @@ gst_vaapi_decoder_get_surface(
         *pstatus = status;
     return proxy;
 }
+
+static inline GstBuffer *
+pop_surface_buffer(GstVaapiDecoder *decoder)
+{
+    GstVaapiDecoderPrivate * const priv = decoder->priv;
+
+    return g_queue_pop_head(priv->surface_buffers);
+}
+
+GstBuffer *
+gst_vaapi_decoder_get_surface_buffer(
+    GstVaapiDecoder       *decoder,
+    GstVaapiDecoderStatus *pstatus
+)
+{
+    GstBuffer *buffer;
+    GstVaapiDecoderStatus status;
+
+    if (pstatus)
+        *pstatus = GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+
+    g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), NULL);
+
+    buffer = pop_surface_buffer(decoder);
+    if (!buffer) {
+    	 do {
+            status = decode_step(decoder);
+        } while (status == GST_VAAPI_DECODER_STATUS_SUCCESS);
+        buffer = pop_surface_buffer(decoder);
+    }
+
+    if (buffer)
+        status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+
+    if (pstatus)
+        *pstatus = status;
+    return buffer;
+}
+
 
 void
 gst_vaapi_decoder_set_picture_size(
@@ -566,7 +606,7 @@ gst_vaapi_decoder_push_buffer_sub(
 {
     GstBuffer *subbuffer;
 
-    subbuffer = gst_buffer_create_sub(buffer, offset, size);
+    subbuffer = gst_buffer_copy_region (buffer,GST_BUFFER_COPY_ALL, offset, size);
     if (!subbuffer)
         return FALSE;
 
@@ -583,12 +623,30 @@ gst_vaapi_decoder_push_surface_proxy(
     return push_surface(decoder, proxy);
 }
 
+static inline void
+push_surface_buffer (GstVaapiDecoder *decoder, GstBuffer *buffer)
+{
+    GstVaapiDecoderPrivate * const priv = decoder->priv;
+
+    g_queue_push_tail(priv->surface_buffers, buffer);
+}
+
+void
+gst_vaapi_decoder_push_surface_buffer(
+    GstVaapiDecoder      *decoder,
+    GstBuffer            *buffer
+)
+{
+    return push_surface_buffer (decoder, buffer);
+}
+
 GstVaapiDecoderStatus
 gst_vaapi_decoder_check_status(GstVaapiDecoder *decoder)
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
 
-    if (priv->context && gst_vaapi_context_get_surface_count(priv->context) < 1)
-        return GST_VAAPI_DECODER_STATUS_ERROR_NO_SURFACE;
+    /*Fixme*/
+    /*if (priv->context && gst_vaapi_context_get_surface_count(priv->context) < 1)
+        return GST_VAAPI_DECODER_STATUS_ERROR_NO_SURFACE;*/
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
 }
