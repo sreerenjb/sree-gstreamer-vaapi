@@ -32,6 +32,7 @@ typedef gpointer                                GstVaapiCodecBase;
 typedef struct _GstVaapiCodecObject             GstVaapiCodecObject;
 typedef struct _GstVaapiIqMatrix                GstVaapiIqMatrix;
 typedef struct _GstVaapiBitPlane                GstVaapiBitPlane;
+typedef struct _GstVaapiHuffmanTable            GstVaapiHuffmanTable;
 
 /* ------------------------------------------------------------------------- */
 /* --- Base Codec Object                                                 --- */

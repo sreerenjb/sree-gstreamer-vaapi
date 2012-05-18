@@ -92,6 +92,12 @@ static GstStaticPadTemplate gst_vaapidecode_src_factory =
         GST_PAD_ALWAYS,
         GST_STATIC_CAPS("video/x-raw"));
 
+static void
+gst_video_context_interface_init(GstVideoContextInterface *iface);
+
+static gboolean
+gst_vaapidecode_ensure_allowed_caps(GstVaapiDecode *decode);
+
 #define GstVideoContextClass GstVideoContextInterface
 G_DEFINE_TYPE_WITH_CODE (
     GstVaapiDecode,
@@ -227,7 +233,7 @@ gst_vaapidecode_step(GstVaapiDecode *decode)
         );
 
 
-        GST_BUFFER_TIMESTAMP(suface_buffer) = GST_VAAPI_SURFACE_PROXY_TIMESTAMP(proxy);
+        GST_BUFFER_PTS(surface_buffer) = GST_VAAPI_SURFACE_PROXY_TIMESTAMP(proxy);
         /*gst_buffer_set_caps(buffer, GST_PAD_CAPS(decode->srcpad));
 
         if (GST_VAAPI_SURFACE_PROXY_TFF(proxy))
@@ -247,7 +253,7 @@ error_decode_timeout:
     {
         GST_DEBUG("decode timeout. Decoder required a VA surface but none "
                   "got available within one second");
-        return GST_FLOW_UNEXPECTED;
+        return GST_FLOW_EOS;
     }
 error_decode:
     {
@@ -259,7 +265,7 @@ error_decode:
             ret = GST_FLOW_NOT_SUPPORTED;
             break;
         default:
-            ret = GST_FLOW_UNEXPECTED;
+            ret = GST_FLOW_EOS;
             break;
         }
         return ret;
@@ -273,13 +279,13 @@ error_create_buffer:
                   "surface %" GST_VAAPI_ID_FORMAT " (error %d)",
                   GST_VAAPI_ID_ARGS(surface_id), ret);
         g_object_unref(proxy);
-        return GST_FLOW_UNEXPECTED;
+        return GST_FLOW_EOS;
     }
 error_commit_buffer:
     {
         GST_DEBUG("video sink rejected the video buffer (error %d)", ret);
         g_object_unref(proxy);
-        return GST_FLOW_UNEXPECTED;
+        return GST_FLOW_EOS;
     }
 }
 
@@ -408,24 +414,6 @@ gst_video_context_interface_init(GstVideoContextInterface *iface)
     iface->set_context = gst_vaapidecode_set_video_context;
 }
 
-static void
-gst_vaapidecode_base_init(gpointer klass)
-{
-    GstElementClass * const element_class = GST_ELEMENT_CLASS(klass);
-    GstPadTemplate *pad_template;
-
-    gst_element_class_set_details(element_class, &gst_vaapidecode_details);
-
-    /* sink pad */
-    pad_template = gst_static_pad_template_get(&gst_vaapidecode_sink_factory);
-    gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
-
-    /* src pad */
-    pad_template = gst_static_pad_template_get(&gst_vaapidecode_src_factory);
-    gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
-}
 
 static void
 gst_vaapidecode_finalize(GObject *object)
@@ -520,7 +508,7 @@ gst_vaapidecode_change_state(GstElement *element, GstStateChange transition)
         break;
     }
 
-    ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
+    ret = GST_ELEMENT_CLASS(gst_vaapidecode_parent_class)->change_state(element, transition);
     if (ret != GST_STATE_CHANGE_SUCCESS)
         return ret;
 
@@ -658,7 +646,7 @@ gst_vaapidecode_get_caps(GstVaapiDecode *decode, GstPad *pad, GstCaps *filter)
 }
 
 static gboolean
-gst_vaapidecode_set_caps(GstVaapiDecode *decode, GstCaps *caps)
+gst_vaapidecode_setcaps(GstVaapiDecode *decode, GstCaps *caps)
 {
 
     if (!gst_vaapidecode_update_sink_caps(decode, caps))
@@ -693,7 +681,7 @@ error_push_buffer:
     {
         GST_DEBUG("failed to push input buffer to decoder");
         gst_buffer_unref(buf);
-        return GST_FLOW_UNEXPECTED;
+        return GST_FLOW_EOS;
     }
 }
 
@@ -708,7 +696,7 @@ gst_vaapidecode_sink_event(GstPad *pad, GstObject * parent, GstEvent *event)
 
     /* Propagate event downstream */
     switch (GST_EVENT_TYPE(event)) {
-    case GST_EVENT_NEWSEGMENT:
+    case GST_EVENT_SEGMENT:
         if (decode->delayed_new_seg) {
             gst_event_unref(decode->delayed_new_seg);
             decode->delayed_new_seg = NULL;

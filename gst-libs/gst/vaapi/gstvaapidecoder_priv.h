@@ -125,6 +125,7 @@ struct _GstVaapiDecoderPrivate {
     guint               par_d;
     GQueue             *buffers;
     GQueue             *surfaces;
+    GQueue             *surface_buffers;
     guint               is_interlaced   : 1;
 };
 

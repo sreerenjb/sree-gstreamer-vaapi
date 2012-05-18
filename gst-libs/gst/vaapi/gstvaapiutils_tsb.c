@@ -44,7 +44,7 @@ gst_vaapi_tsb_entry_new(GstBuffer *buffer)
         return NULL;
 
     e->buffer      = gst_buffer_ref(buffer);
-    e->buffer_size = GST_BUFFER_SIZE(buffer);
+    e->buffer_size = gst_buffer_get_size(buffer);
     e->offset      = 0;
     return e;
 }
@@ -206,9 +206,9 @@ gst_vaapi_tsb_get_timestamp(GstVaapiTSB *tsb)
 
     buffer = gst_vaapi_tsb_peek(tsb);
     if (!buffer)
-        return GST_CLOCK_TIME_NONE;
-
-    return GST_BUFFER_TIMESTAMP(buffer);
+        //return GST_CLOCK_TIME_NONE;
+/*Fixme*/
+    return GST_BUFFER_PTS(buffer);
 }
 
 /**

@@ -123,7 +123,7 @@ dpb_clear(GstVaapiDpb *dpb)
 /* --- Base Decoded Picture Buffer                                       --- */
 /* ------------------------------------------------------------------------- */
 
-G_DEFINE_TYPE(GstVaapiDpb, gst_vaapi_dpb, GST_TYPE_OBJECT)
+G_DEFINE_TYPE(GstVaapiDpb, gst_vaapi_dpb, G_TYPE_OBJECT)
 
 static void
 gst_vaapi_dpb_base_flush(GstVaapiDpb *dpb)
@@ -204,7 +204,7 @@ gst_vaapi_dpb_init(GstVaapiDpb *dpb)
 static void
 gst_vaapi_dpb_class_init(GstVaapiDpbClass *klass)
 {
-    GObjectClass * const object_class = GST_MINI_OBJECT_CLASS(klass);
+    GObjectClass * const object_class = G_OBJECT_CLASS(klass);
 
     object_class->finalize = gst_vaapi_dpb_finalize;
     klass->flush           = gst_vaapi_dpb_base_flush;

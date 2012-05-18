@@ -63,6 +63,15 @@ G_BEGIN_DECLS
     gst_vaapi_surface_proxy_get_surface(surface)
 
 /**
+ * GST_VAAPI_SURFACE_PROXY_SURFACE_BUFFER:
+ * @surface: a #GstVaapiSurfaceProxy
+ *
+ * Macro that evaluates to the #GstBuffer of @surface.
+ */
+#define GST_VAAPI_SURFACE_PROXY_SURFACE_BUFFER(surface) \
+    gst_vaapi_surface_proxy_get_surface(surface)
+
+/**
  * GST_VAAPI_SURFACE_PROXY_TIMESTAMP:
  * @surface: a #GstVaapiSurfaceProxy
  *
@@ -120,7 +129,8 @@ GType
 gst_vaapi_surface_proxy_get_type(void);
 
 GstVaapiSurfaceProxy *
-gst_vaapi_surface_proxy_new(GstVaapiContext *context, GstVaapiSurface *surface);
+gst_vaapi_surface_proxy_new(GstVaapiContext *context, GstVaapiSurface *surface, 
+			     GstBuffer *surface_buffer);
 
 GstVaapiContext *
 gst_vaapi_surface_proxy_get_context(GstVaapiSurfaceProxy *proxy);
@@ -134,6 +144,9 @@ gst_vaapi_surface_proxy_set_context(
 GstVaapiSurface *
 gst_vaapi_surface_proxy_get_surface(GstVaapiSurfaceProxy *proxy);
 
+GstBuffer *
+gst_vaapi_surface_proxy_get_surface_buffer(GstVaapiSurfaceProxy *proxy);
+
 GstVaapiID
 gst_vaapi_surface_proxy_get_surface_id(GstVaapiSurfaceProxy *proxy);
 
@@ -141,6 +154,12 @@ void
 gst_vaapi_surface_proxy_set_surface(
     GstVaapiSurfaceProxy *proxy,
     GstVaapiSurface      *surface
+);
+
+void
+gst_vaapi_surface_proxy_set_surface_buffer(
+    GstVaapiSurfaceProxy *proxy,
+    GstBuffer *surface_buffer
 );
 
 GstClockTime

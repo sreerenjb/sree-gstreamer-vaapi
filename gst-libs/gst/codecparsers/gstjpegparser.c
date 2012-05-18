@@ -234,7 +234,7 @@ jpeg_parse_frame (GstJpegImage * image, const guint8 * buf, guint32 length)
   GstByteReader bytes_reader = GST_BYTE_READER_INIT (buf, length);
   GstJpegParserResult result = GST_JPEG_PARSER_OK;
   guint8 val;
-  u_int i;
+  guint i;
 
   g_assert (image && buf && length);
   READ_UINT8 (&bytes_reader, image->sample_precision);
@@ -269,7 +269,7 @@ jpeg_parse_scan (GstJpegImage * image, const guint8 * buf, guint32 length)
   GstByteReader bytes_reader = GST_BYTE_READER_INIT (buf, length);
   GstJpegParserResult result = GST_JPEG_PARSER_OK;
   guint8 val;
-  u_int i;
+  guint i;
 
   g_assert (image && buf && length);
   READ_UINT8 (&bytes_reader, image->current_scan.num_components);
@@ -307,7 +307,7 @@ jpeg_parse_huffman_tables (GstJpegImage * image, const guint8 * buf,
   gboolean is_dc;
   guint8 table_index;
   guint32 value_count;
-  u_int i;
+  guint i;
 
   g_assert (image && buf && length);
   while (gst_byte_reader_get_remaining (&bytes_reader)) {

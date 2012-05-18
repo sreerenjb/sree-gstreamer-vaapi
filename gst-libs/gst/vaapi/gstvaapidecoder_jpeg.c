@@ -431,7 +431,7 @@ decode_buffer(GstVaapiDecoderJpeg *decoder, GstBuffer *buffer)
     if (!buf && buf_size == 0)
         return GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA;
 
-    pts = GST_BUFFER_TIMESTAMP(buffer);
+    pts = GST_BUFFER_PTS(buffer);
     g_assert(GST_CLOCK_TIME_IS_VALID(pts));
 
     status = decode_picture(decoder, buf, buf_size, pts);
