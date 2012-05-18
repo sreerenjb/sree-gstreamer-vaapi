@@ -38,44 +38,21 @@
 #include "gstvaapidebug.h"
 
 typedef struct _GstVaapiPictureH264             GstVaapiPictureH264;
-typedef struct _GstVaapiPictureH264Class        GstVaapiPictureH264Class;
 typedef struct _GstVaapiSliceH264               GstVaapiSliceH264;
-typedef struct _GstVaapiSliceH264Class          GstVaapiSliceH264Class;
 
 /* ------------------------------------------------------------------------- */
 /* --- H.264 Pictures                                                    --- */
 /* ------------------------------------------------------------------------- */
 
-#define GST_VAAPI_TYPE_PICTURE_H264 \
-    (gst_vaapi_picture_h264_get_type())
-
-#define GST_VAAPI_PICTURE_H264_CAST(obj) \
-    ((GstVaapiPictureH264 *)(obj))
-
-#define GST_VAAPI_PICTURE_H264(obj)                             \
-    (G_TYPE_CHECK_INSTANCE_CAST((obj),                          \
-                                GST_VAAPI_TYPE_PICTURE_H264,    \
-                                GstVaapiPictureH264))
-
-#define GST_VAAPI_PICTURE_H264_CLASS(klass)                     \
-    (G_TYPE_CHECK_CLASS_CAST((klass),                           \
-                             GST_VAAPI_TYPE_PICTURE_H264,       \
-                             GstVaapiPictureH264Class))
-
-#define GST_VAAPI_IS_PICTURE_H264(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_VAAPI_TYPE_PICTURE_H264))
-
-#define GST_VAAPI_IS_PICTURE_H264_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_TYPE((klass), GST_VAAPI_TYPE_PICTURE_H264))
-
-#define GST_VAAPI_PICTURE_H264_GET_CLASS(obj)                   \
-    (G_TYPE_INSTANCE_GET_CLASS((obj),                           \
-                               GST_VAAPI_TYPE_PICTURE_H264,     \
-                               GstVaapiPictureH264Class))
+#define GST_VAAPI_TYPE_PICTURE_H264          (gst_vaapi_picture_h264_get_type())
+#define GST_VAAPI_IS_PICTURE_H264(obj)       (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_PICTURE_H264))
+#define GST_VAAPI_PICTURE_H264_CAST(obj)     ((GstVaapiPictureH264 *)(obj))
+#define GST_VAAPI_PICTURE_H264(obj)          (GST_VAAPI_PICTURE_H264_CAST (obj))  
 
 struct _GstVaapiPictureH264 {
     GstVaapiPicture             base;
     VAPictureH264               info;
+    GstVaapiCodecObjectConstructorArgs args;
     gint32                      poc;
     gint32                      frame_num;              // Original frame_num from slice_header()
     gint32                      frame_num_wrap;         // Temporary for ref pic marking: FrameNumWrap
@@ -90,14 +67,8 @@ struct _GstVaapiPictureH264 {
     guint                       output_needed           : 1;
 };
 
-struct _GstVaapiPictureH264Class {
-    /*< private >*/
-    GstVaapiPictureClass        parent_class;
-};
 
-GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiPictureH264,
-                            gst_vaapi_picture_h264,
-                            GST_VAAPI_TYPE_PICTURE)
+GST_DEFINE_MINI_OBJECT_TYPE (GstVaapiPictureH264, gst_vaapi_picture_h264);
 
 static void
 gst_vaapi_picture_h264_destroy(GstVaapiPictureH264 *decoder)
@@ -131,67 +102,55 @@ gst_vaapi_picture_h264_init(GstVaapiPictureH264 *picture)
 }
 
 static inline GstVaapiPictureH264 *
-gst_vaapi_picture_h264_new(GstVaapiDecoderH264 *decoder)
+gst_vaapi_picture_h264_new(GstVaapiDecoderH264 *decoder, gconstpointer param, guint param_size)
 {
+    GstVaapiPictureH264 *obj;
     GstVaapiCodecObject *object;
 
     g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), NULL);
 
-    object = gst_vaapi_codec_object_new(
-        GST_VAAPI_TYPE_PICTURE_H264,
-        GST_VAAPI_CODEC_BASE(decoder),
-        NULL, sizeof(VAPictureParameterBufferH264),
-        NULL, 0
-    );
-    if (!object)
+    obj = g_slice_new0(GstVaapiPictureH264);
+    if (!obj)
         return NULL;
-    return GST_VAAPI_PICTURE_H264_CAST(object);
+    gst_vaapi_picture_h264_init(obj);
+
+    gst_mini_object_init (GST_MINI_OBJECT_CAST (obj), GST_VAAPI_TYPE_PICTURE_H264, sizeof(GstVaapiPictureH264));
+
+    //Fixme : destroy should call the picture_destory in gstvaapidecoder_objects.h
+    obj->base.parent_instance.free =
+      (GstMiniObjectFreeFunction) gst_vaapi_picture_destroy;
+
+    obj->base.args.codec      = GST_VAAPI_CODEC_BASE(decoder);
+    obj->base.args.param      = param;
+    obj->base.args.param_size = param_size;
+    obj->base.args.data       = NULL;
+    obj->base.args.data_size  = 0;
+    obj->base.args.flags      = 0;
+
+    if (!gst_vaapi_picture_create ((GstVaapiPicture *)obj, &(((GstVaapiPictureH264 *)obj)->base.args)))
+        return NULL;
+
+    
+    return GST_VAAPI_PICTURE_H264_CAST(obj);
+
 }
 
 /* ------------------------------------------------------------------------- */
 /* --- Slices                                                            --- */
 /* ------------------------------------------------------------------------- */
 
-#define GST_VAAPI_TYPE_SLICE_H264 \
-    (gst_vaapi_slice_h264_get_type())
-
-#define GST_VAAPI_SLICE_H264_CAST(obj) \
-    ((GstVaapiSliceH264 *)(obj))
-
-#define GST_VAAPI_SLICE_H264(obj)                               \
-    (G_TYPE_CHECK_INSTANCE_CAST((obj),                          \
-                                GST_VAAPI_TYPE_SLICE_H264,      \
-                                GstVaapiSliceH264))
-
-#define GST_VAAPI_SLICE_H264_CLASS(klass)                       \
-    (G_TYPE_CHECK_CLASS_CAST((klass),                           \
-                             GST_VAAPI_TYPE_SLICE_H264,         \
-                             GstVaapiSliceH264Class))
-
-#define GST_VAAPI_IS_SLICE_H264(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_VAAPI_TYPE_SLICE_H264))
-
-#define GST_VAAPI_IS_SLICE_H264_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_TYPE((klass), GST_VAAPI_TYPE_SLICE_H264))
-
-#define GST_VAAPI_SLICE_H264_GET_CLASS(obj)                     \
-    (G_TYPE_INSTANCE_GET_CLASS((obj),                           \
-                               GST_VAAPI_TYPE_SLICE_H264,       \
-                               GstVaapiSliceH264Class))
+#define GST_VAAPI_TYPE_SLICE_H264       (gst_vaapi_slice_h264_get_type())
+#define GST_VAAPI_IS_SLICE_H264(obj)    (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_SLICE_H264)) 
+#define GST_VAAPI_SLICE_H264_CAST(obj)  ((GstVaapiSliceH264 *)(obj))
+#define GST_VAAPI_SLICE_H264 (obj)      (GST_VAAPI_SLICE_H264_CAST(obj)) 
 
 struct _GstVaapiSliceH264 {
     GstVaapiSlice               base;
     GstH264SliceHdr             slice_hdr;              // parsed slice_header()
+    GstVaapiCodecObjectConstructorArgs args;
 };
 
-struct _GstVaapiSliceH264Class {
-    /*< private >*/
-    GstVaapiSliceClass          parent_class;
-};
-
-GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiSliceH264,
-                            gst_vaapi_slice_h264,
-                            GST_VAAPI_TYPE_SLICE)
+GST_DEFINE_MINI_OBJECT_TYPE (GstVaapiSliceH264, gst_vaapi_slice_h264);
 
 static void
 gst_vaapi_slice_h264_destroy(GstVaapiSliceH264 *slice)
@@ -219,19 +178,35 @@ gst_vaapi_slice_h264_new(
     guint                data_size
 )
 {
-    GstVaapiCodecObject *object;
+
+
+    GstVaapiSliceH264  *obj;
+    GstVaapiCodecObjectConstructorArgs args;
 
     g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), NULL);
 
-    object = gst_vaapi_codec_object_new(
-        GST_VAAPI_TYPE_SLICE_H264,
-        GST_VAAPI_CODEC_BASE(decoder),
-        NULL, sizeof(VASliceParameterBufferH264),
-        data, data_size
-    );
-    if (!object)
+    obj = g_slice_new0(GstVaapiSliceH264);
+    if (!obj)
         return NULL;
-    return GST_VAAPI_SLICE_H264_CAST(object);
+    gst_vaapi_slice_init((GstVaapiSlice *)obj);
+
+    gst_mini_object_init (GST_MINI_OBJECT_CAST (obj), GST_VAAPI_TYPE_SLICE_H264, sizeof(GstVaapiSliceH264));
+
+    obj->base.parent_instance.free =
+      (GstMiniObjectFreeFunction) gst_vaapi_slice_h264_destroy;
+
+    obj->base.args.codec      = GST_VAAPI_CODEC_BASE(decoder);
+    obj->base.args.param      = NULL;
+    obj->base.args.param_size = sizeof(VASliceParameterBufferH264);
+    obj->base.args.data       = data;
+    obj->base.args.data_size  = data_size;
+    obj->base.args.flags      = 0;
+
+    if (!gst_vaapi_slice_create ((GstVaapiSlice *)obj, &(((GstVaapiSliceH264 *)obj)->base.args)))
+        return NULL;
+
+    return GST_VAAPI_SLICE_H264_CAST(obj);
+
 }
 
 /* ------------------------------------------------------------------------- */
@@ -1924,7 +1899,7 @@ decode_picture(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu, GstH264SliceH
     if (priv->current_picture && !decode_current_picture(decoder))
         return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
 
-    picture = gst_vaapi_picture_h264_new(decoder);
+    picture = gst_vaapi_picture_h264_new(decoder, NULL, sizeof(VAPictureParameterBufferH264));
     if (!picture) {
         GST_DEBUG("failed to allocate picture");
         return GST_VAAPI_DECODER_STATUS_ERROR_ALLOCATION_FAILED;
@@ -2209,9 +2184,17 @@ decode_buffer(GstVaapiDecoderH264 *decoder, GstBuffer *buffer)
     GstH264NalUnit nalu;
     guchar *buf;
     guint buf_size, ofs;
+    GstMapInfo map_info;
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ))
+    {
+        GST_ERROR ("buffer map failed..... ");
+        return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+    }
+
+    buf      = map_info.data;
+    buf_size = map_info.size;
+
     if (!buf && buf_size == 0)
         return decode_sequence_end(decoder);
 
@@ -2219,15 +2202,22 @@ decode_buffer(GstVaapiDecoderH264 *decoder, GstBuffer *buffer)
     gst_adapter_push(priv->adapter, buffer);
 
     if (priv->sub_buffer) {
-        buffer = gst_buffer_merge(priv->sub_buffer, buffer);
+        buffer = gst_buffer_append(priv->sub_buffer, buffer);
         if (!buffer)
             return GST_VAAPI_DECODER_STATUS_ERROR_ALLOCATION_FAILED;
         gst_buffer_unref(priv->sub_buffer);
         priv->sub_buffer = NULL;
     }
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ))
+    {
+          GST_ERROR ("buffer map failed..... ");
+          return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+    }
+
+    buf      = map_info.data;
+    buf_size = map_info.size;
+
     ofs      = 0;
     do {
         if (priv->is_avc) {
@@ -2247,7 +2237,7 @@ decode_buffer(GstVaapiDecoderH264 *decoder, GstBuffer *buffer)
         status = get_status(result);
 
         if (status == GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA) {
-            priv->sub_buffer = gst_buffer_create_sub(buffer, ofs, buf_size - ofs);
+            priv->sub_buffer = gst_buffer_copy_region(buffer, GST_BUFFER_COPY_ALL, ofs, buf_size - ofs);
             break;
         }
         if (status != GST_VAAPI_DECODER_STATUS_SUCCESS)
@@ -2306,9 +2296,17 @@ decode_codec_data(GstVaapiDecoderH264 *decoder, GstBuffer *buffer)
     guchar *buf;
     guint buf_size;
     guint i, ofs, num_sps, num_pps;
+    GstMapInfo map_info;
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ))
+    {
+          GST_ERROR ("buffer map failed..... ");
+          return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+    }
+
+    buf      = map_info.data;
+    buf_size = map_info.size;
+
     if (!buf || buf_size == 0)
         return GST_VAAPI_DECODER_STATUS_SUCCESS;
 

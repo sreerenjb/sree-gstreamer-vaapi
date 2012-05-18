@@ -909,8 +909,15 @@ decode_buffer(GstVaapiDecoderMpeg4 *decoder, GstBuffer *buffer)
     guchar *buf;
     guint pos, buf_size;
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    GstMapInfo map_info;
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ))
+    {
+        GST_ERROR ("buffer map failed..... ");
+        return GST_VAAPI_DECODER_STATUS_ERROR_ALLOCATION_FAILED;
+    }
+
+    buf      = map_info.data;
+    buf_size = map_info.size;
 
     // visual object sequence end
     if (!buf && buf_size == 0)
@@ -920,15 +927,21 @@ decode_buffer(GstVaapiDecoderMpeg4 *decoder, GstBuffer *buffer)
     gst_adapter_push(priv->adapter, buffer);
 
     if (priv->sub_buffer) {
-        buffer = gst_buffer_merge(priv->sub_buffer, buffer);
+        buffer = gst_buffer_append(priv->sub_buffer, buffer);
         if (!buffer)
             return GST_VAAPI_DECODER_STATUS_ERROR_ALLOCATION_FAILED;
         gst_buffer_unref(priv->sub_buffer);
         priv->sub_buffer = NULL;
     }
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ))
+    {
+        GST_ERROR ("buffer map failed..... ");
+        return GST_VAAPI_DECODER_STATUS_ERROR_ALLOCATION_FAILED;
+    }
+
+    buf      = map_info.data;
+    buf_size = map_info.size;
     pos = 0;
 
     GstMpeg4Packet packet;
@@ -986,7 +999,7 @@ decode_buffer(GstVaapiDecoderMpeg4 *decoder, GstBuffer *buffer)
          result == GST_MPEG4_PARSER_NO_PACKET_END ||
          status == GST_VAAPI_DECODER_STATUS_ERROR_NO_SURFACE) &&
         pos < buf_size) {
-        priv->sub_buffer = gst_buffer_create_sub(buffer, pos, buf_size-pos);
+        priv->sub_buffer = gst_buffer_copy_region(buffer,  GST_BUFFER_COPY_MEMORY|GST_BUFFER_COPY_META, pos, buf_size-pos);
         status = GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA;
     }
     return status;
@@ -999,8 +1012,16 @@ decode_codec_data(GstVaapiDecoderMpeg4 *decoder, GstBuffer *buffer)
     guchar *buf, *_buf;
     guint pos, buf_size, _buf_size;
 
-    _buf      = GST_BUFFER_DATA(buffer);
-    _buf_size = GST_BUFFER_SIZE(buffer);
+    GstMapInfo map_info;
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ))
+    {
+        GST_ERROR ("buffer map failed..... ");
+        return GST_VAAPI_DECODER_STATUS_ERROR_ALLOCATION_FAILED; 
+    }
+
+    _buf      = map_info.data;
+    _buf_size = map_info.size;
+
     // add additional 0x000001b2 to enclose the last header
     buf_size = _buf_size + 4;
     buf = malloc(buf_size);

@@ -417,8 +417,17 @@ decode_buffer(GstVaapiDecoderJpeg *decoder, GstBuffer *buffer)
     guchar *buf;
     guint buf_size;
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    GstMapInfo map_info;
+
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ))
+    {
+        GST_ERROR ("buffer map failed..... ");
+        return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN; 
+    }
+
+    buf      = map_info.data;
+    buf_size = map_info.size;
+
     if (!buf && buf_size == 0)
         return GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA;
 

@@ -1080,8 +1080,16 @@ decode_buffer(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
     guchar *buf;
     guint buf_size, ofs;
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    GstMapInfo map_info;
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ|GST_MAP_WRITE))
+    {
+        GST_ERROR ("buffer map failed..... ");
+        return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+    }
+
+    buf      = map_info.data;
+    buf_size = map_info.size;
+
     if (!buf && buf_size == 0)
         return decode_sequence_end(decoder);
 
@@ -1104,15 +1112,23 @@ decode_buffer(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
     }
 
     if (priv->sub_buffer) {
-        buffer = gst_buffer_merge(priv->sub_buffer, buffer);
+        buffer = gst_buffer_append(priv->sub_buffer, buffer);
+        //buffer = gst_buffer_append(buffer, priv->sub_buffer);
         if (!buffer)
             return GST_VAAPI_DECODER_STATUS_ERROR_ALLOCATION_FAILED;
         gst_buffer_unref(priv->sub_buffer);
         priv->sub_buffer = NULL;
     }
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ|GST_MAP_WRITE))
+    {
+        GST_ERROR ("buffer map failed..... ");
+        return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+    }
+
+    buf      = map_info.data;
+    buf_size = map_info.size;
+
     ofs      = 0;
     do {
         result = gst_vc1_identify_next_bdu(
@@ -1123,7 +1139,7 @@ decode_buffer(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
         status = get_status(result);
 
         if (status == GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA) {
-            priv->sub_buffer = gst_buffer_create_sub(buffer, ofs, buf_size - ofs);
+            priv->sub_buffer = gst_buffer_copy_region(buffer,  GST_BUFFER_COPY_ALL, ofs, buf_size - ofs);
             break;
         }
         if (status != GST_VAAPI_DECODER_STATUS_SUCCESS)
@@ -1155,8 +1171,16 @@ decode_codec_data(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
     gint width, height;
     guint32 format;
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    GstMapInfo map_info;
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ))
+    {
+        GST_ERROR ("buffer map failed..... ");
+        return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+    }
+
+    buf      = map_info.data;
+    buf_size = map_info.size;
+
     if (!buf || buf_size == 0)
         return GST_VAAPI_DECODER_STATUS_SUCCESS;
 
@@ -1169,10 +1193,13 @@ decode_codec_data(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
         return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
     }
 
-    if (!gst_structure_get_fourcc(structure, "format", &format)) {
+    if(gst_structure_get_uint (structure, "format", &format))
+	GST_DEBUG ("format=%d",format);
+ 
+    /*if (!format) {
         GST_DEBUG("failed to parse profile from codec-data");
         return GST_VAAPI_DECODER_STATUS_ERROR_UNSUPPORTED_CODEC;
-    }
+    }*/
 
     /* WMV3 -- expecting sequence header */
     if (format == GST_MAKE_FOURCC('W','M','V','3')) {
@@ -1186,6 +1213,7 @@ decode_codec_data(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
         return decode_ebdu(decoder, &ebdu);
     }
 
+    //Fixme
     /* WVC1 -- expecting bitstream data units */
     if (format != GST_MAKE_FOURCC('W','V','C','1'))
         return GST_VAAPI_DECODER_STATUS_ERROR_UNSUPPORTED_PROFILE;
