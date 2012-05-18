@@ -27,11 +27,11 @@
 #include "gstvaapidecoder_priv.h"
 #include "gstvaapicompat.h"
 #include "gstvaapiutils.h"
-
+#include "gstvaapisurfacepool.h"
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
-#define GET_DECODER(obj)    GST_VAAPI_DECODER_CAST((obj)->parent_instance.codec)
+#define GET_DECODER(obj)    GST_VAAPI_DECODER_CAST((obj)->args.codec)
 #define GET_CONTEXT(obj)    GET_DECODER(obj)->priv->context
 #define GET_VA_DISPLAY(obj) GET_DECODER(obj)->priv->va_display
 #define GET_VA_CONTEXT(obj) GET_DECODER(obj)->priv->va_context
@@ -40,9 +40,10 @@
 /* --- Pictures                                                          --- */
 /* ------------------------------------------------------------------------- */
 
-GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiPicture,
-                            gst_vaapi_picture,
-                            GST_VAAPI_TYPE_CODEC_OBJECT)
+GST_DEFINE_MINI_OBJECT_TYPE (GstVaapiPicture, gst_vaapi_picture);
+/*GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiPicture,
+                            gst_vaapi_picture);*/
+
 
 enum {
     GST_VAAPI_CREATE_PICTURE_FLAG_CLONE = 1 << 0,
@@ -57,9 +58,10 @@ destroy_slice_cb(gpointer data, gpointer user_data)
     gst_mini_object_unref(object);
 }
 
-static void
+void
 gst_vaapi_picture_destroy(GstVaapiPicture *picture)
 {
+    picture = (GstVaapiPicture *)picture;
     if (picture->slices) {
         g_ptr_array_foreach(picture->slices, destroy_slice_cb, NULL);
         g_ptr_array_free(picture->slices, TRUE);
@@ -69,11 +71,6 @@ gst_vaapi_picture_destroy(GstVaapiPicture *picture)
     if (picture->iq_matrix) {
         gst_mini_object_unref(GST_MINI_OBJECT(picture->iq_matrix));
         picture->iq_matrix = NULL;
-    }
-
-    if (picture->huf_table) {
-        gst_mini_object_unref(GST_MINI_OBJECT(picture->huf_table));
-        picture->huf_table = NULL;
     }
 
     if (picture->bitplane) {
@@ -92,23 +89,31 @@ gst_vaapi_picture_destroy(GstVaapiPicture *picture)
     picture->surface_id = VA_INVALID_ID;
     picture->surface = NULL;
 
+    gst_vaapi_context_put_surface_buffer (GET_CONTEXT(picture), picture->surface_buffer);
     vaapi_destroy_buffer(GET_VA_DISPLAY(picture), &picture->param_id);
     picture->param = NULL;
 }
 
-static gboolean
+gboolean
 gst_vaapi_picture_create(
     GstVaapiPicture                          *picture,
-    const GstVaapiCodecObjectConstructorArgs *args
+    GstVaapiCodecObjectConstructorArgs *args
 )
 {
     gboolean success;
-
+    GstVaapiContext *context;
+    GstMemory *memory;
+    GstVaapiSurfaceMemory *vaapi_surface_mem;
+    GstVaapiSurface *surface;
+    GstMapInfo map_info, mem_info;
+    picture = (GstVaapiPicture *)picture;
+   
     if (args->flags & GST_VAAPI_CREATE_PICTURE_FLAG_CLONE) {
         GstVaapiPicture * const parent_picture = GST_VAAPI_PICTURE(args->data);
 
         picture->proxy   = g_object_ref(parent_picture->proxy);
         picture->surface = gst_vaapi_surface_proxy_get_surface(picture->proxy);
+	picture->surface_buffer = gst_vaapi_surface_proxy_get_surface_buffer (picture->proxy); 
         picture->type    = parent_picture->type;
         picture->pts     = parent_picture->pts;
         picture->poc     = parent_picture->poc;
@@ -139,14 +144,36 @@ gst_vaapi_picture_create(
         }
     }
     else {
-        picture->surface = gst_vaapi_context_get_surface(GET_CONTEXT(picture));
-        if (!picture->surface)
+
+	context = GET_CONTEXT(picture);
+        picture->surface_buffer = gst_vaapi_context_get_surface_buffer(context);
+        if (!picture->surface_buffer)
             return FALSE;
 
+	gst_buffer_map (picture->surface_buffer, &map_info, GST_MAP_READ);
+
+	surface = map_info.data;
+        if (!surface)
+        {
+                GST_DEBUG ("Mapping failed...");
+                return FALSE;    
+        }
+
+        picture->surface_pool = gst_vaapi_context_get_surface_pool(GET_CONTEXT(picture));
+
+        gst_vaapi_surface_set_parent_context(surface, GET_CONTEXT(picture));
+       
+        picture->surface = surface;
+
         picture->proxy =
-            gst_vaapi_surface_proxy_new(GET_CONTEXT(picture), picture->surface);
+            gst_vaapi_surface_proxy_new(GET_CONTEXT(picture), picture->surface, 
+					picture->surface_buffer);
+
         if (!picture->proxy)
+        {
+	    GST_DEBUG ("Failed to create the surfaceproxy...");    
             return FALSE;
+	}
 
         picture->structure = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
         GST_VAAPI_PICTURE_FLAG_SET(picture, GST_VAAPI_PICTURE_FLAG_FF);
@@ -172,22 +199,22 @@ gst_vaapi_picture_create(
     return TRUE;
 }
 
-static void
+void
 gst_vaapi_picture_init(GstVaapiPicture *picture)
 {
-    picture->type       = GST_VAAPI_PICTURE_TYPE_NONE;
-    picture->surface    = NULL;
-    picture->proxy      = NULL;
-    picture->surface_id = VA_INVALID_ID;
-    picture->param      = NULL;
-    picture->param_id   = VA_INVALID_ID;
-    picture->param_size = 0;
-    picture->slices     = NULL;
-    picture->iq_matrix  = NULL;
-    picture->huf_table  = NULL;
-    picture->bitplane   = NULL;
-    picture->pts        = GST_CLOCK_TIME_NONE;
-    picture->poc        = 0;
+    picture->type              = GST_VAAPI_PICTURE_TYPE_NONE;
+    picture->surface           = NULL;
+    picture->surface_buffer    = NULL;
+    picture->proxy             = NULL;
+    picture->surface_id        = VA_INVALID_ID;
+    picture->param             = NULL;
+    picture->param_id  	       = VA_INVALID_ID;
+    picture->param_size        = 0;
+    picture->slices            = NULL;
+    picture->iq_matrix         = NULL;
+    picture->bitplane          = NULL;
+    picture->pts               = GST_CLOCK_TIME_NONE;
+    picture->poc               = 0;
 }
 
 GstVaapiPicture *
@@ -197,54 +224,73 @@ gst_vaapi_picture_new(
     guint            param_size
 )
 {
-    GstVaapiCodecObject *object;
+    GstVaapiPicture  *obj;
+    GstVaapiCodecObjectConstructorArgs args;
 
     g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), NULL);
 
-    object = gst_vaapi_codec_object_new(
-        GST_VAAPI_TYPE_PICTURE,
-        GST_VAAPI_CODEC_BASE(decoder),
-        param, param_size,
-        NULL, 0
-    );
-    if (!object)
+    obj = g_slice_new0(GstVaapiPicture);
+    if (!obj)
         return NULL;
-    return GST_VAAPI_PICTURE_CAST(object);
+    gst_vaapi_picture_init(obj);
+
+    gst_mini_object_init (GST_MINI_OBJECT_CAST (obj), GST_VAAPI_TYPE_PICTURE, sizeof(GstVaapiPicture));
+
+    obj->parent_instance.free =
+      (GstMiniObjectFreeFunction) gst_vaapi_picture_destroy;
+
+    obj->args.codec      = GST_VAAPI_CODEC_BASE(decoder);
+    obj->args.param      = param;
+    obj->args.param_size = param_size;
+    obj->args.data       = NULL;
+    obj->args.data_size  = 0;
+    obj->args.flags      = 0;
+
+    if (!gst_vaapi_picture_create (obj, &(obj->args)))
+    	return NULL;
+
+    return GST_VAAPI_PICTURE_CAST(obj);
+
 }
 
 GstVaapiPicture *
 gst_vaapi_picture_new_field(GstVaapiPicture *picture)
 {
-    GstMiniObject *obj;
-    GstVaapiCodecObject *va_obj;
+    
+    GstVaapiPicture  *obj;
     GstVaapiCodecObjectConstructorArgs args;
 
     g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), NULL);
 
-    obj = gst_mini_object_new(GST_VAAPI_TYPE_PICTURE);
+    obj = g_slice_new0(GstVaapiPicture);
     if (!obj)
         return NULL;
+    gst_vaapi_picture_init(obj);
 
-    va_obj = GST_VAAPI_CODEC_OBJECT(obj);
-    args.codec      = GST_VAAPI_CODEC_BASE(GET_DECODER(picture));
-    args.param      = NULL;
-    args.param_size = picture->param_size;
-    args.data       = picture;
-    args.data_size  = 0;
-    args.flags      = (GST_VAAPI_CREATE_PICTURE_FLAG_CLONE|
-                       GST_VAAPI_CREATE_PICTURE_FLAG_FIELD);
-    if (gst_vaapi_codec_object_construct(va_obj, &args))
-        return GST_VAAPI_PICTURE_CAST(va_obj);
+    gst_mini_object_init (GST_MINI_OBJECT_CAST (obj), GST_VAAPI_TYPE_PICTURE, sizeof(GstVaapiPicture));
 
-    gst_mini_object_unref(obj);
-    return NULL;
+    obj->parent_instance.free =
+      (GstMiniObjectFreeFunction) gst_vaapi_picture_destroy;
+
+    obj->args.codec      = GST_VAAPI_CODEC_BASE(GET_DECODER(picture));
+    obj->args.param      = NULL;
+    obj->args.param_size = picture->param_size;
+    obj->args.data       = picture;
+    obj->args.data_size  = 0;
+    obj->args.flags      = (GST_VAAPI_CREATE_PICTURE_FLAG_CLONE|
+                	   GST_VAAPI_CREATE_PICTURE_FLAG_FIELD);
+
+    if (!gst_vaapi_picture_create (obj, &args))
+    	return NULL;
+
+    return GST_VAAPI_PICTURE_CAST(obj);
 }
 
 void
 gst_vaapi_picture_add_slice(GstVaapiPicture *picture, GstVaapiSlice *slice)
 {
-    g_return_if_fail(GST_VAAPI_IS_PICTURE(picture));
-    g_return_if_fail(GST_VAAPI_IS_SLICE(slice));
+    /*g_return_if_fail(GST_VAAPI_IS_PICTURE(picture));
+    g_return_if_fail(GST_VAAPI_IS_SLICE(slice));*/
 
     g_ptr_array_add(picture->slices, slice);
 }
@@ -270,13 +316,12 @@ gst_vaapi_picture_decode(GstVaapiPicture *picture)
 {
     GstVaapiIqMatrix *iq_matrix;
     GstVaapiBitPlane *bitplane;
-    GstVaapiHuffmanTable *huf_table;
     VADisplay va_display;
     VAContextID va_context;
     VAStatus status;
     guint i;
 
-    g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);
+    /*g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);*/
 
     va_display = GET_VA_DISPLAY(picture);
     va_context = GET_VA_CONTEXT(picture);
@@ -298,12 +343,6 @@ gst_vaapi_picture_decode(GstVaapiPicture *picture)
     bitplane = picture->bitplane;
     if (bitplane && !do_decode(va_display, va_context,
                                &bitplane->data_id, (void **)&bitplane->data))
-        return FALSE;
-
-    huf_table = picture->huf_table;
-    if (huf_table && !do_decode(va_display, va_context,
-                                &huf_table->param_id,
-                                (void **)&huf_table->param))
         return FALSE;
 
     for (i = 0; i < picture->slices->len; i++) {
@@ -333,7 +372,7 @@ gst_vaapi_picture_output(GstVaapiPicture *picture)
 {
     GstVaapiSurfaceProxy *proxy;
 
-    g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);
+    /*g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);*/
 
     if (!picture->proxy)
         return FALSE;
@@ -346,6 +385,7 @@ gst_vaapi_picture_output(GstVaapiPicture *picture)
         if (GST_VAAPI_PICTURE_IS_TFF(picture))
             gst_vaapi_surface_proxy_set_tff(proxy, TRUE);
         gst_vaapi_decoder_push_surface_proxy(GET_DECODER(picture), proxy);
+        gst_vaapi_decoder_push_surface_buffer(GET_DECODER(picture), picture->surface_buffer);
     }
     GST_VAAPI_PICTURE_FLAG_SET(picture, GST_VAAPI_PICTURE_FLAG_OUTPUT);
     return TRUE;
@@ -354,14 +394,14 @@ gst_vaapi_picture_output(GstVaapiPicture *picture)
 /* ------------------------------------------------------------------------- */
 /* --- Slices                                                            --- */
 /* ------------------------------------------------------------------------- */
+GST_DEFINE_MINI_OBJECT_TYPE (GstVaapiSlice, gst_vaapi_slice);
+/*GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiSlice,
+                            gst_vaapi_slice);*/
 
-GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiSlice,
-                            gst_vaapi_slice,
-                            GST_VAAPI_TYPE_CODEC_OBJECT)
-
-static void
+void
 gst_vaapi_slice_destroy(GstVaapiSlice *slice)
 {
+    slice = (GstVaapiSlice *)slice;
     VADisplay const va_display = GET_VA_DISPLAY(slice);
 
     vaapi_destroy_buffer(va_display, &slice->data_id);
@@ -369,7 +409,7 @@ gst_vaapi_slice_destroy(GstVaapiSlice *slice)
     slice->param = NULL;
 }
 
-static gboolean
+gboolean
 gst_vaapi_slice_create(
     GstVaapiSlice                            *slice,
     const GstVaapiCodecObjectConstructorArgs *args
@@ -377,6 +417,7 @@ gst_vaapi_slice_create(
 {
     VASliceParameterBufferBase *slice_param;
     gboolean success;
+    slice = (GstVaapiSlice *)slice;
 
     success = vaapi_create_buffer(
         GET_VA_DISPLAY(slice),
@@ -409,7 +450,7 @@ gst_vaapi_slice_create(
     return TRUE;
 }
 
-static void
+void
 gst_vaapi_slice_init(GstVaapiSlice *slice)
 {
     slice->param        = NULL;
@@ -425,16 +466,32 @@ gst_vaapi_slice_new(
     const guchar    *data,
     guint            data_size
 )
-{
-    GstVaapiCodecObject *object;
+{  
+     
+    GstVaapiSlice  *obj;
+    GstVaapiCodecObjectConstructorArgs args;
 
     g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), NULL);
 
-    object = gst_vaapi_codec_object_new(
-        GST_VAAPI_TYPE_SLICE,
-        GST_VAAPI_CODEC_BASE(decoder),
-        param, param_size,
-        data, data_size
-    );
-    return GST_VAAPI_SLICE_CAST(object);
+    obj = g_slice_new0(GstVaapiSlice);
+    if (!obj)
+        return NULL;
+    gst_vaapi_slice_init(obj);
+
+    gst_mini_object_init (GST_MINI_OBJECT_CAST (obj), GST_VAAPI_TYPE_SLICE, sizeof(GstVaapiSlice));
+
+    obj->parent_instance.free =
+      (GstMiniObjectFreeFunction) gst_vaapi_slice_destroy;
+
+    obj->args.codec      = GST_VAAPI_CODEC_BASE(decoder);
+    obj->args.param      = param;
+    obj->args.param_size = param_size;
+    obj->args.data       = data;
+    obj->args.data_size  = data_size;
+    obj->args.flags      = 0;
+
+    if (!gst_vaapi_slice_create (obj, &(obj->args)))
+    	return NULL;
+
+    return GST_VAAPI_SLICE_CAST(obj);
 }

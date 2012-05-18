@@ -69,7 +69,7 @@ typedef struct _GstVaapiDpbMpeg2Class   GstVaapiDpbMpeg2Class;
  */
 struct _GstVaapiDpb {
     /*< private >*/
-    GstMiniObject       parent_instance;
+    GObject       parent_instance;
 
     /*< protected >*/
     GstVaapiPicture   **pictures;
@@ -84,7 +84,7 @@ struct _GstVaapiDpb {
  */
 struct _GstVaapiDpbClass {
     /*< private >*/
-    GstMiniObjectClass  parent_class;
+    GObjectClass  parent_class;
 
     /*< protected >*/
     void              (*flush)  (GstVaapiDpb *dpb);
@@ -110,13 +110,13 @@ gst_vaapi_dpb_size(GstVaapiDpb *dpb)
 static inline gpointer
 gst_vaapi_dpb_ref(gpointer ptr)
 {
-    return gst_mini_object_ref(GST_MINI_OBJECT(ptr));
+    return g_object_ref(G_OBJECT(ptr));
 }
 
 static inline void
 gst_vaapi_dpb_unref(gpointer ptr)
 {
-    gst_mini_object_unref(GST_MINI_OBJECT(ptr));
+    gst_object_unref(G_OBJECT(ptr));
 }
 
 /* ------------------------------------------------------------------------- */
