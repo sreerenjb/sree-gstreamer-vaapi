@@ -915,7 +915,7 @@ gst_vaapi_image_get_data_size(GstVaapiImage *image)
 }
 
 static gboolean
-init_image_from_buffer(GstVaapiImageRaw *raw_image, GstBuffer *buffer)
+init_image_from_buffer(GstVaapiImageRaw *raw_image, GstBuffer *buffer, GstVaapiImagePrivate *priv)
 {
     GstStructure *structure;
     GstCaps *caps;
@@ -925,9 +925,18 @@ init_image_from_buffer(GstVaapiImageRaw *raw_image, GstBuffer *buffer)
     guchar *data;
     guint32 data_size;
 
-    data      = GST_BUFFER_DATA(buffer);
-    data_size = GST_BUFFER_SIZE(buffer);
-    caps      = GST_BUFFER_CAPS(buffer);
+    GstMapInfo map_info;
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ))
+    {
+        GST_DEBUG ("buffer map failed..... ");
+        return FALSE;
+    }
+
+    data      = map_info.data;
+    data_size = map_info.size;
+
+
+    /*caps      = GST_BUFFER_CAPS(buffer);
 
     if (!caps)
         return FALSE;
@@ -936,12 +945,17 @@ init_image_from_buffer(GstVaapiImageRaw *raw_image, GstBuffer *buffer)
 
     structure = gst_caps_get_structure(caps, 0);
     gst_structure_get_int(structure, "width",  &width);
-    gst_structure_get_int(structure, "height", &height);
+    gst_structure_get_int(structure, "height", &height);*/
+
+	//Fixme
+
 
     /* XXX: copied from gst_video_format_get_row_stride() -- no NV12? */
+	
+
     raw_image->format = format;
-    raw_image->width  = width;
-    raw_image->height = height;
+    width =  raw_image->width  = priv->width;
+    height = raw_image->height = priv->height;
     width2  = (width + 1) / 2;
     height2 = (height + 1) / 2;
     size2   = 0;
@@ -1167,7 +1181,7 @@ gst_vaapi_image_get_buffer(
 
     priv = image->priv;
 
-    if (!init_image_from_buffer(&dst_image, buffer))
+    if (!init_image_from_buffer(&dst_image, buffer,priv))
         return FALSE;
     if (dst_image.format != priv->format)
         return FALSE;
@@ -1250,7 +1264,7 @@ gst_vaapi_image_update_from_buffer(
 
     priv = image->priv;
 
-    if (!init_image_from_buffer(&src_image, buffer))
+    if (!init_image_from_buffer(&src_image, buffer,priv))
         return FALSE;
     if (src_image.format != priv->format)
         return FALSE;

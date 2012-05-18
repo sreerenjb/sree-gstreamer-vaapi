@@ -231,7 +231,7 @@ gst_vaapi_subpicture_new(GstVaapiImage *image)
  *
  * Return value: the newly allocated #GstVaapiSubpicture object
  */
-GstVaapiSubpicture *
+/*GstVaapiSubpicture *
 gst_vaapi_subpicture_new_from_overlay_rectangle(
     GstVaapiDisplay          *display,
     GstVideoOverlayRectangle *rect
@@ -254,7 +254,6 @@ gst_vaapi_subpicture_new_from_overlay_rectangle(
     if (!buffer)
         return NULL;
 
-    /* XXX: use gst_vaapi_image_format_from_video() */
 #if G_BYTE_ORDER == G_LITTLE_ENDIAN
     format = GST_VAAPI_IMAGE_BGRA;
 #else
@@ -279,7 +278,7 @@ gst_vaapi_subpicture_new_from_overlay_rectangle(
     subpicture = gst_vaapi_subpicture_new(image);
     g_object_unref(image);
     return subpicture;
-}
+}*/
 
 /**
  * gst_vaapi_subpicture_get_id:

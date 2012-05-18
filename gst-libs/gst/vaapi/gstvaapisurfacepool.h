@@ -24,7 +24,7 @@
 
 #include <gst/vaapi/gstvaapisurface.h>
 #include <gst/vaapi/gstvaapivideopool.h>
-
+#include <gst/video/gstvideometa.h>
 G_BEGIN_DECLS
 
 #define GST_VAAPI_TYPE_SURFACE_POOL \
@@ -55,6 +55,18 @@ typedef struct _GstVaapiSurfacePool             GstVaapiSurfacePool;
 typedef struct _GstVaapiSurfacePoolPrivate      GstVaapiSurfacePoolPrivate;
 typedef struct _GstVaapiSurfacePoolClass        GstVaapiSurfacePoolClass;
 
+typedef struct _GstVaapiSurfaceMemory GstVaapiSurfaceMemory;
+
+struct _GstVaapiSurfaceMemory {
+   GstMemory memory;
+   GstVaapiSurface *surface;
+   gsize slice_size;
+   gpointer user_data;
+   GDestroyNotify notify;
+};
+
+#define  GST_ALLOCATOR_SURFACE_MEMORY  "GstVaapiSurfaceMemoryAllocator"
+
 /**
  * GstVaapiSurfacePool:
  *
@@ -82,6 +94,9 @@ gst_vaapi_surface_pool_get_type(void);
 
 GstVaapiVideoPool *
 gst_vaapi_surface_pool_new(GstVaapiDisplay *display, GstCaps *caps);
+
+guint
+gst_vaapi_surface_pool_n_avail_slots (GstVaapiSurfacePool *surface_pool);
 
 G_END_DECLS
 

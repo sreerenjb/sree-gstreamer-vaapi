@@ -27,14 +27,16 @@
 #include <gst/vaapi/gstvaapidisplay.h>
 #include <gst/vaapi/gstvaapiimage.h>
 #include <gst/vaapi/gstvaapisubpicture.h>
-#include <gst/video/gstsurfacebuffer.h>
-#include <gst/video/video-overlay-composition.h>
+/*#include <gst/video/gstsurfacebuffer.h>
+#include <gst/video/video-overlay-composition.h>*/
 
 G_BEGIN_DECLS
 
 typedef enum _GstVaapiChromaType                GstVaapiChromaType;
 typedef enum _GstVaapiSurfaceStatus             GstVaapiSurfaceStatus;
 typedef enum _GstVaapiSurfaceRenderFlags        GstVaapiSurfaceRenderFlags;
+
+#define GST_VIDEO_CAPS_SURFACE "video/x-surface"
 
 /**
  * GST_VAAPI_SURFACE_CAPS_NAME:
@@ -229,12 +231,12 @@ gst_vaapi_surface_query_status(
     GstVaapiSurfaceStatus *pstatus
 );
 
-gboolean
+/*gboolean
 gst_vaapi_surface_set_subpictures_from_composition(
     GstVaapiSurface            *surface,
     GstVideoOverlayComposition *composition,
     gboolean                    propagate_context
-);
+);*/
 
 G_END_DECLS
 

@@ -885,7 +885,7 @@ gst_vaapi_surface_query_status(
  *
  * Return value: %TRUE on success
  */
-gboolean
+/*gboolean
 gst_vaapi_surface_set_subpictures_from_composition(
     GstVaapiSurface            *surface,
     GstVideoOverlayComposition *composition,
@@ -907,7 +907,7 @@ gst_vaapi_surface_set_subpictures_from_composition(
     if (!display)
         return FALSE;
 
-    /* Clear current subpictures */
+    // Clear current subpictures 
     gst_vaapi_surface_destroy_subpictures(surface);
 
     if (!composition)
@@ -915,7 +915,7 @@ gst_vaapi_surface_set_subpictures_from_composition(
 
     nb_rectangles = gst_video_overlay_composition_n_rectangles (composition);
 
-    /* Overlay all the rectangles cantained in the overlay composition */
+    // Overlay all the rectangles cantained in the overlay composition 
     for (n = 0; n < nb_rectangles; ++n) {
         GstVideoOverlayRectangle *rect;
         GstVaapiRectangle sub_rect;
@@ -938,4 +938,4 @@ gst_vaapi_surface_set_subpictures_from_composition(
         g_object_unref (subpicture);
     }
     return TRUE;
-}
+}*/
