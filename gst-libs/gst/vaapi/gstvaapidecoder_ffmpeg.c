@@ -264,23 +264,38 @@ gst_vaapi_decoder_ffmpeg_get_buffer(AVCodecContext *avctx, AVFrame *pic)
     GstVaapiSurface *surface;
     GstVaapiSurfaceProxy *proxy;
     GstVaapiID surface_id;
+    GstBuffer *surface_buffer;
+    GstMapInfo map_info;
 
     context = get_context(avctx, pic);
     if (!context)
         return -1;
 
-    surface = gst_vaapi_context_get_surface(context);
-    if (!surface) {
-        GST_DEBUG("failed to get a free VA surface");
-        return -1;
+    surface_buffer = gst_vaapi_context_get_surface_buffer(context);
+    if (!surface_buffer)
+    	return FALSE;
+
+    gst_buffer_map (surface_buffer, &map_info, GST_MAP_READ);
+
+    surface = map_info.data;
+    if (!surface)
+    {
+	    GST_ERROR ("Mapping failed...");
+            return -1;
     }
 
-    proxy = gst_vaapi_surface_proxy_new(context, surface);
-    if (!proxy) {
-        GST_DEBUG("failed to create proxy surface");
-        gst_vaapi_context_put_surface(context, surface);
-        return -1;
+
+    gst_vaapi_surface_set_parent_context(surface, context);
+
+
+    proxy =  gst_vaapi_surface_proxy_new(context, surface, surface_buffer);
+
+    if (!proxy)
+    {
+            GST_ERROR ("Failed to create the proxy...");
+            return -1;
     }
+
 
     surface_id = GST_VAAPI_OBJECT_ID(surface);
     GST_DEBUG("surface %" GST_VAAPI_ID_FORMAT, GST_VAAPI_ID_ARGS(surface_id));
@@ -315,6 +330,8 @@ gst_vaapi_decoder_ffmpeg_release_buffer(AVCodecContext *avctx, AVFrame *pic)
     GstVaapiID surface_id = GST_VAAPI_ID(GPOINTER_TO_UINT(pic->data[3]));
 
     GST_DEBUG("surface %" GST_VAAPI_ID_FORMAT, GST_VAAPI_ID_ARGS(surface_id));
+
+    gst_vaapi_context_put_surface_buffer (get_context(avctx, pic), gst_vaapi_surface_proxy_get_surface_buffer(proxy));
 
     g_object_unref(proxy);
 
@@ -355,12 +372,24 @@ gst_vaapi_decoder_ffmpeg_open(GstVaapiDecoderFfmpeg *ffdecoder, GstBuffer *buffe
     AVCodec *ffcodec;
     gboolean try_parser, need_parser;
     int ret;
+    GstMapInfo map_info;
 
     gst_vaapi_decoder_ffmpeg_close(ffdecoder);
 
     if (codec_data) {
-        const guchar *data = GST_BUFFER_DATA(codec_data);
-        const guint   size = GST_BUFFER_SIZE(codec_data);
+
+        if (!gst_buffer_map (codec_data, &map_info, GST_MAP_READ))
+        {
+           GST_ERROR ("buffer map failed..... ");
+           return FALSE;
+        }
+
+        const guchar *data      = map_info.data;
+        const guint  size       = map_info.size;
+
+
+        //const guchar *data = GST_BUFFER_DATA(codec_data);
+        //const guint   size = GST_BUFFER_SIZE(codec_data);
         if (!set_codec_data(priv->avctx, data, size))
             return FALSE;
     }
@@ -406,8 +435,20 @@ gst_vaapi_decoder_ffmpeg_open(GstVaapiDecoderFfmpeg *ffdecoder, GstBuffer *buffe
     /* XXX: av_find_stream_info() does this and some codecs really
        want hard an extradata buffer for initialization (e.g. VC-1) */
     if (!priv->avctx->extradata && priv->pctx && priv->pctx->parser->split) {
-        const guchar *buf = GST_BUFFER_DATA(buffer);
-        guint buf_size = GST_BUFFER_SIZE(buffer);
+	GstMapInfo map_info_2;
+
+	if (!gst_buffer_map (buffer, &map_info_2, GST_MAP_READ))
+    	{
+        	GST_ERROR ("buffer map failed..... ");
+	        return FALSE;
+    	}
+
+	const guchar *buf      = map_info_2.data;
+	guint buf_size = map_info_2.size;
+
+
+        //const guchar *buf = GST_BUFFER_DATA(buffer);
+        //guint buf_size = GST_BUFFER_SIZE(buffer);
         buf_size = priv->pctx->parser->split(priv->avctx, buf, buf_size);
         if (buf_size > 0 && !set_codec_data(priv->avctx, buf, buf_size))
             return FALSE;
@@ -539,6 +580,8 @@ gst_vaapi_decoder_ffmpeg_decode(GstVaapiDecoder *decoder, GstBuffer *buffer)
     guchar *outbuf;
     gint inbuf_ofs, inbuf_size, outbuf_size;
     gboolean got_frame;
+    GstMapInfo map_info;
+    guchar *inbuf_data;
 
     g_return_val_if_fail(priv->is_constructed,
                          GST_VAAPI_DECODER_STATUS_ERROR_INIT_FAILED);
@@ -550,8 +593,20 @@ gst_vaapi_decoder_ffmpeg_decode(GstVaapiDecoder *decoder, GstBuffer *buffer)
     }
 
     inbuf_ofs  = 0;
-    inbuf_size = GST_BUFFER_SIZE(buffer);
+    //inbuf_size = GST_BUFFER_SIZE(buffer);
+
+
+    if (!gst_buffer_map (buffer, &map_info, GST_MAP_READ))
+    {
+        GST_ERROR ("buffer map failed..... ");
+        GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+    }
+
+    inbuf_data = map_info.data;
+    inbuf_size = map_info.size;
     inbuf_ts   = GST_BUFFER_TIMESTAMP(buffer);
+
+
 
     if (priv->pctx) {
         do {
@@ -560,7 +615,7 @@ gst_vaapi_decoder_ffmpeg_decode(GstVaapiDecoder *decoder, GstBuffer *buffer)
                 priv->pctx,
                 priv->avctx,
                 &outbuf, &outbuf_size,
-                GST_BUFFER_DATA(buffer) + inbuf_ofs, inbuf_size,
+                inbuf_data + inbuf_ofs, inbuf_size,
                 inbuf_ts, inbuf_ts,
                 AV_NOPTS_VALUE
             );
@@ -574,7 +629,7 @@ gst_vaapi_decoder_ffmpeg_decode(GstVaapiDecoder *decoder, GstBuffer *buffer)
         inbuf_ts    = priv->pctx->pts;
     }
     else {
-        outbuf      = GST_BUFFER_DATA(buffer);
+        outbuf      = inbuf_data;
         outbuf_size = inbuf_size;
         got_frame   = outbuf && outbuf_size > 0;
         inbuf_ofs   = inbuf_size;
