@@ -75,7 +75,8 @@ struct _GstVaapiWindowWayland {
     /*< private >*/
     GstVaapiWindow parent_instance;
     struct wl_surface *surface;
-    struct wl_egl_window *win;
+    struct wl_shell_surface *shell_surface;
+    guint redraw_pending : 1; 
 };
 
 /**
@@ -86,8 +87,6 @@ struct _GstVaapiWindowWayland {
 struct _GstVaapiWindowWaylandClass {
     /*< private >*/
     GstVaapiWindowClass parent_class;
-
-
 };
 
 GType

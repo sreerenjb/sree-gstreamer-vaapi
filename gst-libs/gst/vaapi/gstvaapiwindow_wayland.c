@@ -37,18 +37,8 @@
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
-#define CAST_DRAWABLE(a)  (struct wl_egl_window *)(a)
-
 G_DEFINE_TYPE (GstVaapiWindowWayland, gst_vaapi_window_wayland,
     GST_VAAPI_TYPE_WINDOW);
-
-static void
-sync_callback (void *data)
-{
-  int *done = data;
-
-  *done = 1;
-}
 
 static void
 gst_vaapi_window_wayland_constructed (GObject * object)
@@ -56,12 +46,10 @@ gst_vaapi_window_wayland_constructed (GObject * object)
   GstVaapiWindowWayland *const window = GST_VAAPI_WINDOW_WAYLAND (object);
   GObjectClass *parent_class;
 
-
   parent_class = G_OBJECT_CLASS (gst_vaapi_window_wayland_parent_class);
   if (parent_class->constructed)
     parent_class->constructed (object);
 }
-
 
 static gboolean
 gst_vaapi_window_wayland_create (GstVaapiWindow * window, guint * width,
@@ -71,20 +59,19 @@ gst_vaapi_window_wayland_create (GstVaapiWindow * window, guint * width,
   struct wl_display *display = GST_VAAPI_OBJECT_WDISPLAY (window);
   struct WDisplay *d = wl_display_get_user_data (display);
   struct wl_surface *surface;
-  struct wl_egl_window *win;
-  int done = 0;
   struct wl_shell_surface *shell_surface;
 
   GST_DEBUG ("Creating wayland window");
 
   surface = wl_compositor_create_surface (d->compositor);
 
-  win = wl_egl_window_create (surface, *width, *height);
   shell_surface = wl_shell_get_shell_surface(d->shell, surface);
   wl_shell_surface_set_toplevel(shell_surface);
-  wl_shell_surface_set_fullscreen (shell_surface,WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
-                                                0, NULL);
-  wayland_window->win = win;
+  wl_shell_surface_set_fullscreen (shell_surface,WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT, 0, NULL);
+
+  wayland_window->surface = surface;
+  wayland_window->shell_surface = shell_surface;
+  wayland_window->redraw_pending = 0;
 
   return TRUE;
 }
@@ -93,12 +80,11 @@ static void
 gst_vaapi_window_wayland_destroy (GstVaapiWindow * window)
 {
   GstVaapiWindowWayland *wayland_window = GST_VAAPI_WINDOW_WAYLAND (window);
-  if (wayland_window->win) {
-    GST_VAAPI_OBJECT_LOCK_DISPLAY (window);
-    wl_egl_window_destroy (wayland_window->win);
-    GST_VAAPI_OBJECT_UNLOCK_DISPLAY (window);
-    GST_VAAPI_OBJECT_ID (window) = 0;
-  }
+
+  if (wayland_window->shell_surface)
+  	wl_shell_surface_destroy(wayland_window->shell_surface);
+  if (wayland_window->surface)
+        wl_surface_destroy(wayland_window->surface);
 }
 
 static gboolean
@@ -107,10 +93,20 @@ gst_vaapi_window_wayland_resize (GstVaapiWindow * window, guint width,
 {
   GST_DEBUG ("resizing the window, width = %d height= %d", width, height);
   GstVaapiWindowWayland *wayland_window = GST_VAAPI_WINDOW_WAYLAND (window);
-  wl_egl_window_resize (wayland_window->win, width, height, 0, 0);
   return TRUE;
 }
 
+static void
+frame_redraw_callback(void *data, struct wl_callback *callback, uint32_t time)
+{
+  GstVaapiWindowWayland *wayland_window = data;
+  wayland_window->redraw_pending = 0;
+  wl_callback_destroy(callback);
+}
+
+static const struct wl_callback_listener frame_callback_listener = {
+    frame_redraw_callback
+};
 
 static gboolean
 gst_vaapi_window_wayland_render (GstVaapiWindow * window,
@@ -120,27 +116,48 @@ gst_vaapi_window_wayland_render (GstVaapiWindow * window,
 {
   VASurfaceID surface_id;
   VAStatus status;
+  struct wl_buffer *buffer;
+  struct wl_callback *callback;
 
+  struct wl_display *wldpy = GST_VAAPI_OBJECT_WDISPLAY (window);
+  VADisplay display = gst_vaapi_display_get_display (GST_VAAPI_OBJECT_DISPLAY(window));
   GstVaapiWindowWayland *wayland_window = GST_VAAPI_WINDOW_WAYLAND (window);
+  
   surface_id = GST_VAAPI_OBJECT_ID (surface);
   if (surface_id == VA_INVALID_ID)
     return FALSE;
+  
   GST_VAAPI_OBJECT_LOCK_DISPLAY (window);
-  status = vaPutSurface (GST_VAAPI_OBJECT_VADISPLAY (window),
-      surface_id,
-      CAST_DRAWABLE (wayland_window->win),
-      src_rect->x,
-      src_rect->y,
-      src_rect->width,
-      src_rect->height,
-      dst_rect->x,
-      dst_rect->y,
-      dst_rect->width,
-      dst_rect->height, NULL, 0, from_GstVaapiSurfaceRenderFlags (flags)
-      );
-  GST_VAAPI_OBJECT_UNLOCK_DISPLAY (window);
+
+  /* Wait for the previous frame to complete redraw */
+  if (wayland_window->redraw_pending) 
+	wl_display_iterate(wldpy, WL_DISPLAY_READABLE);
+	
+  status = vaGetSurfaceBufferWl(
+  	display,
+        surface_id,
+        &buffer
+  );
+
   if (!vaapi_check_status (status, "vaPutSurface()"))
     return FALSE;
+
+  wl_surface_attach(
+  	wayland_window->surface,
+        buffer,
+        0, 0
+  );
+
+  wl_surface_damage(
+        wayland_window->surface,
+        dst_rect->x, dst_rect->y, dst_rect->width, dst_rect->height
+  );
+
+  wl_display_iterate(wldpy, WL_DISPLAY_WRITABLE);
+  wayland_window->redraw_pending = 1;
+  callback = wl_surface_frame (wayland_window->surface);
+  wl_callback_add_listener(callback, &frame_callback_listener, wayland_window);
+  GST_VAAPI_OBJECT_UNLOCK_DISPLAY (window);
   return TRUE;
 }
 
@@ -169,7 +186,6 @@ static void
 gst_vaapi_window_wayland_init (GstVaapiWindowWayland * window)
 {
   window->surface = NULL;
-  window->win = NULL;
 }
 
 /**

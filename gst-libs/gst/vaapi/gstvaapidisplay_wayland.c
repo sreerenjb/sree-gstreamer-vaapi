@@ -256,11 +256,8 @@ gst_vaapi_display_wayland_close_display (GstVaapiDisplay * display)
 {
   GstVaapiDisplayWaylandPrivate *const priv =
       GST_VAAPI_DISPLAY_WAYLAND (display)->priv;
-
   if (priv->wayland_display) {
-    struct WDisplay *d = wl_display_get_user_data (priv->wayland_display);
-    free (d);
-    wl_display_destroy (priv->wayland_display);
+    wl_display_destory (priv->wayland_display);
     priv->wayland_display = NULL;
   }
 
@@ -319,7 +316,7 @@ gst_vaapi_display_wayland_get_display_info(
     info->native_display = priv->wayland_display;
     info->display_name   = priv->display_name;
     if (!info->va_display) {
-        info->va_display = vaGetDisplay(priv->wayland_display);
+        info->va_display = vaGetDisplayWl(priv->wayland_display);
         if (!info->va_display)
             return FALSE;
     }
@@ -331,7 +328,7 @@ gst_vaapi_display_wayland_get_display_info(
 static VADisplay
 gst_vaapi_display_wayland_get_va_display (GstVaapiDisplay * display)
 {
-  return vaGetDisplay (GST_VAAPI_DISPLAY_WDISPLAY (display));
+  return vaGetDisplayWl (GST_VAAPI_DISPLAY_WDISPLAY (display));
 }
 
 static void

@@ -148,10 +148,12 @@ gst_vaapi_surface_create(GstVaapiSurface *surface)
     GST_VAAPI_DISPLAY_LOCK(display);
     status = vaCreateSurfaces(
         GST_VAAPI_DISPLAY_VADISPLAY(display),
+	format,
         priv->width,
         priv->height,
-        format,
-        1, &surface_id
+        &surface_id,
+	1,
+	NULL, 0
     );
     GST_VAAPI_DISPLAY_UNLOCK(display);
     if (!vaapi_check_status(status, "vaCreateSurfaces()"))
