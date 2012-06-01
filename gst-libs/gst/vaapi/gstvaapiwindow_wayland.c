@@ -85,6 +85,9 @@ gst_vaapi_window_wayland_destroy (GstVaapiWindow * window)
   	wl_shell_surface_destroy(wayland_window->shell_surface);
   if (wayland_window->surface)
         wl_surface_destroy(wayland_window->surface);
+  if (wayland_window->buffer)
+   	wl_buffer_destroy(wayland_window->buffer);
+  
 }
 
 static gboolean
@@ -101,6 +104,8 @@ frame_redraw_callback(void *data, struct wl_callback *callback, uint32_t time)
 {
   GstVaapiWindowWayland *wayland_window = data;
   wayland_window->redraw_pending = 0;
+  wl_buffer_destroy (wayland_window->buffer);
+  wayland_window->buffer  = NULL;
   wl_callback_destroy(callback);
 }
 
@@ -155,6 +160,7 @@ gst_vaapi_window_wayland_render (GstVaapiWindow * window,
 
   wl_display_iterate(wldpy, WL_DISPLAY_WRITABLE);
   wayland_window->redraw_pending = 1;
+  wayland_window->buffer = buffer;
   callback = wl_surface_frame (wayland_window->surface);
   wl_callback_add_listener(callback, &frame_callback_listener, wayland_window);
   GST_VAAPI_OBJECT_UNLOCK_DISPLAY (window);
@@ -186,6 +192,8 @@ static void
 gst_vaapi_window_wayland_init (GstVaapiWindowWayland * window)
 {
   window->surface = NULL;
+  window->shell_surface = NULL;
+  window->buffer = NULL;
 }
 
 /**

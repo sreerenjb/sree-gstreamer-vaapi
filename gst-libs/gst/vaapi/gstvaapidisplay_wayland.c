@@ -254,10 +254,23 @@ gst_vaapi_display_wayland_open_display (GstVaapiDisplay * display)
 static void
 gst_vaapi_display_wayland_close_display (GstVaapiDisplay * display)
 {
-  GstVaapiDisplayWaylandPrivate *const priv =
+  struct WDisplay *d;
+  GstVaapiDisplayWaylandPrivate *priv =
       GST_VAAPI_DISPLAY_WAYLAND (display)->priv;
   if (priv->wayland_display) {
-    wl_display_destory (priv->wayland_display);
+    d = wl_display_get_user_data(priv->wayland_display);
+    /*if (d->shm)
+       wl_shm_destroy(d->shm);
+
+    if (d->shell)
+       wl_shell_destroy(d->shell);
+
+    if (d->compositor)
+       wl_compositor_destroy(d->compositor);
+    
+    wl_display_disconnect(priv->wayland_display);
+        
+    free (d);*/
     priv->wayland_display = NULL;
   }
 

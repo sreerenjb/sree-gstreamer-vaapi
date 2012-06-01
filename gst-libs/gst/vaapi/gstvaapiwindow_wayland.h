@@ -76,6 +76,7 @@ struct _GstVaapiWindowWayland {
     GstVaapiWindow parent_instance;
     struct wl_surface *surface;
     struct wl_shell_surface *shell_surface;
+    struct wl_buffer *buffer;
     guint redraw_pending : 1; 
 };
 
