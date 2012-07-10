@@ -26,6 +26,7 @@
 #include <gst/gstbuffer.h>
 #include <gst/vaapi/gstvaapicontext.h>
 #include <gst/vaapi/gstvaapisurfaceproxy.h>
+#include <gst/video/gstvideodecoder.h>
 
 G_BEGIN_DECLS
 
@@ -111,7 +112,10 @@ struct _GstVaapiDecoderClass {
     /*< private >*/
     GObjectClass parent_class;
 
-    GstVaapiDecoderStatus (*decode)(GstVaapiDecoder *decoder, GstBuffer *buffer);
+    GstFlowReturn (*parse) (GstVaapiDecoder *dec, GstAdapter *adapter, guint *toadd);
+
+    GstVaapiDecoderStatus (*decode) (GstVaapiDecoder *decoder, GstVideoCodecFrame *frame);
+
 };
 
 GType
@@ -122,6 +126,9 @@ gst_vaapi_decoder_get_caps(GstVaapiDecoder *decoder);
 
 gboolean
 gst_vaapi_decoder_put_buffer(GstVaapiDecoder *decoder, GstBuffer *buf);
+
+GstVaapiSurfaceProxy *
+gst_vaapi_decoder_get_surface_proxy(GstVaapiDecoder *decoder);
 
 GstVaapiSurfaceProxy *
 gst_vaapi_decoder_get_surface(

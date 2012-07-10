@@ -389,6 +389,20 @@ gst_vaapi_decoder_put_buffer(GstVaapiDecoder *decoder, GstBuffer *buf)
 }
 
 /**
+ * gst_vaapi_decoder_get_surface_proxy:
+ * @decoder: a #GstVaapiDecoder
+ *
+ * Return value: a #GstVaapiSurfaceProxy holding the decoded surface,
+ *   or %NULL if none is available (e.g. an error). Caller owns the
+ *   returned object. g_object_unref() after usage.
+*/
+GstVaapiSurfaceProxy *
+gst_vaapi_decoder_get_surface_proxy(GstVaapiDecoder *decoder)
+{
+  return pop_surface(decoder);
+}
+
+/**
  * gst_vaapi_decoder_get_surface:
  * @decoder: a #GstVaapiDecoder
  * @pstatus: return location for the decoder status, or %NULL
