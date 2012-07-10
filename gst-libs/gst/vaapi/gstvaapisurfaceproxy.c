@@ -43,6 +43,7 @@ struct _GstVaapiSurfaceProxyPrivate {
     GstVaapiContext    *context;
     GstVaapiSurface    *surface;
     GstClockTime        timestamp;
+    gint		frame_id;
     guint               is_interlaced   : 1;
     guint               tff             : 1;
 };
@@ -199,6 +200,7 @@ gst_vaapi_surface_proxy_init(GstVaapiSurfaceProxy *proxy)
     priv->timestamp     = GST_CLOCK_TIME_NONE;
     priv->is_interlaced = FALSE;
     priv->tff           = FALSE;
+    priv->frame_id      = -1;
 }
 
 /**
@@ -301,6 +303,37 @@ gst_vaapi_surface_proxy_get_surface_id(GstVaapiSurfaceProxy *proxy)
 
     return GST_VAAPI_OBJECT_ID(proxy->priv->surface);
 }
+
+/**
+ * gst_vaapi_surface_proxy_get_frame_id:
+ * @proxy: a #GstVaapiSurfaceProxy
+ *
+ * Returns the frame_id of #GstVideoCodecFrame associated with proxy.
+ *
+ */
+gint
+gst_vaapi_surface_proxy_get_frame_id(GstVaapiSurfaceProxy *proxy)
+{
+    g_return_if_fail(GST_VAAPI_IS_SURFACE_PROXY(proxy));
+
+    return proxy->priv->frame_id;
+}
+
+/**
+ * gst_vaapi_surface_proxy_set_frame_id:
+ * @proxy: a #GstVaapiSurfaceProxy
+ * @frame_id: system_frame_number of the #GstVideoCodecFrame 
+ *
+ * Stores a new @frame_id into the @proxy. 
+ */
+void
+gst_vaapi_surface_proxy_set_frame_id(GstVaapiSurfaceProxy *proxy, gint frame_id)
+{
+    g_return_if_fail(GST_VAAPI_IS_SURFACE_PROXY(proxy));
+
+    proxy->priv->frame_id = frame_id;
+}
+
 
 /**
  * gst_vaapi_surface_proxy_set_surface:

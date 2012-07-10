@@ -164,6 +164,12 @@ gst_vaapi_surface_proxy_get_tff(GstVaapiSurfaceProxy *proxy);
 void
 gst_vaapi_surface_proxy_set_tff(GstVaapiSurfaceProxy *proxy, gboolean tff);
 
+gint
+gst_vaapi_surface_proxy_get_frame_id(GstVaapiSurfaceProxy *proxy);
+
+void
+gst_vaapi_surface_proxy_set_frame_id(GstVaapiSurfaceProxy *proxy, gint frame_id);
+
 G_END_DECLS
 
 #endif /* GST_VAAPI_SURFACE_PROXY_H */
