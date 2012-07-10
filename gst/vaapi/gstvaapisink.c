@@ -679,15 +679,28 @@ gst_vaapisink_show_frame_x11(
 }
 
 static GstFlowReturn
-gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buffer)
+gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
 {
     GstVaapiSink * const sink = GST_VAAPISINK(base_sink);
-    GstVaapiVideoBuffer * const vbuffer = GST_VAAPI_VIDEO_BUFFER(buffer);
+    GstBuffer *buffer;
+    GstVaapiVideoBuffer * vbuffer;
     GstVaapiSurface *surface;
     guint flags;
     gboolean success;
-    GstVideoOverlayComposition * const composition =
-        gst_video_buffer_get_overlay_composition(buffer);
+    GstVideoOverlayComposition *composition;
+
+    /*Fixme: to handle the sub_buffer creation in GstVideoDecoder*/
+    if (GST_VAAPI_IS_VIDEO_BUFFER (buf))
+	buffer = buf;
+    else if (GST_VAAPI_IS_VIDEO_BUFFER (buf->parent))
+	buffer = buf->parent;
+    else {
+	GST_ERROR_OBJECT (sink, "Failed to get the vaapi-videobuffer to render");
+	return  GST_FLOW_UNEXPECTED;
+    }
+    
+    vbuffer = GST_VAAPI_VIDEO_BUFFER(buffer);
+    composition = gst_video_buffer_get_overlay_composition(buffer);
 
     if (sink->display != gst_vaapi_video_buffer_get_display (vbuffer)) {
       if (sink->display)
