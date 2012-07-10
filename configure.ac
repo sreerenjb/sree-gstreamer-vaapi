@@ -520,7 +520,6 @@ pkgconfig/gstreamer-vaapi-glx.pc.in
 pkgconfig/gstreamer-vaapi-x11.pc.in
     gst/Makefile
     gst/vaapi/Makefile
-    tests/Makefile
 ])
 
 dnl Print summary
