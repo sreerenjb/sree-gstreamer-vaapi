@@ -224,7 +224,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
     guint i, num_ref_frames, num_surfaces;
 
     /* Number of scratch surfaces beyond those used as reference */
-    const guint SCRATCH_SURFACES_COUNT = 4;
+    const guint SCRATCH_SURFACES_COUNT = 6;
 
     if (!gst_vaapi_context_create_overlay(context))
         return FALSE;
