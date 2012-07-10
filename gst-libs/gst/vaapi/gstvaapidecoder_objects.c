@@ -188,6 +188,7 @@ gst_vaapi_picture_init(GstVaapiPicture *picture)
     picture->bitplane   = NULL;
     picture->pts        = GST_CLOCK_TIME_NONE;
     picture->poc        = 0;
+    picture->frame_id   = -1;
 }
 
 GstVaapiPicture *
@@ -345,6 +346,7 @@ gst_vaapi_picture_output(GstVaapiPicture *picture)
             gst_vaapi_surface_proxy_set_interlaced(proxy, TRUE);
         if (GST_VAAPI_PICTURE_IS_TFF(picture))
             gst_vaapi_surface_proxy_set_tff(proxy, TRUE);
+ 	gst_vaapi_surface_proxy_set_frame_id(proxy, picture->frame_id);
         gst_vaapi_decoder_push_surface_proxy(GET_DECODER(picture), proxy);
     }
     GST_VAAPI_PICTURE_FLAG_SET(picture, GST_VAAPI_PICTURE_FLAG_OUTPUT);

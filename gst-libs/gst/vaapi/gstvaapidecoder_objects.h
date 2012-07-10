@@ -151,6 +151,7 @@ struct _GstVaapiPicture {
     GstClockTime                pts;
     gint32                      poc;
     guint                       structure;
+    gint			frame_id;
 };
 
 /**
