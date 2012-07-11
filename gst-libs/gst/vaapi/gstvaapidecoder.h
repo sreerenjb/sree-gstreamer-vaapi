@@ -112,9 +112,9 @@ struct _GstVaapiDecoderClass {
     /*< private >*/
     GObjectClass parent_class;
 
-    GstFlowReturn (*parse) (GstVaapiDecoder *dec, GstAdapter *adapter, guint *toadd);
+    GstVaapiDecoderStatus (*parse) (GstVaapiDecoder *deccoder, GstAdapter *adapter, guint *toadd);
 
-    GstVaapiDecoderStatus (*decode) (GstVaapiDecoder *decoder, GstVideoCodecFrame *frame);
+    GstFlowReturn (*decode) (GstVaapiDecoder *decoder, GstVideoCodecFrame *frame);
 
 };
 
