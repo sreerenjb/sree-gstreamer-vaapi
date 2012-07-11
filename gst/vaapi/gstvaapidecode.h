@@ -25,6 +25,7 @@
 
 #include <gst/gst.h>
 #include <gst/gsttask.h>
+#include <gst/video/gstvideodecoder.h>
 #include <gst/vaapi/gstvaapidisplay.h>
 #include <gst/vaapi/gstvaapidecoder.h>
 
@@ -59,26 +60,28 @@ typedef struct _GstVaapiDecodeClass             GstVaapiDecodeClass;
 
 struct _GstVaapiDecode {
     /*< private >*/
-    GstElement          parent_instance;
+    GstVideoDecoder    parent_instance;
 
-    GstPad             *sinkpad;
-    GstCaps            *sinkpad_caps;
-    GstPad             *srcpad;
-    GstCaps            *srcpad_caps;
+    GstVideoCodecState *input_state;
+    GstVideoCodecState *output_state;
+
+    GstCaps	       *sinkpad_caps;
+    GstCaps	       *srcpad_caps;
+    GstCaps            *decoder_caps;
+    GstCaps            *allowed_caps;
+
     GstVaapiDisplay    *display;
     GstVaapiDecoder    *decoder;
     GMutex             *decoder_mutex;
     GCond              *decoder_ready;
-    GstCaps            *decoder_caps;
-    GstCaps            *allowed_caps;
-    GstEvent           *delayed_new_seg;
+
     unsigned int        use_ffmpeg      : 1;
     unsigned int        is_ready        : 1;
 };
 
 struct _GstVaapiDecodeClass {
     /*< private >*/
-    GstElementClass     parent_class;
+    GstVideoDecoderClass     parent_class;
 };
 
 GType
