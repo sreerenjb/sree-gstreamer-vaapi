@@ -635,23 +635,19 @@ gst_vaapidecode_get_caps(GstPad *pad)
 static gboolean
 gst_vaapidecode_query (GstPad *pad, GstQuery *query) {
     GstVaapiDecode *decode = GST_VAAPIDECODE (gst_pad_get_parent_element (pad));
-    gboolean res;
-    GstPadQueryFunction func;
+    GstVideoDecoder *bdec  = GST_VIDEO_DECODER (decode);
+    gboolean res = TRUE;
 
     GST_DEBUG ("sharing display %p", decode->display);
-/*Fixme*/
+
     if (gst_vaapi_reply_to_query (query, decode->display))
        res = TRUE;
     else {
-      if (GST_PAD_IS_SINK(pad)) {
-        func   = GST_PAD_QUERYFUNC (GST_VIDEO_DECODER_SINK_PAD(decode));
-	res = func (pad, query);
-      } else {
-        func   = GST_PAD_QUERYFUNC (GST_VIDEO_DECODER_SRC_PAD(decode));
-	res = func (pad, query);
-      }
+      if (GST_PAD_IS_SINK(pad))
+        res = decode->sinkpad_qfunc (GST_VIDEO_DECODER_SINK_PAD(bdec), query);
+      else
+        res = decode->srcpad_qfunc (GST_VIDEO_DECODER_SRC_PAD(bdec), query);
     }
-
     g_object_unref (decode);
     return res;
 }
@@ -659,6 +655,7 @@ gst_vaapidecode_query (GstPad *pad, GstQuery *query) {
 static void
 gst_vaapidecode_init(GstVaapiDecode *decode, GstVaapiDecodeClass *klass)
 {
+    GstVideoDecoder *bdec       = GST_VIDEO_DECODER (decode);
     decode->display             = NULL;
     decode->decoder             = NULL;
     decode->decoder_mutex       = NULL;
@@ -670,8 +667,11 @@ gst_vaapidecode_init(GstVaapiDecode *decode, GstVaapiDecodeClass *klass)
     decode->decoder_caps        = NULL;
     decode->allowed_caps        = NULL;
 
-//  gst_pad_set_query_function(GST_VIDEO_DECODER_SINK_PAD(decode), gst_vaapidecode_query);
-//  gst_pad_set_query_function(GST_VIDEO_DECODER_SRC_PAD(decode), gst_vaapidecode_query); 
+    decode->sinkpad_qfunc       = GST_PAD_QUERYFUNC (GST_VIDEO_DECODER_SINK_PAD(bdec));
+    decode->srcpad_qfunc        = GST_PAD_QUERYFUNC (GST_VIDEO_DECODER_SRC_PAD(bdec));
+
+    gst_pad_set_query_function(GST_VIDEO_DECODER_SINK_PAD(decode), gst_vaapidecode_query);
+    gst_pad_set_query_function(GST_VIDEO_DECODER_SRC_PAD(decode), gst_vaapidecode_query); 
  
     gst_pad_set_getcaps_function(GST_VIDEO_DECODER (decode)->sinkpad, gst_vaapidecode_get_caps); 
     gst_video_decoder_set_packetized (GST_VIDEO_DECODER(decode), FALSE);

@@ -75,6 +75,9 @@ struct _GstVaapiDecode {
     GMutex             *decoder_mutex;
     GCond              *decoder_ready;
 
+    GstPadQueryFunction sinkpad_qfunc;
+    GstPadQueryFunction srcpad_qfunc;
+
     unsigned int        use_ffmpeg      : 1;
     unsigned int        is_ready        : 1;
 };
