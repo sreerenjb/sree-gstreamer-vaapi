@@ -444,6 +444,96 @@ gst_vaapi_decoder_get_surface(
     return proxy;
 }
 
+/**
+ * gst_vaapi_decoder_parse:
+ * @decoder: a #GstVaapiDecoder
+ * @adapter: a #GstAdapter which has encoded data to parse (owned by GstVideoDecoder)
+ * @toadd  : size of data to be added to GstVideoCodecFrame
+ *
+ * Parse the data from adapter.
+ * If the function returns GST_VAAPI_DECODER_STATUS_SUCCESS with toadd==0,
+ * then it is the indication for vaapidecode to call finish_frame()
+ *
+ * Return value: status of parsing as a #GstVaapiDecoderStatus
+ */
+GstVaapiDecoderStatus
+gst_vaapi_decoder_parse(GstVaapiDecoder *decoder, GstAdapter *adapter, guint *toadd)
+{
+    GstVaapiDecoderStatus status;
+    guint tries = 0;
+/*Fixme*/
+    for (tries=0; tries<100; tries++) {
+        status = gst_vaapi_decoder_check_status(decoder);
+        
+        if (status == GST_VAAPI_DECODER_STATUS_ERROR_NO_SURFACE) 
+	{
+            GST_DEBUG ("Waiting to get the free surface, 10ms in each try");
+            g_usleep(10000);
+	}
+	else
+	    break;
+    }
+
+    if (tries==100)
+	goto error_decode_timeout;
+
+    status = GST_VAAPI_DECODER_GET_CLASS(decoder)->parse(decoder, adapter, toadd);
+    GST_DEBUG("decode frame (status = %d)", status);
+ 
+    return status; 
+
+error_decode_timeout:
+    {
+        GST_DEBUG("decode timeout. Decoder required a VA surface but none "
+                  "got available within one second");
+        return GST_FLOW_UNEXPECTED;
+    }
+}
+
+/**
+ * gst_vaapi_decoder_get_surface2:
+ * @decoder: a #GstVaapiDecoder
+ * @frame: a #GstVideoCodecFrame to decode
+ * @pstatus: return location for the decoder status, or %NULL
+ *
+ * Flushes encoded buffers to the decoder and returns a decoded
+ * surface, if any.
+ *
+ * Return value: a #GstVaapiSurfaceProxy holding the decoded surface,
+ *   or %NULL if none is available (e.g. an error). Caller owns the
+ *   returned object. g_object_unref() after usage.
+ */
+GstVaapiSurfaceProxy *
+gst_vaapi_decoder_get_surface2(
+    GstVaapiDecoder       *decoder,
+    GstVideoCodecFrame	  *frame,
+    GstVaapiDecoderStatus *pstatus
+) 
+{
+    GstVaapiSurfaceProxy *proxy = NULL;
+    GstVaapiDecoderStatus status;
+
+    if (pstatus)
+        *pstatus = GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+
+    g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), NULL);
+
+    if (!frame)
+	return NULL;
+
+    status = GST_VAAPI_DECODER_GET_CLASS(decoder)->decode(decoder, frame);
+    GST_DEBUG("decode frame (status = %d)", status);
+    
+    proxy = pop_surface(decoder);
+
+    if (proxy)
+        status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+    if (pstatus)
+        *pstatus = status;
+
+    return proxy;
+}
+
 void
 gst_vaapi_decoder_set_picture_size(
     GstVaapiDecoder    *decoder,

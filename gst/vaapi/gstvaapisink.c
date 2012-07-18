@@ -690,12 +690,12 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     GstVideoOverlayComposition *composition;
 
     /*Fixme: to handle the sub_buffer creation in GstVideoDecoder*/
-    if (GST_VAAPI_IS_VIDEO_BUFFER (buf))
+    if (GST_VAAPI_IS_VIDEO_BUFFER(buf))
 	buffer = buf;
-    else if (GST_VAAPI_IS_VIDEO_BUFFER (buf->parent))
+    else if (GST_VAAPI_IS_VIDEO_BUFFER(buf->parent))
 	buffer = buf->parent;
     else {
-	GST_ERROR_OBJECT (sink, "Failed to get the vaapi-videobuffer to render");
+	GST_ERROR_OBJECT(sink, "Failed to get the vaapi-videobuffer to render");
 	return  GST_FLOW_UNEXPECTED;
     }
     

@@ -72,8 +72,6 @@ struct _GstVaapiDecode {
 
     GstVaapiDisplay    *display;
     GstVaapiDecoder    *decoder;
-    GMutex             *decoder_mutex;
-    GCond              *decoder_ready;
 
     GstPadQueryFunction sinkpad_qfunc;
     GstPadQueryFunction srcpad_qfunc;
