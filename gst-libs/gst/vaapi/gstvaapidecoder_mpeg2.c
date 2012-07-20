@@ -90,8 +90,9 @@ pts_init(PTSGenerator *tsg)
 static inline GstClockTime
 pts_get_duration(PTSGenerator *tsg, guint num_frames)
 {
-    return gst_util_uint64_scale(num_frames,
-                                 GST_SECOND * tsg->fps_d, tsg->fps_n);
+    if (tsg->fps_d && tsg->fps_n)
+        return gst_util_uint64_scale(num_frames,
+                                     GST_SECOND * tsg->fps_d, tsg->fps_n);
 }
 
 static inline guint
@@ -1101,14 +1102,15 @@ gst_vaapi_decoder_mpeg2_reset(GstVaapiDecoder *bdec)
     GstVaapiDecoderMpeg2 * const decoder = GST_VAAPI_DECODER_MPEG2(bdec);
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
 
-    priv->ready_to_dec = FALSE;
+    if (priv->current_picture && !GST_VAAPI_PICTURE_IS_FRAME(priv->current_picture))
+        priv->ready_to_dec = FALSE;
     priv->adapter      = NULL;
 
-    gst_vaapi_decoder_mpeg2_close(decoder);
     if (!gst_vaapi_decoder_mpeg2_open(decoder)) {
        GST_ERROR("Failed to re-initialize the mpeg2 decoder");
        return FALSE;
     }
+    pts_set_framerate(&priv->tsg, priv->fps_n, priv->fps_d);
     return TRUE;	
 }
 
