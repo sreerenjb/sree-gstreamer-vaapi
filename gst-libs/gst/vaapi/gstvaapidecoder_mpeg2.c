@@ -1094,6 +1094,24 @@ gst_vaapi_decoder_mpeg2_decode(GstVaapiDecoder *base, GstVideoCodecFrame *frame)
     return decode_buffer(decoder, frame->input_buffer, frame);
 }
 
+gboolean
+gst_vaapi_decoder_mpeg2_reset(GstVaapiDecoder *bdec)
+{
+    gboolean res = TRUE;
+    GstVaapiDecoderMpeg2 * const decoder = GST_VAAPI_DECODER_MPEG2(bdec);
+    GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
+
+    priv->ready_to_dec = FALSE;
+    priv->adapter      = NULL;
+
+    gst_vaapi_decoder_mpeg2_close(decoder);
+    if (!gst_vaapi_decoder_mpeg2_open(decoder)) {
+       GST_ERROR("Failed to re-initialize the mpeg2 decoder");
+       return FALSE;
+    }
+    return TRUE;	
+}
+
 static void
 gst_vaapi_decoder_mpeg2_finalize(GObject *object)
 {
@@ -1137,6 +1155,7 @@ gst_vaapi_decoder_mpeg2_class_init(GstVaapiDecoderMpeg2Class *klass)
 
     decoder_class->parse        = gst_vaapi_decoder_mpeg2_parse;
     decoder_class->decode       = gst_vaapi_decoder_mpeg2_decode;
+    decoder_class->reset        = gst_vaapi_decoder_mpeg2_reset;
 }
 
 static void

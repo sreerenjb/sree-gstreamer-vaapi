@@ -112,7 +112,7 @@ decode_step(GstVaapiDecoder *decoder)
         if (!buffer)
             return GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA;
 
-        status = GST_VAAPI_DECODER_GET_CLASS(decoder)->decode(decoder, buffer);
+        /*status = GST_VAAPI_DECODER_GET_CLASS(decoder)->decode(decoder, buffer);*/
         GST_DEBUG("decode frame (status = %d)", status);
         if (status != GST_VAAPI_DECODER_STATUS_SUCCESS && GST_BUFFER_IS_EOS(buffer))
             status = GST_VAAPI_DECODER_STATUS_END_OF_STREAM;
@@ -532,6 +532,16 @@ gst_vaapi_decoder_get_surface2(
         *pstatus = status;
 
     return proxy;
+}
+
+gboolean
+gst_vaapi_decoder_reset(GstVaapiDecoder * decoder)
+{
+    gboolean res;
+    
+    res = GST_VAAPI_DECODER_GET_CLASS(decoder)->reset(decoder);
+   
+    return res; 
 }
 
 void

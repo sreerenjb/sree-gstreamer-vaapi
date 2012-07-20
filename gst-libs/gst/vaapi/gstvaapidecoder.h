@@ -115,7 +115,7 @@ struct _GstVaapiDecoderClass {
     GstVaapiDecoderStatus (*parse) (GstVaapiDecoder *deccoder, GstAdapter *adapter, guint *toadd);
 
     GstVaapiDecoderStatus (*decode) (GstVaapiDecoder *decoder, GstVideoCodecFrame *frame);
-
+    gboolean (*reset) (GstVaapiDecoder *decoder);
 };
 
 GType
@@ -138,6 +138,9 @@ gst_vaapi_decoder_get_surface(
 
 GstVaapiDecoderStatus 
 gst_vaapi_decoder_parse (GstVaapiDecoder *decoder, GstAdapter *adapter, guint *toadd);
+
+gboolean
+gst_vaapi_decoder_reset(GstVaapiDecoder * decoder);
 
 GstVaapiSurfaceProxy *
 gst_vaapi_decoder_get_surface2(

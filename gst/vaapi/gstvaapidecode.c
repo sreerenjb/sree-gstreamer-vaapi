@@ -580,13 +580,19 @@ gst_vaapi_dec_stop(GstVideoDecoder * decoder)
     return TRUE;
 }
 
+/*To perform post-seek semantics reset*/
 static gboolean
 gst_vaapi_dec_reset(GstVideoDecoder * bdec, gboolean hard)
 {
     GstVaapiDecode *dec = GST_VAAPIDECODE (bdec);
   
     GST_DEBUG_OBJECT (dec, "reset");
-
+    if(dec->decoder) {
+        if(!gst_vaapi_decoder_reset(dec->decoder)){
+	    GST_ERROR_OBJECT(dec, "Failed to reset : seeking might fail..");
+	    return FALSE;
+	}
+    }
     return TRUE;
 }
 
