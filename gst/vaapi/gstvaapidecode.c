@@ -52,7 +52,7 @@
 //# include <gst/vaapi/gstvaapidecoder_jpeg.h>
 # include <gst/vaapi/gstvaapidecoder_mpeg2.h>
 //# include <gst/vaapi/gstvaapidecoder_mpeg4.h>
-//# include <gst/vaapi/gstvaapidecoder_vc1.h>
+# include <gst/vaapi/gstvaapidecoder_vc1.h>
 #endif
 
 /* Favor codecparsers-based decoders for 0.3.x series */
@@ -224,9 +224,9 @@ gst_vaapidecode_create(GstVaapiDecode *decode, GstCaps *caps)
             /*else if (version == 4)
                 decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);*/
         }
-        /*else if (gst_structure_has_name(structure, "video/x-wmv"))
+        else if (gst_structure_has_name(structure, "video/x-wmv"))
             decode->decoder = gst_vaapi_decoder_vc1_new(dpy, caps);
-        else if (gst_structure_has_name(structure, "video/x-h263") ||
+        /*else if (gst_structure_has_name(structure, "video/x-h263") ||
                  gst_structure_has_name(structure, "video/x-divx") ||
                  gst_structure_has_name(structure, "video/x-xvid"))
             decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);
@@ -606,7 +606,7 @@ gst_vaapi_dec_set_format(GstVideoDecoder * bdec, GstVideoCodecState * state)
     GstVaapiDisplay *dpy;
     GstStructure *structure;
     GstVideoFormat fmt;
-
+    
     dec = GST_VAAPIDECODE (bdec);
 
     if (!state)
@@ -631,7 +631,7 @@ gst_vaapi_dec_set_format(GstVideoDecoder * bdec, GstVideoCodecState * state)
 
     if (!gst_vaapidecode_reset(dec, dec->sinkpad_caps))
         return FALSE;
-
+    /*Fixme: add codec_dat hadling from state->codec_data*/
     /*Fixme: set output state after getting the values from header(eg: mpeg2, after seq_hdr parsing) ??*/
     dec->output_state =
         gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec), fmt,
@@ -659,7 +659,6 @@ gst_vaapi_dec_parse(GstVideoDecoder * decoder,
     }
 
     status = gst_vaapi_decoder_parse(dec->decoder, adapter, &toadd);
-
     /* if parse() returns GST_VAAPI_DECODER_STATUS_SUCCESS,
   	case 1: toadd = 0  : got the full frame to decode, call finish_frame
 	case 2: toadd != 0 : add data to frame, by calling add_to_frame */
@@ -708,7 +707,6 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
     GstVaapiDecoderStatus status;
 
     dec = GST_VAAPIDECODE(bdec);
-
     proxy = gst_vaapi_decoder_get_surface2(dec->decoder, frame,  &status); /*will merge with gvd_get_surface later*/
 
     do {
@@ -745,7 +743,7 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
         proxy = gst_vaapi_decoder_get_surface_proxy(dec->decoder);
 
     }while (proxy); /* to handle SEQUENCE_END, multiple frames might be pending to render*/
-    
+   
     return ret;
  
 error_decode:
