@@ -1234,6 +1234,17 @@ gst_vaapi_decoder_vc1_decode(GstVaapiDecoder *base, GstVideoCodecFrame *frame)
 gboolean
 gst_vaapi_decoder_vc1_reset(GstVaapiDecoder *bdec)
 {
+    GstVaapiDecoderVC1 * const decoder = GST_VAAPI_DECODER_VC1(bdec);
+    GstVaapiDecoderVC1Private * const priv = decoder->priv;
+
+    priv->adapter = NULL;
+
+    if (!gst_vaapi_decoder_vc1_open(decoder)) {
+       GST_ERROR("Failed to re-initialize the mpeg2 decoder");
+       return FALSE;
+    }
+    return TRUE;
+
 }
 static void
 gst_vaapi_decoder_vc1_finalize(GObject *object)
