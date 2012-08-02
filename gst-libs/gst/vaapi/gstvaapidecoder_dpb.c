@@ -245,6 +245,25 @@ gst_vaapi_dpb_size(GstVaapiDpb *dpb)
     return dpb->num_pictures;
 }
 
+gboolean
+gst_vaapi_dpb_reset_pts(GstVaapiDpb *dpb, gint32 poc, GstClockTime pts)
+{
+    guint dpb_size, i;
+    g_return_val_if_fail(GST_VAAPI_IS_DPB(dpb), 0);
+
+    dpb_size = gst_vaapi_dpb_size (dpb);
+    for(i=0; i<dpb_size; i++){
+        if(dpb->pictures[i]->poc == poc){
+           dpb->pictures[i]->pts = pts;
+           break;
+        }
+    }
+    if(i == dpb_size)
+       	return FALSE;
+
+    return TRUE;
+}
+
 /* ------------------------------------------------------------------------- */
 /* --- DPB2 Decoded Picture Buffer (MPEG2, MPEG4:2, VC1)                 --- */
 /* ------------------------------------------------------------------------- */

@@ -107,6 +107,10 @@ G_GNUC_INTERNAL
 guint
 gst_vaapi_dpb_size(GstVaapiDpb *dpb);
 
+G_GNUC_INTERNAL
+gboolean
+gst_vaapi_dpb_reset_pts(GstVaapiDpb *dpb, gint32 poc, GstClockTime pts);
+
 static inline gpointer
 gst_vaapi_dpb_ref(gpointer ptr)
 {
