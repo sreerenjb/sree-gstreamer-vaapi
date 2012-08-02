@@ -102,6 +102,10 @@ gst_vaapi_display_type_get_type(void)
         { GST_VAAPI_DISPLAY_TYPE_WAYLAND,
           "VA/Wayland display", "wayland" },
 #endif
+#if USE_DRM
+        { GST_VAAPI_DISPLAY_TYPE_DRM,
+          "VA/DRM display", "drm" },
+#endif
         { 0, NULL, NULL },
     };
 
@@ -396,6 +400,7 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
     GstVaapiDisplayPrivate * const priv = display->priv;
     GstVaapiDisplayCache *cache;
     gboolean            has_errors      = TRUE;
+    VADisplayAttribute *display_attrs   = NULL;
     VAProfile          *profiles        = NULL;
     VAEntrypoint       *entrypoints     = NULL;
     VAImageFormat      *formats         = NULL;
@@ -460,8 +465,14 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
         goto end;
 
     GST_DEBUG("%d profiles", n);
-    for (i = 0; i < n; i++)
+    for (i = 0; i < n; i++) {
+#if VA_CHECK_VERSION(0,34,0)
+        /* Introduced in VA/VPP API */
+        if (profiles[i] == VAProfileNone)
+            continue;
+#endif
         GST_DEBUG("  %s", string_of_VAProfile(profiles[i]));
+    }
 
     priv->decoders = g_array_new(FALSE, FALSE, sizeof(GstVaapiConfig));
     if (!priv->decoders)
@@ -500,6 +511,21 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
         }
     }
     append_h263_config(priv->decoders);
+
+    /* VA display attributes */
+    display_attrs =
+        g_new(VADisplayAttribute, vaMaxNumDisplayAttributes(priv->display));
+    if (!display_attrs)
+        goto end;
+
+    n = 0; /* XXX: workaround old GMA500 bug */
+    status = vaQueryDisplayAttributes(priv->display, display_attrs, &n);
+    if (!vaapi_check_status(status, "vaQueryDisplayAttributes()"))
+        goto end;
+
+    GST_DEBUG("%d display attributes", n);
+    for (i = 0; i < n; i++)
+        GST_DEBUG("  %s", string_of_VADisplayAttributeType(display_attrs[i].type));
 
     /* VA image formats */
     formats = g_new(VAImageFormat, vaMaxNumImageFormats(priv->display));
@@ -548,6 +574,7 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
 
     has_errors = FALSE;
 end:
+    g_free(display_attrs);
     g_free(profiles);
     g_free(entrypoints);
     g_free(formats);
