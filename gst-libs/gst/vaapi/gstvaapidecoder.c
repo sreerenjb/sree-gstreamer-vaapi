@@ -484,6 +484,19 @@ gst_vaapi_decoder_set_framerate(
 }
 
 void
+gst_vaapi_decoder_get_framerate(
+    GstVaapiDecoder *decoder,
+    guint *fps_n,
+    guint *fps_d
+)
+{
+    GstVaapiDecoderPrivate *priv = decoder->priv;
+    
+    *fps_n = priv->fps_n;
+    *fps_d = priv->fps_d;
+}
+
+void
 gst_vaapi_decoder_set_pixel_aspect_ratio(
     GstVaapiDecoder    *decoder,
     guint               par_n,

@@ -146,6 +146,14 @@ gst_vaapi_decoder_set_framerate(
 
 G_GNUC_INTERNAL
 void
+gst_vaapi_decoder_get_framerate(
+    GstVaapiDecoder *decoder,
+    guint *fps_n,
+    guint *fps_d
+);
+
+G_GNUC_INTERNAL
+void
 gst_vaapi_decoder_set_pixel_aspect_ratio(
     GstVaapiDecoder    *decoder,
     guint               par_n,
