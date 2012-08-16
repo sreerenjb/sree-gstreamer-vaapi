@@ -59,7 +59,6 @@ struct _GstVaapiDecoderVC1Private {
     GstVaapiPicture            *next_picture;
     GstVaapiPicture            *prev_picture;
     GstAdapter                 *adapter;
-    GstBuffer                  *sub_buffer;
     guint8                     *rbdu_buffer;
     guint                       rbdu_buffer_size;
     guint                       is_constructed          : 1;
@@ -102,11 +101,6 @@ gst_vaapi_decoder_vc1_close(GstVaapiDecoderVC1 *decoder)
     gst_vaapi_picture_replace(&priv->current_picture, NULL);
     gst_vaapi_picture_replace(&priv->next_picture,    NULL);
     gst_vaapi_picture_replace(&priv->prev_picture,    NULL);
-
-    if (priv->sub_buffer) {
-        gst_buffer_unref(priv->sub_buffer);
-        priv->sub_buffer = NULL;
-    }
 
     if (priv->bitplanes) {
         gst_vc1_bitplanes_free(priv->bitplanes);
@@ -1318,7 +1312,6 @@ gst_vaapi_decoder_vc1_init(GstVaapiDecoderVC1 *decoder)
     priv->next_picture          = NULL;
     priv->prev_picture          = NULL;
     priv->adapter               = NULL;
-    priv->sub_buffer            = NULL;
     priv->rbdu_buffer           = NULL;
     priv->rbdu_buffer_size      = 0;
     priv->is_constructed        = FALSE;
