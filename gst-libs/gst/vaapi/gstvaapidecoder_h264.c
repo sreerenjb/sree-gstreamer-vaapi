@@ -2177,7 +2177,11 @@ error:
 }
 
 static GstVaapiDecoderStatus
-gst_vaapi_decoder_h264_parse(GstVaapiDecoder *base, GstAdapter *adapter, guint *toadd)
+gst_vaapi_decoder_h264_parse(
+    GstVaapiDecoder *base, 
+    GstAdapter *adapter, 
+    guint *toadd,
+    gboolean *have_frame)
 {
     GstVaapiDecoderH264 * const decoder = GST_VAAPI_DECODER_H264(base);
     GstVaapiDecoderH264Private * const priv = decoder->priv;
@@ -2247,16 +2251,15 @@ gst_vaapi_decoder_h264_parse(GstVaapiDecoder *base, GstAdapter *adapter, guint *
     }
     
     if (status == GST_VAAPI_DECODER_STATUS_SUCCESS) {
+
+ 	*toadd = nalu.offset + nalu.size;
+
         if (priv->ready_to_dec && 
 	   (nalu.type == GST_H264_NAL_SLICE_IDR ||
 	   nalu.type == GST_H264_NAL_SLICE)) {
 
     	    priv->ready_to_dec = FALSE;
-            gst_adapter_flush(priv->adapter,  nalu.offset + nalu.size);
-            *toadd = 0;
-            goto beach;
-        } else {
-            *toadd = nalu.offset + nalu.size;
+            *have_frame = TRUE;
             goto beach;
         }
     } 

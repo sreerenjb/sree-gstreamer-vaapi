@@ -648,6 +648,8 @@ gst_vaapi_dec_parse(GstVideoDecoder * decoder,
     GstVaapiDecoderStatus status;
     GstFlowReturn ret = GST_FLOW_OK;
     gint toadd;
+    gboolean have_frame = FALSE;
+
     /*Fixme : check at_eos*/
     dec = GST_VAAPIDECODE (decoder);
 
@@ -658,19 +660,18 @@ gst_vaapi_dec_parse(GstVideoDecoder * decoder,
 	goto beach;
     }
 
-    status = gst_vaapi_decoder_parse(dec->decoder, adapter, &toadd);
+    status = gst_vaapi_decoder_parse(dec->decoder, adapter, &toadd, &have_frame);
     /* if parse() returns GST_VAAPI_DECODER_STATUS_SUCCESS,
-  	case 1: toadd = 0  : got the full frame to decode, call finish_frame
-	case 2: toadd != 0 : add data to frame, by calling add_to_frame */
+  	-- size we got in #toadd is to be added to #frame
+	-- send the data for decoding if #have_frame is TRUE */
     if (status == GST_VAAPI_DECODER_STATUS_SUCCESS) {
-        if (toadd) {
+        
+ 	if(toadd) 
             gst_video_decoder_add_to_frame(decoder, toadd);
-	    goto beach;
-        }
-        else {
+       	if(have_frame)
             ret = gst_video_decoder_have_frame(decoder);
-	    goto beach;
-        }
+ 	goto beach; 
+
     } else if (status == GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA) {
           ret = GST_VIDEO_DECODER_FLOW_NEED_DATA;
           goto beach;

@@ -112,7 +112,7 @@ struct _GstVaapiDecoderClass {
     /*< private >*/
     GObjectClass parent_class;
 
-    GstVaapiDecoderStatus (*parse) (GstVaapiDecoder *deccoder, GstAdapter *adapter, guint *toadd);
+    GstVaapiDecoderStatus (*parse) (GstVaapiDecoder *deccoder, GstAdapter *adapter, guint *toadd, gboolean *have_frame);
 
     GstVaapiDecoderStatus (*decode) (GstVaapiDecoder *decoder, GstVideoCodecFrame *frame);
     gboolean (*reset) (GstVaapiDecoder *decoder);
@@ -137,7 +137,11 @@ gst_vaapi_decoder_get_surface(
 );
 
 GstVaapiDecoderStatus 
-gst_vaapi_decoder_parse (GstVaapiDecoder *decoder, GstAdapter *adapter, guint *toadd);
+gst_vaapi_decoder_parse(
+    GstVaapiDecoder *decoder, 
+    GstAdapter *adapter, 
+    guint *toadd,
+    gboolean *have_frame);
 
 gboolean
 gst_vaapi_decoder_reset(GstVaapiDecoder * decoder);

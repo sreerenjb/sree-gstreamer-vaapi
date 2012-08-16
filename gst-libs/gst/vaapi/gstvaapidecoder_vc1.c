@@ -1056,7 +1056,11 @@ decode_ebdu(GstVaapiDecoderVC1 *decoder, GstVC1BDU *ebdu)
 }
 
 static GstVaapiDecoderStatus
-gst_vaapi_decoder_vc1_parse(GstVaapiDecoder *base, GstAdapter *adapter, guint *toadd)
+gst_vaapi_decoder_vc1_parse(
+    GstVaapiDecoder *base, 
+    GstAdapter *adapter, 
+    guint *toadd,
+    gboolean *have_frame)
 {
     GstVaapiDecoderVC1 * const decoder = GST_VAAPI_DECODER_VC1(base);
     GstVaapiDecoderVC1Private * const priv = decoder->priv;
@@ -1087,9 +1091,9 @@ gst_vaapi_decoder_vc1_parse(GstVaapiDecoder *base, GstAdapter *adapter, guint *t
         ebdu.data      = data;
         status = decode_ebdu(decoder, &ebdu);
 	if (status == GST_VAAPI_DECODER_STATUS_SUCCESS) {
-               gst_adapter_flush(priv->adapter, size);
-	       *toadd = 0;	
-	       return status;
+	    *toadd = size;
+	    *have_frame = TRUE;	
+	    return status;
 	}
 	else 
     	    return GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA;
@@ -1112,8 +1116,8 @@ gst_vaapi_decoder_vc1_parse(GstVaapiDecoder *base, GstAdapter *adapter, guint *t
     status = decode_ebdu(decoder, &ebdu);
     if (status == GST_VAAPI_DECODER_STATUS_SUCCESS) { 
 	if (ebdu.type == GST_VC1_FRAME) {
-            gst_adapter_flush(priv->adapter, ebdu.size);
-	    *toadd = 0;
+	    *toadd = ebdu.size;
+	    *have_frame = TRUE;
 	    goto beach;
         } else {
 	    *toadd = ebdu.size;

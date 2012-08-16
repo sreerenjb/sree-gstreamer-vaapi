@@ -930,7 +930,11 @@ scan_for_start_code(GstAdapter *adapter, guint ofs, guint size, guint32 *scp)
 }
 
 GstVaapiDecoderStatus
-gst_vaapi_decoder_mpeg2_parse (GstVaapiDecoder *dec, GstAdapter *adapter, guint *toadd)
+gst_vaapi_decoder_mpeg2_parse(
+    GstVaapiDecoder *dec, 
+    GstAdapter *adapter, 
+    guint *toadd,
+    gboolean *have_frame)
 {
     GstVaapiDecoderMpeg2 *decoder = GST_VAAPI_DECODER_MPEG2(dec);
     GstVaapiDecoderMpeg2Private * priv = decoder->priv;
@@ -972,6 +976,7 @@ gst_vaapi_decoder_mpeg2_parse (GstVaapiDecoder *dec, GstAdapter *adapter, guint 
 	    if (!GST_VAAPI_PICTURE_IS_FRAME(priv->current_picture))
                 priv->ready_to_dec = FALSE;
             *toadd = 0;
+	    *have_frame = TRUE;
             goto beach;
         }
     }
@@ -1025,8 +1030,7 @@ gst_vaapi_decoder_mpeg2_parse (GstVaapiDecoder *dec, GstAdapter *adapter, guint 
 
         case GST_MPEG_VIDEO_PACKET_SEQUENCE_END:
             status = parse_sequence_end(decoder);
-    	    gst_adapter_flush(adapter, ofs);
-	    *toadd = 0;
+	    *have_frame = TRUE;
             break;
 
         case GST_MPEG_VIDEO_PACKET_GOP:

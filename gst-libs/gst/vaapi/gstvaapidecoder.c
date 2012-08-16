@@ -457,7 +457,11 @@ gst_vaapi_decoder_get_surface(
  * Return value: status of parsing as a #GstVaapiDecoderStatus
  */
 GstVaapiDecoderStatus
-gst_vaapi_decoder_parse(GstVaapiDecoder *decoder, GstAdapter *adapter, guint *toadd)
+gst_vaapi_decoder_parse(
+    GstVaapiDecoder *decoder, 
+    GstAdapter *adapter, 
+    guint *toadd, 
+    gboolean *have_frame)
 {
     GstVaapiDecoderStatus status;
     guint tries = 0;
@@ -477,7 +481,7 @@ gst_vaapi_decoder_parse(GstVaapiDecoder *decoder, GstAdapter *adapter, guint *to
     if (tries==100)
 	goto error_decode_timeout;
 
-    status = GST_VAAPI_DECODER_GET_CLASS(decoder)->parse(decoder, adapter, toadd);
+    status = GST_VAAPI_DECODER_GET_CLASS(decoder)->parse(decoder, adapter, toadd, have_frame);
     GST_DEBUG("decode frame (status = %d)", status);
  
     return status; 
