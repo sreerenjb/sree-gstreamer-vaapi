@@ -1115,7 +1115,7 @@ gst_vaapi_decoder_vc1_parse(
 
     status = decode_ebdu(decoder, &ebdu);
     if (status == GST_VAAPI_DECODER_STATUS_SUCCESS) { 
-	if (ebdu.type == GST_VC1_FRAME) {
+	if (ebdu.type == GST_VC1_FRAME || ebdu.type == GST_VC1_END_OF_SEQ) {
 	    *toadd = ebdu.size;
 	    *have_frame = TRUE;
 	    goto beach;

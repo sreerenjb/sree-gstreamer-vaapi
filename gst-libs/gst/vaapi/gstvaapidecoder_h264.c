@@ -2235,6 +2235,7 @@ gst_vaapi_decoder_h264_parse(
             break;
         case GST_H264_NAL_SEQ_END:
             status = decode_sequence_end(decoder);
+	    *have_frame = TRUE;
             break;
         case GST_H264_NAL_AU_DELIMITER:
             /* skip all Access Unit NALs */
