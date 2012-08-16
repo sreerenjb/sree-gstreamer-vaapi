@@ -152,11 +152,13 @@ libgstvaapi_source_c	+= \
 	gstvaapidecoder_dpb.c			\
 	gstvaapidecoder_mpeg2.c			\
 	gstvaapidecoder_vc1.c			\
+	gstvaapidecoder_h264.c			\
 	gstvaapidecoder_objects.c		\
 	$(NULL)
 libgstvaapi_source_h	+= \
 	gstvaapidecoder_mpeg2.h			\
 	gstvaapidecoder_vc1.h			\
+	gstvaapidecoder_h264.h			\
 	$(NULL)
 libgstvaapi_source_priv_h += \
 	gstvaapicodec_objects.h			\
