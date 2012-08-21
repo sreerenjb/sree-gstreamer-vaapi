@@ -44,7 +44,6 @@
 # include <gst/vaapi/gstvaapidecoder_mpeg2.h>
 //# include <gst/vaapi/gstvaapidecoder_mpeg4.h>
 # include <gst/vaapi/gstvaapidecoder_vc1.h>
-#endif
 
 #define GST_PLUGIN_NAME "vaapidecode"
 #define GST_PLUGIN_DESC "A VA-API based video decoder"
@@ -101,7 +100,7 @@ gst_video_context_interface_init(GstVideoContextInterface *iface);
 G_DEFINE_TYPE_WITH_CODE(
     GstVaapiDecode,
     gst_vaapidecode,
-    GST_TYPE_ELEMENT,
+    GST_TYPE_VIDEO_DECODER,
     G_IMPLEMENT_INTERFACE(GST_TYPE_IMPLEMENTS_INTERFACE,
                           gst_vaapidecode_implements_iface_init);
     G_IMPLEMENT_INTERFACE(GST_TYPE_VIDEO_CONTEXT,
@@ -180,12 +179,11 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
     return success;
 }
 
-static void
-gst_vaapidecode_release(GstVaapiDecode *decode, GObject *dead_object)
+static inline gboolean
+gst_vaapidecode_ensure_display(GstVaapiDecode *decode)
 {
-    g_mutex_lock(decode->decoder_mutex);
-    g_cond_signal(decode->decoder_ready);
-    g_mutex_unlock(decode->decoder_mutex);
+    return gst_vaapi_ensure_display(decode, GST_VAAPI_DISPLAY_TYPE_ANY,
+        &decode->display);
 }
 
 static gboolean
@@ -322,7 +320,7 @@ gst_vaapidecode_finalize(GObject *object)
         decode->allowed_caps = NULL;
     }
 
-    G_OBJECT_CLASS(parent_class)->finalize(object);
+    G_OBJECT_CLASS(gst_vaapidecode_parent_class)->finalize(object);
 }
 
 static void
@@ -497,12 +495,11 @@ gst_vaapidecode_query (GstPad *pad, GstQuery *query) {
 }
 
 static void
-gst_vaapidecode_init(GstVaapiDecode *decode, GstVaapiDecodeClass *klass)
+gst_vaapidecode_init(GstVaapiDecode *decode)
 {
     GstVideoDecoder *bdec       = GST_VIDEO_DECODER (decode);
     decode->display             = NULL;
     decode->decoder             = NULL;
-    decode->use_ffmpeg          = USE_FFMPEG_DEFAULT;
     decode->is_ready            = FALSE;
     decode->sinkpad_caps        = NULL;
     decode->srcpad_caps         = NULL;
