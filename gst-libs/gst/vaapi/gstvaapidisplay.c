@@ -49,6 +49,7 @@ enum {
     PROP_0,
 
     PROP_DISPLAY,
+    PROP_DISPLAY_TYPE,
     PROP_WIDTH,
     PROP_HEIGHT
 };
@@ -78,6 +79,39 @@ free_display_cache(void)
         return;
     gst_vaapi_display_cache_free(g_display_cache);
     g_display_cache = NULL;
+}
+
+/* GstVaapiDisplayType enumerations */
+GType
+gst_vaapi_display_type_get_type(void)
+{
+    static GType g_type = 0;
+
+    static const GEnumValue display_types[] = {
+        { GST_VAAPI_DISPLAY_TYPE_ANY,
+          "Auto detection", "any" },
+#if USE_X11
+        { GST_VAAPI_DISPLAY_TYPE_X11,
+          "VA/X11 display", "x11" },
+#endif
+#if USE_GLX
+        { GST_VAAPI_DISPLAY_TYPE_GLX,
+          "VA/GLX display", "glx" },
+#endif
+#if USE_WAYLAND
+        { GST_VAAPI_DISPLAY_TYPE_WAYLAND,
+          "VA/Wayland display", "wayland" },
+#endif
+#if USE_DRM
+        { GST_VAAPI_DISPLAY_TYPE_DRM,
+          "VA/DRM display", "drm" },
+#endif
+        { 0, NULL, NULL },
+    };
+
+    if (!g_type)
+        g_type = g_enum_register_static("GstVaapiDisplayType", display_types);
+    return g_type;
 }
 
 /* Append GstVaapiImageFormat to formats array */
@@ -352,16 +386,12 @@ gst_vaapi_display_destroy(GstVaapiDisplay *display)
             klass->close_display(display);
     }
 
-    if (priv->parent) {
-        g_object_unref(priv->parent);
-        priv->parent = NULL;
-    }
+    g_clear_object(&priv->parent);
 
     if (g_display_cache) {
         gst_vaapi_display_cache_remove(get_display_cache(), display);
         free_display_cache();
     }
-    g_static_rec_mutex_free(&priv->mutex);
 }
 
 static gboolean
@@ -370,6 +400,7 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
     GstVaapiDisplayPrivate * const priv = display->priv;
     GstVaapiDisplayCache *cache;
     gboolean            has_errors      = TRUE;
+    VADisplayAttribute *display_attrs   = NULL;
     VAProfile          *profiles        = NULL;
     VAEntrypoint       *entrypoints     = NULL;
     VAImageFormat      *formats         = NULL;
@@ -381,6 +412,7 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
 
     memset(&info, 0, sizeof(info));
     info.display = display;
+    info.display_type = priv->display_type;
 
     if (priv->display)
         info.va_display = priv->display;
@@ -391,6 +423,7 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
         if (!klass->get_display || !klass->get_display(display, &info))
             return FALSE;
         priv->display = info.va_display;
+        priv->display_type = info.display_type;
         if (klass->get_size)
             klass->get_size(display, &priv->width, &priv->height);
         if (klass->get_size_mm)
@@ -408,9 +441,9 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
         info.va_display
     );
     if (cached_info) {
-        if (priv->parent)
-            g_object_unref(priv->parent);
+        g_clear_object(&priv->parent);
         priv->parent = g_object_ref(cached_info->display);
+        priv->display_type = cached_info->display_type;
     }
 
     if (!priv->parent) {
@@ -432,8 +465,14 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
         goto end;
 
     GST_DEBUG("%d profiles", n);
-    for (i = 0; i < n; i++)
+    for (i = 0; i < n; i++) {
+#if VA_CHECK_VERSION(0,34,0)
+        /* Introduced in VA/VPP API */
+        if (profiles[i] == VAProfileNone)
+            continue;
+#endif
         GST_DEBUG("  %s", string_of_VAProfile(profiles[i]));
+    }
 
     priv->decoders = g_array_new(FALSE, FALSE, sizeof(GstVaapiConfig));
     if (!priv->decoders)
@@ -472,6 +511,21 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
         }
     }
     append_h263_config(priv->decoders);
+
+    /* VA display attributes */
+    display_attrs =
+        g_new(VADisplayAttribute, vaMaxNumDisplayAttributes(priv->display));
+    if (!display_attrs)
+        goto end;
+
+    n = 0; /* XXX: workaround old GMA500 bug */
+    status = vaQueryDisplayAttributes(priv->display, display_attrs, &n);
+    if (!vaapi_check_status(status, "vaQueryDisplayAttributes()"))
+        goto end;
+
+    GST_DEBUG("%d display attributes", n);
+    for (i = 0; i < n; i++)
+        GST_DEBUG("  %s", string_of_VADisplayAttributeType(display_attrs[i].type));
 
     /* VA image formats */
     formats = g_new(VAImageFormat, vaMaxNumImageFormats(priv->display));
@@ -520,6 +574,7 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
 
     has_errors = FALSE;
 end:
+    g_free(display_attrs);
     g_free(profiles);
     g_free(entrypoints);
     g_free(formats);
@@ -554,6 +609,8 @@ gst_vaapi_display_finalize(GObject *object)
 
     gst_vaapi_display_destroy(display);
 
+    g_static_rec_mutex_free(&display->priv->mutex);
+
     G_OBJECT_CLASS(gst_vaapi_display_parent_class)->finalize(object);
 }
 
@@ -570,6 +627,9 @@ gst_vaapi_display_set_property(
     switch (prop_id) {
     case PROP_DISPLAY:
         display->priv->display = g_value_get_pointer(value);
+        break;
+    case PROP_DISPLAY_TYPE:
+        display->priv->display_type = g_value_get_enum(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -590,6 +650,9 @@ gst_vaapi_display_get_property(
     switch (prop_id) {
     case PROP_DISPLAY:
         g_value_set_pointer(value, gst_vaapi_display_get_display(display));
+        break;
+    case PROP_DISPLAY_TYPE:
+        g_value_set_enum(value, gst_vaapi_display_get_display_type(display));
         break;
     case PROP_WIDTH:
         g_value_set_uint(value, gst_vaapi_display_get_width(display));
@@ -646,6 +709,16 @@ gst_vaapi_display_class_init(GstVaapiDisplayClass *klass)
 
     g_object_class_install_property
         (object_class,
+         PROP_DISPLAY_TYPE,
+         g_param_spec_enum("display-type",
+                           "VA display type",
+                           "VA display type",
+                           GST_VAAPI_TYPE_DISPLAY_TYPE,
+                           GST_VAAPI_DISPLAY_TYPE_ANY,
+                           G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY));
+
+    g_object_class_install_property
+        (object_class,
          PROP_WIDTH,
          g_param_spec_uint("width",
                            "Width",
@@ -670,6 +743,7 @@ gst_vaapi_display_init(GstVaapiDisplay *display)
 
     display->priv               = priv;
     priv->parent                = NULL;
+    priv->display_type          = GST_VAAPI_DISPLAY_TYPE_ANY;
     priv->display               = NULL;
     priv->width                 = 0;
     priv->height                = 0;
@@ -797,6 +871,23 @@ gst_vaapi_display_flush(GstVaapiDisplay *display)
     klass = GST_VAAPI_DISPLAY_GET_CLASS(display);
     if (klass->flush)
         klass->flush(display);
+}
+
+/**
+ * gst_vaapi_display_get_display:
+ * @display: a #GstVaapiDisplay
+ *
+ * Returns the #GstVaapiDisplayType bound to @display.
+ *
+ * Return value: the #GstVaapiDisplayType
+ */
+GstVaapiDisplayType
+gst_vaapi_display_get_display_type(GstVaapiDisplay *display)
+{
+    g_return_val_if_fail(GST_VAAPI_IS_DISPLAY(display),
+                         GST_VAAPI_DISPLAY_TYPE_ANY);
+
+    return display->priv->display_type;
 }
 
 /**

@@ -23,12 +23,7 @@
 #ifndef GST_VAAPI_DISPLAY_H
 #define GST_VAAPI_DISPLAY_H
 
-#ifdef GST_VAAPI_USE_OLD_VAAPI_0_29
-# include <va.h>
-#else
-# include <va/va.h>
-#endif
-
+#include <va/va.h>
 #include <gst/gst.h>
 #include <gst/vaapi/gstvaapiimageformat.h>
 #include <gst/vaapi/gstvaapiprofile.h>
@@ -59,10 +54,33 @@ G_BEGIN_DECLS
                                GST_VAAPI_TYPE_DISPLAY,  \
                                GstVaapiDisplayClass))
 
+typedef enum   _GstVaapiDisplayType             GstVaapiDisplayType;
 typedef struct _GstVaapiDisplayInfo             GstVaapiDisplayInfo;
 typedef struct _GstVaapiDisplay                 GstVaapiDisplay;
 typedef struct _GstVaapiDisplayPrivate          GstVaapiDisplayPrivate;
 typedef struct _GstVaapiDisplayClass            GstVaapiDisplayClass;
+
+/**
+ * GstVaapiDisplayType:
+ * @GST_VAAPI_DISPLAY_TYPE_ANY: Automatic detection of the display type.
+ * @GST_VAAPI_DISPLAY_TYPE_X11: VA/X11 display.
+ * @GST_VAAPI_DISPLAY_TYPE_GLX: VA/GLX display.
+ * @GST_VAAPI_DISPLAY_TYPE_WAYLAND: VA/Wayland display.
+ * @GST_VAAPI_DISPLAY_TYPE_DRM: VA/DRM display.
+ */
+enum _GstVaapiDisplayType {
+    GST_VAAPI_DISPLAY_TYPE_ANY = 0,
+    GST_VAAPI_DISPLAY_TYPE_X11,
+    GST_VAAPI_DISPLAY_TYPE_GLX,
+    GST_VAAPI_DISPLAY_TYPE_WAYLAND,
+    GST_VAAPI_DISPLAY_TYPE_DRM,
+};
+
+#define GST_VAAPI_TYPE_DISPLAY_TYPE \
+    (gst_vaapi_display_type_get_type())
+
+GType
+gst_vaapi_display_type_get_type(void) G_GNUC_CONST;
 
 /**
  * GstVaapiDisplayInfo:
@@ -71,6 +89,7 @@ typedef struct _GstVaapiDisplayClass            GstVaapiDisplayClass;
  */
 struct _GstVaapiDisplayInfo {
     GstVaapiDisplay    *display;
+    GstVaapiDisplayType display_type;
     gchar              *display_name;
     VADisplay           va_display;
     gpointer            native_display;
@@ -122,7 +141,7 @@ struct _GstVaapiDisplayClass {
 };
 
 GType
-gst_vaapi_display_get_type(void);
+gst_vaapi_display_get_type(void) G_GNUC_CONST;
 
 GstVaapiDisplay *
 gst_vaapi_display_new_with_display(VADisplay va_display);
@@ -138,6 +157,9 @@ gst_vaapi_display_sync(GstVaapiDisplay *display);
 
 void
 gst_vaapi_display_flush(GstVaapiDisplay *display);
+
+GstVaapiDisplayType
+gst_vaapi_display_get_display_type(GstVaapiDisplay *display);
 
 VADisplay
 gst_vaapi_display_get_display(GstVaapiDisplay *display);

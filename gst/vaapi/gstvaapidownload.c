@@ -35,16 +35,9 @@
 #include <gst/vaapi/gstvaapivideosink.h>
 #include <gst/vaapi/gstvaapivideobuffer.h>
 
-#if USE_VAAPI_GLX
-#include <gst/vaapi/gstvaapivideobuffer_glx.h>
-#define gst_vaapi_video_buffer_new_from_pool(pool) \
-    gst_vaapi_video_buffer_glx_new_from_pool(pool)
-#define gst_vaapi_video_buffer_new_from_buffer(buffer) \
-    gst_vaapi_video_buffer_glx_new_from_buffer(buffer)
-#endif
-
-#include "gstvaapipluginutil.h"
 #include "gstvaapidownload.h"
+#include "gstvaapipluginutil.h"
+#include "gstvaapipluginbuffer.h"
 
 #define GST_PLUGIN_NAME "vaapidownload"
 #define GST_PLUGIN_DESC "A VA to video flow filter"
@@ -108,15 +101,21 @@ struct _GstVaapiDownloadClass {
     GstBaseTransformClass parent_class;
 };
 
+static void
+gst_vaapidownload_implements_iface_init(GstImplementsInterfaceClass *iface);
+
+static void
+gst_video_context_interface_init(GstVideoContextInterface *iface);
+
 #define GstVideoContextClass GstVideoContextInterface
-GST_BOILERPLATE_WITH_INTERFACE(
+G_DEFINE_TYPE_WITH_CODE(
     GstVaapiDownload,
     gst_vaapidownload,
-    GstBaseTransform,
     GST_TYPE_BASE_TRANSFORM,
-    GstVideoContext,
-    GST_TYPE_VIDEO_CONTEXT,
-    gst_video_context);
+    G_IMPLEMENT_INTERFACE(GST_TYPE_IMPLEMENTS_INTERFACE,
+                          gst_vaapidownload_implements_iface_init);
+    G_IMPLEMENT_INTERFACE(GST_TYPE_VIDEO_CONTEXT,
+                          gst_video_context_interface_init));
 
 static gboolean
 gst_vaapidownload_start(GstBaseTransform *trans);
@@ -164,6 +163,23 @@ gst_vaapidownload_query(
     GstQuery *query
 );
 
+/* GstImplementsInterface interface */
+
+static gboolean
+gst_vaapidownload_implements_interface_supported(
+    GstImplementsInterface *iface,
+    GType                   type
+)
+{
+    return (type == GST_TYPE_VIDEO_CONTEXT);
+}
+
+static void
+gst_vaapidownload_implements_iface_init(GstImplementsInterfaceClass *iface)
+{
+    iface->supported = gst_vaapidownload_implements_interface_supported;
+}
+
 /* GstVideoContext interface */
 
 static void
@@ -172,12 +188,6 @@ gst_vaapidownload_set_video_context(GstVideoContext *context, const gchar *type,
 {
   GstVaapiDownload *download = GST_VAAPIDOWNLOAD (context);
   gst_vaapi_set_display (type, value, &download->display);
-}
-
-static gboolean
-gst_video_context_supported (GstVaapiDownload *download, GType iface_type)
-{
-  return (iface_type == GST_TYPE_VIDEO_CONTEXT);
 }
 
 static void
@@ -205,24 +215,45 @@ gst_vaapidownload_destroy(GstVaapiDownload *download)
         download->allowed_caps = NULL;
     }
 
-    if (download->images) {
-        g_object_unref(download->images);
-        download->images = NULL;
-    }
-
-    if (download->display) {
-        g_object_unref(download->display);
-        download->display = NULL;
-    }
+    g_clear_object(&download->images);
+    g_clear_object(&download->display);
 }
 
 static void
-gst_vaapidownload_base_init(gpointer klass)
+gst_vaapidownload_finalize(GObject *object)
 {
+    gst_vaapidownload_destroy(GST_VAAPIDOWNLOAD(object));
+
+    G_OBJECT_CLASS(gst_vaapidownload_parent_class)->finalize(object);
+}
+
+static void
+gst_vaapidownload_class_init(GstVaapiDownloadClass *klass)
+{
+    GObjectClass * const object_class = G_OBJECT_CLASS(klass);
+    GstBaseTransformClass * const trans_class = GST_BASE_TRANSFORM_CLASS(klass);
     GstElementClass * const element_class = GST_ELEMENT_CLASS(klass);
     GstPadTemplate *pad_template;
 
-    gst_element_class_set_details(element_class, &gst_vaapidownload_details);
+    GST_DEBUG_CATEGORY_INIT(gst_debug_vaapidownload,
+                            GST_PLUGIN_NAME, 0, GST_PLUGIN_DESC);
+
+    object_class->finalize        = gst_vaapidownload_finalize;
+    trans_class->start            = gst_vaapidownload_start;
+    trans_class->stop             = gst_vaapidownload_stop;
+    trans_class->before_transform = gst_vaapidownload_before_transform;
+    trans_class->transform        = gst_vaapidownload_transform;
+    trans_class->transform_caps   = gst_vaapidownload_transform_caps;
+    trans_class->transform_size   = gst_vaapidownload_transform_size;
+    trans_class->set_caps         = gst_vaapidownload_set_caps;
+
+    gst_element_class_set_details_simple(
+        element_class,
+        gst_vaapidownload_details.longname,
+        gst_vaapidownload_details.klass,
+        gst_vaapidownload_details.description,
+        gst_vaapidownload_details.author
+    );
 
     /* sink pad */
     pad_template = gst_static_pad_template_get(&gst_vaapidownload_sink_factory);
@@ -236,34 +267,7 @@ gst_vaapidownload_base_init(gpointer klass)
 }
 
 static void
-gst_vaapidownload_finalize(GObject *object)
-{
-    gst_vaapidownload_destroy(GST_VAAPIDOWNLOAD(object));
-
-    G_OBJECT_CLASS(parent_class)->finalize(object);
-}
-
-static void
-gst_vaapidownload_class_init(GstVaapiDownloadClass *klass)
-{
-    GObjectClass * const object_class = G_OBJECT_CLASS(klass);
-    GstBaseTransformClass * const trans_class = GST_BASE_TRANSFORM_CLASS(klass);
-
-    GST_DEBUG_CATEGORY_INIT(gst_debug_vaapidownload,
-                            GST_PLUGIN_NAME, 0, GST_PLUGIN_DESC);
-
-    object_class->finalize        = gst_vaapidownload_finalize;
-    trans_class->start            = gst_vaapidownload_start;
-    trans_class->stop             = gst_vaapidownload_stop;
-    trans_class->before_transform = gst_vaapidownload_before_transform;
-    trans_class->transform        = gst_vaapidownload_transform;
-    trans_class->transform_caps   = gst_vaapidownload_transform_caps;
-    trans_class->transform_size   = gst_vaapidownload_transform_size;
-    trans_class->set_caps         = gst_vaapidownload_set_caps;
-}
-
-static void
-gst_vaapidownload_init(GstVaapiDownload *download, GstVaapiDownloadClass *klass)
+gst_vaapidownload_init(GstVaapiDownload *download)
 {
     GstPad *sinkpad, *srcpad;
 
@@ -286,12 +290,19 @@ gst_vaapidownload_init(GstVaapiDownload *download, GstVaapiDownloadClass *klass)
     gst_object_unref(srcpad);
 }
 
+static inline gboolean
+gst_vaapidownload_ensure_display(GstVaapiDownload *download)
+{
+    return gst_vaapi_ensure_display(download, GST_VAAPI_DISPLAY_TYPE_ANY,
+        &download->display);
+}
+
 static gboolean
 gst_vaapidownload_start(GstBaseTransform *trans)
 {
     GstVaapiDownload * const download = GST_VAAPIDOWNLOAD(trans);
 
-    if (!gst_vaapi_ensure_display(download, &download->display))
+    if (!gst_vaapidownload_ensure_display(download))
         return FALSE;
     return TRUE;
 }
@@ -301,10 +312,8 @@ gst_vaapidownload_stop(GstBaseTransform *trans)
 {
     GstVaapiDownload * const download = GST_VAAPIDOWNLOAD(trans);
 
-    if (download->display) {
-        g_object_unref(download->display);
-        download->display = NULL;
-    }
+    g_clear_object(&download->display);
+
     return TRUE;
 }
 
@@ -446,7 +455,7 @@ gst_vaapidownload_transform_caps(
     if (direction == GST_PAD_SINK) {
         if (!gst_structure_has_name(structure, GST_VAAPI_SURFACE_CAPS_NAME))
             return NULL;
-        if (!gst_vaapi_ensure_display(download, &download->display))
+        if (!gst_vaapidownload_ensure_display(download))
             return NULL;
         out_caps = gst_caps_from_string(gst_vaapidownload_yuv_caps_str);
 
@@ -484,7 +493,7 @@ gst_vaapidownload_transform_caps(
         gst_structure_set(
             structure,
             "type", G_TYPE_STRING, "vaapi",
-            "opengl", G_TYPE_BOOLEAN, USE_VAAPI_GLX,
+            "opengl", G_TYPE_BOOLEAN, USE_GLX,
             NULL
         );
     }
@@ -513,8 +522,7 @@ gst_vaapidownload_ensure_image_pool(GstVaapiDownload *download, GstCaps *caps)
         download->image_format = format;
         download->image_width  = width;
         download->image_height = height;
-        if (download->images)
-            g_object_unref(download->images);
+        g_clear_object(&download->images);
         download->images = gst_vaapi_image_pool_new(download->display, caps);
         if (!download->images)
             return FALSE;

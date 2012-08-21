@@ -22,12 +22,7 @@
 #ifndef GST_VAAPI_DISPLAY_X11_H
 #define GST_VAAPI_DISPLAY_X11_H
 
-#ifdef GST_VAAPI_USE_OLD_VAAPI_0_29
-# include <va_x11.h>
-#else
-# include <va/va_x11.h>
-#endif
-
+#include <va/va_x11.h>
 #include <gst/vaapi/gstvaapidisplay.h>
 
 G_BEGIN_DECLS
@@ -84,7 +79,7 @@ struct _GstVaapiDisplayX11Class {
 };
 
 GType
-gst_vaapi_display_x11_get_type(void);
+gst_vaapi_display_x11_get_type(void) G_GNUC_CONST;
 
 GstVaapiDisplay *
 gst_vaapi_display_x11_new(const gchar *display_name);

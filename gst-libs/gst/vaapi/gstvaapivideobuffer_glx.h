@@ -78,10 +78,7 @@ struct _GstVaapiVideoBufferGLXClass {
     GstVaapiVideoBufferClass parent_class;
 };
 
-GType      gst_vaapi_video_buffer_glx_get_type        (void);
-GstBuffer *gst_vaapi_video_buffer_glx_new             (GstVaapiDisplayGLX * display);
-GstBuffer *gst_vaapi_video_buffer_glx_new_from_pool   (GstVaapiVideoPool * pool);
-GstBuffer *gst_vaapi_video_buffer_glx_new_from_buffer (GstBuffer * buffer);
+GType      gst_vaapi_video_buffer_glx_get_type        (void) G_GNUC_CONST;
 
 G_END_DECLS
 

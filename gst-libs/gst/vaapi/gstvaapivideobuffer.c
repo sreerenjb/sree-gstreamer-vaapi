@@ -58,10 +58,7 @@ set_display(GstVaapiVideoBuffer *buffer, GstVaapiDisplay *display)
 {
     GstVaapiVideoBufferPrivate * const priv = buffer->priv;
 
-    if (priv->display) {
-        g_object_unref(priv->display);
-        priv->display = NULL;
-    }
+    g_clear_object(&priv->display);
 
     if (display)
         priv->display = g_object_ref(display);
@@ -94,10 +91,7 @@ gst_vaapi_video_buffer_destroy_image(GstVaapiVideoBuffer *buffer)
         priv->image = NULL;
     }
 
-    if (priv->image_pool) {
-        g_object_unref(priv->image_pool);
-        priv->image_pool = NULL;
-    }
+    g_clear_object(&priv->image_pool);
 }
 
 static void
@@ -105,10 +99,7 @@ gst_vaapi_video_buffer_destroy_surface(GstVaapiVideoBuffer *buffer)
 {
     GstVaapiVideoBufferPrivate * const priv = buffer->priv;
 
-    if (priv->proxy) {
-        g_object_unref(priv->proxy);
-        priv->proxy = NULL;
-    }
+    g_clear_object(&priv->proxy);
 
     if (priv->surface) {
         if (priv->surface_pool)
@@ -118,10 +109,7 @@ gst_vaapi_video_buffer_destroy_surface(GstVaapiVideoBuffer *buffer)
         priv->surface = NULL;
     }
 
-    if (priv->surface_pool) {
-        g_object_unref(priv->surface_pool);
-        priv->surface_pool = NULL;
-    }
+    g_clear_object(&priv->surface_pool);
 
     if (priv->buffer) {
         gst_buffer_unref(priv->buffer);
@@ -172,30 +160,41 @@ gst_vaapi_video_buffer_init(GstVaapiVideoBuffer *buffer)
     priv->render_flags  = 0;
 }
 
+static inline gboolean
+gst_vaapi_video_buffer_is_a(GstBuffer *buffer, GType type)
+{
+    return G_TYPE_CHECK_INSTANCE_TYPE(buffer, type);
+}
+
+static inline gpointer
+_gst_vaapi_video_buffer_typed_new(GType type)
+{
+    g_return_val_if_fail(g_type_is_a(type, GST_VAAPI_TYPE_VIDEO_BUFFER), NULL);
+
+    return gst_mini_object_new(type);
+}
+
 /**
- * gst_vaapi_video_buffer_new:
+ * gst_vaapi_video_buffer_typed_new:
  * @display: a #GstVaapiDisplay
  *
  * Creates an empty #GstBuffer. The caller is responsible for completing
  * the initialization of the buffer with the gst_vaapi_video_buffer_set_*()
  * functions.
  *
+ * This function shall only be called from within gstreamer-vaapi
+ * plugin elements.
+ *
  * Return value: the newly allocated #GstBuffer, or %NULL or error
  */
-static inline gpointer
-_gst_vaapi_video_buffer_new(void)
-{
-    return gst_mini_object_new(GST_VAAPI_TYPE_VIDEO_BUFFER);
-}
-
 GstBuffer *
-gst_vaapi_video_buffer_new(GstVaapiDisplay *display)
+gst_vaapi_video_buffer_typed_new(GType type, GstVaapiDisplay *display)
 {
     GstBuffer *buffer;
 
     g_return_val_if_fail(GST_VAAPI_IS_DISPLAY(display), NULL);
 
-    buffer = _gst_vaapi_video_buffer_new();
+    buffer = _gst_vaapi_video_buffer_typed_new(type);
     if (!buffer)
         return NULL;
 
@@ -204,7 +203,7 @@ gst_vaapi_video_buffer_new(GstVaapiDisplay *display)
 }
 
 /**
- * gst_vaapi_video_buffer_new_from_pool:
+ * gst_vaapi_video_buffer_typed_new_from_pool:
  * @pool: a #GstVaapiVideoPool
  *
  * Creates a #GstBuffer with a video object allocated from a @pool.
@@ -216,7 +215,7 @@ gst_vaapi_video_buffer_new(GstVaapiDisplay *display)
  * Return value: the newly allocated #GstBuffer, or %NULL on error
  */
 GstBuffer *
-gst_vaapi_video_buffer_new_from_pool(GstVaapiVideoPool *pool)
+gst_vaapi_video_buffer_typed_new_from_pool(GType type, GstVaapiVideoPool *pool)
 {
     GstVaapiVideoBuffer *buffer;
     gboolean is_image_pool, is_surface_pool;
@@ -229,7 +228,7 @@ gst_vaapi_video_buffer_new_from_pool(GstVaapiVideoPool *pool)
     if (!is_image_pool && !is_surface_pool)
         return NULL;
 
-    buffer = _gst_vaapi_video_buffer_new();
+    buffer = _gst_vaapi_video_buffer_typed_new(type);
     if (buffer &&
         ((is_image_pool &&
           gst_vaapi_video_buffer_set_image_from_pool(buffer, pool)) ||
@@ -244,27 +243,31 @@ gst_vaapi_video_buffer_new_from_pool(GstVaapiVideoPool *pool)
 }
 
 /**
- * gst_vaapi_video_buffer_new_from_buffer:
+ * gst_vaapi_video_buffer_typed_new_from_buffer:
  * @buffer: a #GstBuffer
  *
  * Creates a #GstBuffer with video objects bound to @buffer video
  * objects, if any.
  *
+ * This function shall only be called from within gstreamer-vaapi
+ * plugin elements.
+ *
  * Return value: the newly allocated #GstBuffer, or %NULL on error
  */
 GstBuffer *
-gst_vaapi_video_buffer_new_from_buffer(GstBuffer *buffer)
+gst_vaapi_video_buffer_typed_new_from_buffer(GType type, GstBuffer *buffer)
 {
     GstVaapiVideoBuffer *inbuf, *outbuf;
 
-    if (!GST_VAAPI_IS_VIDEO_BUFFER(buffer)) {
-        if (!buffer->parent || !GST_VAAPI_IS_VIDEO_BUFFER(buffer->parent))
+    if (!gst_vaapi_video_buffer_is_a(buffer, type)) {
+        if (!buffer->parent ||
+            !gst_vaapi_video_buffer_is_a(buffer->parent, type))
             return NULL;
         buffer = buffer->parent;
     }
     inbuf = GST_VAAPI_VIDEO_BUFFER(buffer);
 
-    outbuf = _gst_vaapi_video_buffer_new();
+    outbuf = _gst_vaapi_video_buffer_typed_new(type);
     if (!outbuf)
         return NULL;
 
@@ -280,66 +283,81 @@ gst_vaapi_video_buffer_new_from_buffer(GstBuffer *buffer)
 }
 
 /**
- * gst_vaapi_video_buffer_new_with_image:
+ * gst_vaapi_video_buffer_typed_new_with_image:
  * @image: a #GstVaapiImage
  *
  * Creates a #GstBuffer with the specified @image. The resulting
  * buffer holds an additional reference to the @image.
  *
+ * This function shall only be called from within gstreamer-vaapi
+ * plugin elements.
+ *
  * Return value: the newly allocated #GstBuffer, or %NULL on error
  */
 GstBuffer *
-gst_vaapi_video_buffer_new_with_image(GstVaapiImage *image)
+gst_vaapi_video_buffer_typed_new_with_image(GType type, GstVaapiImage *image)
 {
     GstVaapiVideoBuffer *buffer;
 
     g_return_val_if_fail(GST_VAAPI_IS_IMAGE(image), NULL);
 
-    buffer = _gst_vaapi_video_buffer_new();
+    buffer = _gst_vaapi_video_buffer_typed_new(type);
     if (buffer)
         gst_vaapi_video_buffer_set_image(buffer, image);
     return GST_BUFFER(buffer);
 }
 
 /**
- * gst_vaapi_video_buffer_new_with_surface:
+ * gst_vaapi_video_buffer_typed_new_with_surface:
  * @surface: a #GstVaapiSurface
  *
  * Creates a #GstBuffer with the specified @surface. The resulting
  * buffer holds an additional reference to the @surface.
  *
+ * This function shall only be called from within gstreamer-vaapi
+ * plugin elements.
+ *
  * Return value: the newly allocated #GstBuffer, or %NULL on error
  */
 GstBuffer *
-gst_vaapi_video_buffer_new_with_surface(GstVaapiSurface *surface)
+gst_vaapi_video_buffer_typed_new_with_surface(
+    GType            type,
+    GstVaapiSurface *surface
+)
 {
     GstVaapiVideoBuffer *buffer;
 
     g_return_val_if_fail(GST_VAAPI_IS_SURFACE(surface), NULL);
 
-    buffer = _gst_vaapi_video_buffer_new();
+    buffer = _gst_vaapi_video_buffer_typed_new(type);
     if (buffer)
         gst_vaapi_video_buffer_set_surface(buffer, surface);
     return GST_BUFFER(buffer);
 }
 
 /**
- * gst_vaapi_video_buffer_new_with_surface_proxy:
+ * gst_vaapi_video_buffer_typed_new_with_surface_proxy:
  * @proxy: a #GstVaapiSurfaceProxy
  *
  * Creates a #GstBuffer with the specified surface @proxy. The
  * resulting buffer holds an additional reference to the @proxy.
  *
+ * This function shall only be called from within gstreamer-vaapi
+ * plugin elements.
+ *
  * Return value: the newly allocated #GstBuffer, or %NULL on error
  */
 GstBuffer *
-gst_vaapi_video_buffer_new_with_surface_proxy(GstVaapiSurfaceProxy *proxy)
+gst_vaapi_video_buffer_typed_new_with_surface_proxy(
+    GType                 type,
+    GstVaapiSurfaceProxy *proxy
+)
 {
     GstVaapiVideoBuffer *buffer;
 
     g_return_val_if_fail(GST_VAAPI_IS_SURFACE_PROXY(proxy), NULL);
 
-    buffer = _gst_vaapi_video_buffer_new();
+    buffer = _gst_vaapi_video_buffer_typed_new(type);
     if (buffer)
         gst_vaapi_video_buffer_set_surface_proxy(buffer, proxy);
     return GST_BUFFER(buffer);
@@ -565,39 +583,6 @@ gst_vaapi_video_buffer_set_surface_proxy(
         set_surface(buffer, surface);
         buffer->priv->proxy = g_object_ref(proxy);
     }
-}
-
-/**
- * gst_vaapi_video_buffer_set_display:
- * @buffer: a #GstVaapiVideoBuffer
- * @display a #GstVaapiDisplay
- *
- * For subclass only, don't use.
- */
-void
-gst_vaapi_video_buffer_set_display(
-    GstVaapiVideoBuffer *buffer,
-    GstVaapiDisplay     *display
-)
-{
-  set_display(buffer, display);
-}
-
-/**
- * gst_vaapi_video_buffer_set_display:
- * @buffer: a #GstVaapiVideoBuffer
- * @other_buffer: a #GstBuffer
- *
- * For subclass only, don't use.
- */
-void
-gst_vaapi_video_buffer_set_buffer(
-    GstVaapiVideoBuffer *buffer,
-    GstBuffer           *other_buffer
-)
-{
-  g_return_if_fail (buffer->priv->buffer == NULL);
-  buffer->priv->buffer = gst_buffer_ref (other_buffer);
 }
 
 /**

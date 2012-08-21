@@ -1,10 +1,19 @@
-lib_LTLIBRARIES = 				\
-	libgstvaapi-@GST_MAJORMINOR@.la		\
-	libgstvaapi-x11-@GST_MAJORMINOR@.la	\
-	$(NULL)
+lib_LTLIBRARIES = libgstvaapi-@GST_MAJORMINOR@.la
+
+if USE_DRM
+lib_LTLIBRARIES += libgstvaapi-drm-@GST_MAJORMINOR@.la
+endif
+
+if USE_X11
+lib_LTLIBRARIES += libgstvaapi-x11-@GST_MAJORMINOR@.la
+endif
 
 if USE_GLX
 lib_LTLIBRARIES += libgstvaapi-glx-@GST_MAJORMINOR@.la
+endif
+
+if USE_WAYLAND
+lib_LTLIBRARIES += libgstvaapi-wayland-@GST_MAJORMINOR@.la
 endif
 
 libgstvaapi_includedir =			\
@@ -17,6 +26,7 @@ libgstvaapi_cflags =				\
 	$(GST_BASEVIDEO_CFLAGS)			\
 	$(GST_VIDEO_CFLAGS)			\
 	$(GST_CFLAGS)				\
+	$(GST_CODEC_PARSERS_CFLAGS)		\
 	$(LIBVA_CFLAGS)				\
 	$(NULL)
 
@@ -25,18 +35,24 @@ libgstvaapi_libs =				\
 	$(GST_BASEVIDEO_LIBS)			\
 	$(GST_LIBS)				\
 	$(GST_VIDEO_LIBS)			\
+	$(GST_CODEC_PARSERS_LIBS)		\
 	$(LIBVA_LIBS)				\
 	$(NULL)
 
 libgstvaapi_source_c =				\
+	gstvaapicodec_objects.c			\
 	gstvaapicontext.c			\
 	gstvaapidecoder.c			\
+	gstvaapidecoder_dpb.c			\
+	gstvaapidecoder_h264.c			\
+	gstvaapidecoder_mpeg2.c			\
+	gstvaapidecoder_objects.c		\
+	gstvaapidecoder_vc1.c			\
 	gstvaapidisplay.c			\
 	gstvaapidisplaycache.c			\
 	gstvaapiimage.c				\
 	gstvaapiimageformat.c			\
 	gstvaapiimagepool.c			\
-	gstvaapimarshal.c			\
 	gstvaapiobject.c			\
 	gstvaapiparamspecs.c			\
 	gstvaapiprofile.c			\
@@ -45,7 +61,6 @@ libgstvaapi_source_c =				\
 	gstvaapisurfacepool.c			\
 	gstvaapisurfaceproxy.c			\
 	gstvaapiutils.c				\
-	gstvaapiutils_tsb.c			\
 	gstvaapivalue.c				\
 	gstvaapivideobuffer.c			\
 	gstvaapivideopool.c			\
@@ -56,6 +71,9 @@ libgstvaapi_source_c =				\
 libgstvaapi_source_h =				\
 	gstvaapicontext.h			\
 	gstvaapidecoder.h			\
+	gstvaapidecoder_h264.h			\
+	gstvaapidecoder_mpeg2.h			\
+	gstvaapidecoder_vc1.h			\
 	gstvaapidisplay.h			\
 	gstvaapidisplaycache.h			\
 	gstvaapiimage.h				\
@@ -79,18 +97,41 @@ libgstvaapi_source_h =				\
 libgstvaapi_source_priv_h =			\
 	glibcompat.h				\
 	gstvaapi_priv.h				\
+	gstvaapicodec_objects.h			\
 	gstvaapicompat.h			\
 	gstvaapidebug.h				\
+	gstvaapidecoder_dpb.h			\
+	gstvaapidecoder_objects.h		\
 	gstvaapidecoder_priv.h			\
 	gstvaapidisplay_priv.h			\
 	gstvaapiobject_priv.h			\
 	gstvaapisurface_priv.h			\
 	gstvaapiutils.h				\
-	gstvaapiutils_tsb.h			\
 	gstvaapivideobuffer_priv.h		\
 	gstvaapiworkarounds.h			\
 	sysdeps.h				\
-	$(libgst_vaapi_ffmpeg_source_priv_h)	\
+	$(NULL)
+
+if USE_JPEG_DECODER
+libgstvaapi_source_c += gstvaapidecoder_jpeg.c
+libgstvaapi_source_h += gstvaapidecoder_jpeg.h
+endif
+
+libgstvaapi_drm_source_c =			\
+	gstvaapidisplay_drm.c			\
+	gstvaapiwindow_drm.c			\
+	gstvaapiutils.c				\
+	$(NULL)
+
+libgstvaapi_drm_source_h =			\
+	gstvaapidisplay_drm.h			\
+	gstvaapiwindow_drm.h			\
+	$(NULL)
+
+libgstvaapi_drm_source_priv_h =			\
+	gstvaapicompat.h			\
+	gstvaapidisplay_drm_priv.h		\
+	gstvaapiutils.h				\
 	$(NULL)
 
 libgstvaapi_x11_source_c =			\
@@ -139,40 +180,22 @@ libgstvaapi_glx_source_priv_h =			\
 	gstvaapiutils_x11.h			\
 	$(NULL)
 
-if USE_FFMPEG
-libgstvaapi_source_c	+= gstvaapidecoder_ffmpeg.c
-libgstvaapi_source_h	+= gstvaapidecoder_ffmpeg.h
-libgstvaapi_cflags	+= $(LIBAVCODEC_CFLAGS)
-libgstvaapi_libs	+= $(LIBAVCODEC_LIBS)
-endif
+libgstvaapi_wayland_source_c =			\
+	gstvaapidisplay_wayland.c		\
+	gstvaapiutils.c				\
+	gstvaapiwindow_wayland.c		\
+	$(NULL)
 
-if USE_CODEC_PARSERS
-libgstvaapi_source_c	+= \
-	gstvaapicodec_objects.c			\
-	gstvaapidecoder_dpb.c			\
-	gstvaapidecoder_mpeg2.c			\
-	gstvaapidecoder_vc1.c			\
-	gstvaapidecoder_h264.c			\
-	gstvaapidecoder_objects.c		\
+libgstvaapi_wayland_source_h =			\
+	gstvaapidisplay_wayland.h		\
+	gstvaapiwindow_wayland.h		\
 	$(NULL)
-libgstvaapi_source_h	+= \
-	gstvaapidecoder_mpeg2.h			\
-	gstvaapidecoder_vc1.h			\
-	gstvaapidecoder_h264.h			\
-	$(NULL)
-libgstvaapi_source_priv_h += \
-	gstvaapicodec_objects.h			\
-	gstvaapidecoder_dpb.h			\
-	gstvaapidecoder_objects.h		\
-	$(NULL)
-libgstvaapi_cflags	+= $(GST_CODEC_PARSERS_CFLAGS)
-libgstvaapi_libs	+= $(GST_CODEC_PARSERS_LIBS)
 
-if USE_JPEG_DECODER
-libgstvaapi_source_c	+= gstvaapidecoder_jpeg.c
-libgstvaapi_source_h	+= gstvaapidecoder_jpeg.h
-endif
-endif
+libgstvaapi_wayland_source_priv_h =		\
+	gstvaapicompat.h			\
+	gstvaapidisplay_wayland_priv.h		\
+	gstvaapiutils.h				\
+	$(NULL)
 
 if USE_LOCAL_CODEC_PARSERS
 libgstvaapi_libs += \
@@ -200,6 +223,40 @@ libgstvaapi_@GST_MAJORMINOR@_la_LIBADD =	\
 	$(NULL)
 
 libgstvaapi_@GST_MAJORMINOR@_la_LDFLAGS =	\
+	$(GST_ALL_LDFLAGS)			\
+	$(NULL)
+
+libgstvaapi_drm_@GST_MAJORMINOR@_la_SOURCES =	\
+	$(libgstvaapi_drm_source_c)		\
+	$(libgstvaapi_drm_source_priv_h)	\
+	$(NULL)
+
+libgstvaapi_drm_@GST_MAJORMINOR@include_HEADERS = \
+	$(libgstvaapi_drm_source_h)		\
+	$(NULL)
+
+libgstvaapi_drm_@GST_MAJORMINOR@includedir =	\
+	$(libgstvaapi_includedir)
+
+libgstvaapi_drm_@GST_MAJORMINOR@_la_CFLAGS =	\
+	-DGST_USE_UNSTABLE_API			\
+	-I$(top_srcdir)/gst-libs		\
+	$(GLIB_CFLAGS)				\
+	$(GST_BASE_CFLAGS)			\
+	$(UDEV_CFLAGS)				\
+	$(DRM_CFLAGS)				\
+	$(LIBVA_DRM_CFLAGS)			\
+	$(NULL)
+
+libgstvaapi_drm_@GST_MAJORMINOR@_la_LIBADD =	\
+	$(GLIB_LIBS)				\
+	$(UDEV_LIBS)				\
+	$(DRM_LIBS)				\
+	$(LIBVA_DRM_LIBS)			\
+	libgstvaapi-@GST_MAJORMINOR@.la		\
+	$(NULL)
+
+libgstvaapi_drm_@GST_MAJORMINOR@_la_LDFLAGS =	\
 	$(GST_ALL_LDFLAGS)			\
 	$(NULL)
 
@@ -252,13 +309,13 @@ libgstvaapi_glx_@GST_MAJORMINOR@_la_CFLAGS =	\
 	-I$(top_srcdir)/gst-libs		\
 	$(GLIB_CFLAGS)				\
 	$(GST_BASE_CFLAGS)			\
-	$(GLX_CFLAGS)				\
+	$(GL_CFLAGS)				\
 	$(LIBVA_GLX_CFLAGS)			\
 	$(NULL)
 
 libgstvaapi_glx_@GST_MAJORMINOR@_la_LIBADD =	\
 	$(GLIB_LIBS)				\
-	$(GLX_LIBS)				\
+	$(GL_LIBS)				\
 	$(LIBVA_GLX_LIBS)			\
 	libgstvaapi-x11-@GST_MAJORMINOR@.la	\
 	$(NULL)
@@ -267,38 +324,37 @@ libgstvaapi_glx_@GST_MAJORMINOR@_la_LDFLAGS =	\
 	$(GST_ALL_LDFLAGS)			\
 	$(NULL)
 
+libgstvaapi_wayland_@GST_MAJORMINOR@_la_SOURCES = \
+	$(libgstvaapi_wayland_source_c)		\
+	$(libgstvaapi_wayland_source_priv_h)	\
+	$(NULL)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@include_HEADERS = \
+	$(libgstvaapi_wayland_source_h)		\
+	$(NULL)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@includedir = \
+	$(libgstvaapi_includedir)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@_la_CFLAGS = \
+	-DGST_USE_UNSTABLE_API			\
+	-I$(top_srcdir)/gst-libs		\
+	$(GLIB_CFLAGS)				\
+	$(GST_BASE_CFLAGS)			\
+	$(WAYLAND_CFLAGS)			\
+	$(LIBVA_WAYLAND_CFLAGS)			\
+	$(NULL)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@_la_LIBADD = \
+	$(GLIB_LIBS)				\
+	$(WAYLAND_LIBS)				\
+	$(LIBVA_WAYLAND_LIBS)			\
+	libgstvaapi-@GST_MAJORMINOR@.la		\
+	$(NULL)
+
+libgstvaapi_wayland_@GST_MAJORMINOR@_la_LDFLAGS = \
+	$(GST_ALL_LDFLAGS)			\
+	$(NULL)
+
 # Extra clean files so that maintainer-clean removes *everything*
 MAINTAINERCLEANFILES = Makefile.in
-
-# glib-genmarshal rules
-glib_marshal_list = gstvaapimarshal.list
-glib_marshal_prefix = gst_vaapi_marshal
-
-marshal_h = $(glib_marshal_list:.list=.h)
-marshal_c = $(glib_marshal_list:.list=.c)
-
-CLEANFILES	= stamp-marshal
-DISTCLEANFILES	= $(marshal_h) $(marshal_c)
-BUILT_SOURCES	= $(marshal_h) $(marshal_c)
-EXTRA_DIST	= $(srcdir)/$(glib_marshal_list)
-
-stamp-marshal: $(glib_marshal_list)
-	$(GLIB_GENMARSHAL) \
-		--prefix=$(glib_marshal_prefix) \
-		--header \
-	$(srcdir)/$(glib_marshal_list) > xgen-mh \
-	&& (cmp -s xgen-mh $(marshal_h) || cp -f xgen-mh $(marshal_h)) \
-	&& rm -f xgen-mh \
-	&& echo timestamp > $(@F)
-
-$(marshal_h): stamp-marshal
-	@true
-
-$(marshal_c): $(marshal_h)
-	(echo "#include \"$(marshal_h)\"" ; \
-	$(GLIB_GENMARSHAL) \
-		--prefix=$(glib_marshal_prefix) \
-		--body \
-	$(srcdir)/$(glib_marshal_list)) > xgen-mc \
-	&& cp xgen-mc $(marshal_c) \
-	&& rm -f xgen-mc

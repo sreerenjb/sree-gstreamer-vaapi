@@ -22,22 +22,17 @@
 
 #include "config.h"
 #include <string.h>
-#include <gst/vaapi/gstvaapidisplay_x11.h>
-#include <gst/vaapi/gstvaapiwindow_x11.h>
 #include <gst/vaapi/gstvaapidecoder.h>
 #include <gst/vaapi/gstvaapisurface.h>
+#include <gst/vaapi/gstvaapidecoder_h264.h>
+#include <gst/vaapi/gstvaapidecoder_jpeg.h>
+#include <gst/vaapi/gstvaapidecoder_mpeg2.h>
+#include <gst/vaapi/gstvaapidecoder_vc1.h>
+#include "test-jpeg.h"
 #include "test-mpeg2.h"
 #include "test-h264.h"
 #include "test-vc1.h"
-
-#if USE_FFMPEG
-# include <gst/vaapi/gstvaapidecoder_ffmpeg.h>
-#endif
-#if USE_CODEC_PARSERS
-# include <gst/vaapi/gstvaapidecoder_h264.h>
-# include <gst/vaapi/gstvaapidecoder_mpeg2.h>
-# include <gst/vaapi/gstvaapidecoder_vc1.h>
-#endif
+#include "output.h"
 
 /* Set to 1 to check display cache works (shared VA display) */
 #define CHECK_DISPLAY_CACHE 1
@@ -52,6 +47,7 @@ struct _CodecDefs {
 
 static const CodecDefs g_codec_defs[] = {
 #define INIT_FUNCS(CODEC) { #CODEC, CODEC##_get_video_info }
+    INIT_FUNCS(jpeg),
     INIT_FUNCS(mpeg2),
     INIT_FUNCS(h264),
     INIT_FUNCS(vc1),
@@ -76,28 +72,18 @@ static inline void pause(void)
 }
 
 static gchar *g_codec_str;
-static gboolean g_use_ffmpeg = FALSE;
 
 static GOptionEntry g_options[] = {
     { "codec", 'c',
       0,
       G_OPTION_ARG_STRING, &g_codec_str,
       "codec to test", NULL },
-    { "ffmpeg", 0,
-      0,
-      G_OPTION_ARG_NONE, &g_use_ffmpeg,
-      "use ffmpeg", NULL },
-    { "codecparsers", 0,
-      G_OPTION_FLAG_REVERSE,
-      G_OPTION_ARG_NONE, &g_use_ffmpeg,
-      "use codec parsers", NULL },
     { NULL, }
 };
 
 int
 main(int argc, char *argv[])
 {
-    GOptionContext       *options;
     GstVaapiDisplay      *display, *display2;
     GstVaapiWindow       *window;
     GstVaapiDecoder      *decoder;
@@ -112,12 +98,8 @@ main(int argc, char *argv[])
     static const guint win_width  = 640;
     static const guint win_height = 480;
 
-    gst_init(&argc, &argv);
-
-    options = g_option_context_new(" - test-decode options");
-    g_option_context_add_main_entries(options, g_options, NULL);
-    g_option_context_parse(options, &argc, &argv, NULL);
-    g_option_context_free(options);
+    if (!video_output_init(&argc, argv, g_options))
+        g_error("failed to initialize video output subsystem");
 
     if (!g_codec_str)
         g_codec_str = g_strdup("h264");
@@ -127,18 +109,18 @@ main(int argc, char *argv[])
     if (!codec)
         g_error("no %s codec data found", g_codec_str);
 
-    display = gst_vaapi_display_x11_new(NULL);
+    display = video_output_create_display(NULL);
     if (!display)
         g_error("could not create VA display");
 
     if (CHECK_DISPLAY_CACHE)
-        display2 = gst_vaapi_display_x11_new(NULL);
+        display2 = video_output_create_display(NULL);
     else
         display2 = g_object_ref(display);
     if (!display2)
         g_error("could not create second VA display");
 
-    window = gst_vaapi_window_x11_new(display, win_width, win_height);
+    window = video_output_create_window(display, win_width, win_height);
     if (!window)
         g_error("could not create window");
 
@@ -156,32 +138,24 @@ main(int argc, char *argv[])
             NULL
         );
 
-    if (g_use_ffmpeg) {
-#if USE_FFMPEG
-        decoder = gst_vaapi_decoder_ffmpeg_new(display, decoder_caps);
-#else
-        g_error("FFmpeg-based decoders are not supported");
+    switch (gst_vaapi_profile_get_codec(info.profile)) {
+    case GST_VAAPI_CODEC_H264:
+        decoder = gst_vaapi_decoder_h264_new(display, decoder_caps);
+        break;
+#if USE_JPEG_DECODER
+    case GST_VAAPI_CODEC_JPEG:
+        decoder = gst_vaapi_decoder_jpeg_new(display, decoder_caps);
+        break;
 #endif
-    }
-    else {
-#if USE_CODEC_PARSERS
-        switch (gst_vaapi_profile_get_codec(info.profile)) {
-        case GST_VAAPI_CODEC_H264:
-            decoder = gst_vaapi_decoder_h264_new(display, decoder_caps);
-            break;
-        case GST_VAAPI_CODEC_MPEG2:
-            decoder = gst_vaapi_decoder_mpeg2_new(display, decoder_caps);
-            break;
-        case GST_VAAPI_CODEC_VC1:
-            decoder = gst_vaapi_decoder_vc1_new(display, decoder_caps);
-            break;
-        default:
-            decoder = NULL;
-            break;
-        }
-#else
-        g_error("codecparsers-based decoders are not supported");
-#endif
+    case GST_VAAPI_CODEC_MPEG2:
+        decoder = gst_vaapi_decoder_mpeg2_new(display, decoder_caps);
+        break;
+    case GST_VAAPI_CODEC_VC1:
+        decoder = gst_vaapi_decoder_vc1_new(display, decoder_caps);
+        break;
+    default:
+        decoder = NULL;
+        break;
     }
     if (!decoder)
         g_error("could not create decoder");
@@ -220,6 +194,6 @@ main(int argc, char *argv[])
     g_object_unref(display);
     g_object_unref(display2);
     g_free(g_codec_str);
-    gst_deinit();
+    video_output_exit();
     return 0;
 }

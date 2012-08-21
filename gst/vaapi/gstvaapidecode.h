@@ -76,7 +76,6 @@ struct _GstVaapiDecode {
     GstPadQueryFunction sinkpad_qfunc;
     GstPadQueryFunction srcpad_qfunc;
 
-    unsigned int        use_ffmpeg      : 1;
     unsigned int        is_ready        : 1;
 };
 
@@ -86,7 +85,7 @@ struct _GstVaapiDecodeClass {
 };
 
 GType
-gst_vaapidecode_get_type(void);
+gst_vaapidecode_get_type(void) G_GNUC_CONST;
 
 G_END_DECLS
 

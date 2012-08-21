@@ -34,8 +34,9 @@
 #include <gst/vaapi/gstvaapivideosink.h>
 #include <gst/vaapi/gstvaapivideobuffer.h>
 
-#include "gstvaapipluginutil.h"
 #include "gstvaapipostproc.h"
+#include "gstvaapipluginutil.h"
+#include "gstvaapipluginbuffer.h"
 
 #define GST_PLUGIN_NAME "vaapipostproc"
 #define GST_PLUGIN_DESC "A video postprocessing filter"
@@ -74,15 +75,21 @@ static GstStaticPadTemplate gst_vaapipostproc_src_factory =
         GST_PAD_ALWAYS,
         GST_STATIC_CAPS(gst_vaapipostproc_src_caps_str));
 
+static void
+gst_vaapipostproc_implements_iface_init(GstImplementsInterfaceClass *iface);
+
+static void
+gst_video_context_interface_init(GstVideoContextInterface *iface);
+
 #define GstVideoContextClass GstVideoContextInterface
-GST_BOILERPLATE_WITH_INTERFACE(
+G_DEFINE_TYPE_WITH_CODE(
     GstVaapiPostproc,
     gst_vaapipostproc,
-    GstElement,
     GST_TYPE_ELEMENT,
-    GstVideoContext,
-    GST_TYPE_VIDEO_CONTEXT,
-    gst_video_context);
+    G_IMPLEMENT_INTERFACE(GST_TYPE_IMPLEMENTS_INTERFACE,
+                          gst_vaapipostproc_implements_iface_init);
+    G_IMPLEMENT_INTERFACE(GST_TYPE_VIDEO_CONTEXT,
+                          gst_video_context_interface_init));
 
 enum {
     PROP_0,
@@ -155,6 +162,23 @@ get_vaapipostproc_from_pad(GstPad *pad)
     return GST_VAAPIPOSTPROC(gst_pad_get_parent_element(pad));
 }
 
+/* GstImplementsInterface interface */
+
+static gboolean
+gst_vaapipostproc_implements_interface_supported(
+    GstImplementsInterface *iface,
+    GType                   type
+)
+{
+    return (type == GST_TYPE_VIDEO_CONTEXT);
+}
+
+static void
+gst_vaapipostproc_implements_iface_init(GstImplementsInterfaceClass *iface)
+{
+    iface->supported = gst_vaapipostproc_implements_interface_supported;
+}
+
 /* GstVideoContext interface */
 
 static void
@@ -169,22 +193,23 @@ gst_vaapipostproc_set_video_context(
     gst_vaapi_set_display(type, value, &postproc->display);
 }
 
-static gboolean
-gst_video_context_supported(GstVaapiPostproc *postproc, GType iface_type)
-{
-    return (iface_type == GST_TYPE_VIDEO_CONTEXT);
-}
-
 static void
 gst_video_context_interface_init(GstVideoContextInterface *iface)
 {
     iface->set_context = gst_vaapipostproc_set_video_context;
 }
 
+static inline gboolean
+gst_vaapipostproc_ensure_display(GstVaapiPostproc *postproc)
+{
+    return gst_vaapi_ensure_display(postproc, GST_VAAPI_DISPLAY_TYPE_ANY,
+        &postproc->display);
+}
+
 static gboolean
 gst_vaapipostproc_create(GstVaapiPostproc *postproc, GstCaps *caps)
 {
-    if (!gst_vaapi_ensure_display(postproc, &postproc->display))
+    if (!gst_vaapipostproc_ensure_display(postproc))
         return FALSE;
 
     gst_caps_replace(&postproc->postproc_caps, caps);
@@ -196,10 +221,7 @@ gst_vaapipostproc_destroy(GstVaapiPostproc *postproc)
 {
     gst_caps_replace(&postproc->postproc_caps, NULL);
 
-    if (postproc->display) {
-        g_object_unref(postproc->display);
-        postproc->display = NULL;
-    }
+    g_clear_object(&postproc->display);
 }
 
 static gboolean
@@ -216,7 +238,7 @@ gst_vaapipostproc_reset(GstVaapiPostproc *postproc, GstCaps *caps)
 static gboolean
 gst_vaapipostproc_start(GstVaapiPostproc *postproc)
 {
-    if (!gst_vaapi_ensure_display(postproc, &postproc->display))
+    if (!gst_vaapipostproc_ensure_display(postproc))
         return FALSE;
     return TRUE;
 }
@@ -387,7 +409,7 @@ gst_vaapipostproc_update_src_caps(GstVaapiPostproc *postproc, GstCaps *caps)
         gst_structure_set_value(structure, "pixel-aspect-ratio", v_par);
 
     gst_structure_set(structure, "type", G_TYPE_STRING, "vaapi", NULL);
-    gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_VAAPI_GLX, NULL);
+    gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_GLX, NULL);
 
     if (!postproc->deinterlace)
         gst_structure_remove_field(structure, "interlaced");
@@ -526,7 +548,7 @@ gst_vaapipostproc_finalize(GObject *object)
     gst_caps_replace(&postproc->srcpad_caps,  NULL);
     gst_caps_replace(&postproc->allowed_caps, NULL);
 
-    G_OBJECT_CLASS(parent_class)->finalize(object);
+    G_OBJECT_CLASS(gst_vaapipostproc_parent_class)->finalize(object);
 }
 
 static void
@@ -594,7 +616,7 @@ gst_vaapipostproc_change_state(GstElement *element, GstStateChange transition)
         break;
     }
 
-    ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
+    ret = GST_ELEMENT_CLASS(gst_vaapipostproc_parent_class)->change_state(element, transition);
     if (ret != GST_STATE_CHANGE_SUCCESS)
         return ret;
 
@@ -618,6 +640,7 @@ gst_vaapipostproc_class_init(GstVaapiPostprocClass *klass)
 {
     GObjectClass * const object_class = G_OBJECT_CLASS(klass);
     GstElementClass * const element_class = GST_ELEMENT_CLASS(klass);
+    GstPadTemplate *pad_template;
 
     GST_DEBUG_CATEGORY_INIT(gst_debug_vaapipostproc,
                             GST_PLUGIN_NAME, 0, GST_PLUGIN_DESC);
@@ -627,6 +650,24 @@ gst_vaapipostproc_class_init(GstVaapiPostprocClass *klass)
     object_class->get_property  = gst_vaapipostproc_get_property;
 
     element_class->change_state = gst_vaapipostproc_change_state;
+
+    gst_element_class_set_details_simple(
+        element_class,
+        gst_vaapipostproc_details.longname,
+        gst_vaapipostproc_details.klass,
+        gst_vaapipostproc_details.description,
+        gst_vaapipostproc_details.author
+    );
+
+    /* sink pad */
+    pad_template = gst_static_pad_template_get(&gst_vaapipostproc_sink_factory);
+    gst_element_class_add_pad_template(element_class, pad_template);
+    gst_object_unref(pad_template);
+
+    /* src pad */
+    pad_template = gst_static_pad_template_get(&gst_vaapipostproc_src_factory);
+    gst_element_class_add_pad_template(element_class, pad_template);
+    gst_object_unref(pad_template);
 
     /**
      * GstVaapiPostproc:deinterlace-mode:
@@ -662,27 +703,9 @@ gst_vaapipostproc_class_init(GstVaapiPostprocClass *klass)
 }
 
 static void
-gst_vaapipostproc_base_init(gpointer klass)
+gst_vaapipostproc_init(GstVaapiPostproc *postproc)
 {
-    GstElementClass * const element_class = GST_ELEMENT_CLASS(klass);
-    GstPadTemplate *pad_template;
-
-    gst_element_class_set_details(element_class, &gst_vaapipostproc_details);
-
-    /* sink pad */
-    pad_template = gst_static_pad_template_get(&gst_vaapipostproc_sink_factory);
-    gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
-
-    /* src pad */
-    pad_template = gst_static_pad_template_get(&gst_vaapipostproc_src_factory);
-    gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
-}
-
-static void
-gst_vaapipostproc_init(GstVaapiPostproc *postproc, GstVaapiPostprocClass *klass)
-{
+    GstVaapiPostprocClass *klass = GST_VAAPIPOSTPROC_GET_CLASS(postproc);
     GstElementClass * const element_class = GST_ELEMENT_CLASS(klass);
 
     postproc->allowed_caps              = NULL;

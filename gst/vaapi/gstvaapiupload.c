@@ -36,16 +36,9 @@
 #include <gst/vaapi/gstvaapivideosink.h>
 #include <gst/vaapi/gstvaapivideobuffer.h>
 
-#if USE_VAAPI_GLX
-#include <gst/vaapi/gstvaapivideobuffer_glx.h>
-#define gst_vaapi_video_buffer_new_from_pool(pool) \
-    gst_vaapi_video_buffer_glx_new_from_pool(pool)
-#define gst_vaapi_video_buffer_new_from_buffer(buffer) \
-    gst_vaapi_video_buffer_glx_new_from_buffer(buffer)
-#endif
-
-#include "gstvaapipluginutil.h"
 #include "gstvaapiupload.h"
+#include "gstvaapipluginutil.h"
+#include "gstvaapipluginbuffer.h"
 
 #define GST_PLUGIN_NAME "vaapiupload"
 #define GST_PLUGIN_DESC "A video to VA flow filter"
@@ -84,15 +77,21 @@ static GstStaticPadTemplate gst_vaapiupload_src_factory =
         GST_PAD_ALWAYS,
         GST_STATIC_CAPS(gst_vaapiupload_vaapi_caps_str));
 
+static void
+gst_vaapiupload_implements_iface_init(GstImplementsInterfaceClass *iface);
+
+static void
+gst_video_context_interface_init(GstVideoContextInterface *iface);
+
 #define GstVideoContextClass GstVideoContextInterface
-GST_BOILERPLATE_WITH_INTERFACE(
+G_DEFINE_TYPE_WITH_CODE(
     GstVaapiUpload,
     gst_vaapiupload,
-    GstBaseTransform,
     GST_TYPE_BASE_TRANSFORM,
-    GstVideoContext,
-    GST_TYPE_VIDEO_CONTEXT,
-    gst_video_context);
+    G_IMPLEMENT_INTERFACE(GST_TYPE_IMPLEMENTS_INTERFACE,
+                          gst_vaapiupload_implements_iface_init);
+    G_IMPLEMENT_INTERFACE(GST_TYPE_VIDEO_CONTEXT,
+                          gst_video_context_interface_init));
 
 /*
  * Direct rendering levels (direct-rendering)
@@ -166,6 +165,23 @@ gst_vaapiupload_query(
     GstQuery *query
 );
 
+/* GstImplementsInterface interface */
+
+static gboolean
+gst_vaapiupload_implements_interface_supported(
+    GstImplementsInterface *iface,
+    GType                   type
+)
+{
+    return (type == GST_TYPE_VIDEO_CONTEXT);
+}
+
+static void
+gst_vaapiupload_implements_iface_init(GstImplementsInterfaceClass *iface)
+{
+    iface->supported = gst_vaapiupload_implements_interface_supported;
+}
+
 /* GstVideoContext interface */
 
 static void
@@ -174,12 +190,6 @@ gst_vaapiupload_set_video_context(GstVideoContext *context, const gchar *type,
 {
   GstVaapiUpload *upload = GST_VAAPIUPLOAD (context);
   gst_vaapi_set_display (type, value, &upload->display);
-}
-
-static gboolean
-gst_video_context_supported (GstVaapiUpload *upload, GType iface_type)
-{
-  return (iface_type == GST_TYPE_VIDEO_CONTEXT);
 }
 
 static void
@@ -191,39 +201,9 @@ gst_video_context_interface_init(GstVideoContextInterface *iface)
 static void
 gst_vaapiupload_destroy(GstVaapiUpload *upload)
 {
-    if (upload->images) {
-        g_object_unref(upload->images);
-        upload->images = NULL;
-    }
-
-    if (upload->surfaces) {
-        g_object_unref(upload->surfaces);
-        upload->surfaces = NULL;
-    }
-
-    if (upload->display) {
-        g_object_unref(upload->display);
-        upload->display = NULL;
-    }
-}
-
-static void
-gst_vaapiupload_base_init(gpointer klass)
-{
-    GstElementClass * const element_class = GST_ELEMENT_CLASS(klass);
-    GstPadTemplate *pad_template;
-
-    gst_element_class_set_details(element_class, &gst_vaapiupload_details);
-
-    /* sink pad */
-    pad_template = gst_static_pad_template_get(&gst_vaapiupload_sink_factory);
-    gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
-
-    /* src pad */
-    pad_template = gst_static_pad_template_get(&gst_vaapiupload_src_factory);
-    gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
+    g_clear_object(&upload->images);
+    g_clear_object(&upload->surfaces);
+    g_clear_object(&upload->display);
 }
 
 static void
@@ -231,7 +211,7 @@ gst_vaapiupload_finalize(GObject *object)
 {
     gst_vaapiupload_destroy(GST_VAAPIUPLOAD(object));
 
-    G_OBJECT_CLASS(parent_class)->finalize(object);
+    G_OBJECT_CLASS(gst_vaapiupload_parent_class)->finalize(object);
 }
 
 
@@ -281,7 +261,9 @@ static void
 gst_vaapiupload_class_init(GstVaapiUploadClass *klass)
 {
     GObjectClass * const object_class = G_OBJECT_CLASS(klass);
+    GstElementClass * const element_class = GST_ELEMENT_CLASS(klass);
     GstBaseTransformClass * const trans_class = GST_BASE_TRANSFORM_CLASS(klass);
+    GstPadTemplate *pad_template;
 
     GST_DEBUG_CATEGORY_INIT(gst_debug_vaapiupload,
                             GST_PLUGIN_NAME, 0, GST_PLUGIN_DESC);
@@ -297,6 +279,24 @@ gst_vaapiupload_class_init(GstVaapiUploadClass *klass)
     trans_class->set_caps       = gst_vaapiupload_set_caps;
     trans_class->get_unit_size  = gst_vaapiupload_get_unit_size;
     trans_class->prepare_output_buffer = gst_vaapiupload_prepare_output_buffer;
+
+    gst_element_class_set_details_simple(
+        element_class,
+        gst_vaapiupload_details.longname,
+        gst_vaapiupload_details.klass,
+        gst_vaapiupload_details.description,
+        gst_vaapiupload_details.author
+    );
+
+    /* sink pad */
+    pad_template = gst_static_pad_template_get(&gst_vaapiupload_sink_factory);
+    gst_element_class_add_pad_template(element_class, pad_template);
+    gst_object_unref(pad_template);
+
+    /* src pad */
+    pad_template = gst_static_pad_template_get(&gst_vaapiupload_src_factory);
+    gst_element_class_add_pad_template(element_class, pad_template);
+    gst_object_unref(pad_template);
 
     /**
      * GstVaapiUpload:direct-rendering:
@@ -329,7 +329,7 @@ gst_vaapiupload_class_init(GstVaapiUploadClass *klass)
 }
 
 static void
-gst_vaapiupload_init(GstVaapiUpload *upload, GstVaapiUploadClass *klass)
+gst_vaapiupload_init(GstVaapiUpload *upload)
 {
     GstPad *sinkpad, *srcpad;
 
@@ -360,14 +360,20 @@ gst_vaapiupload_init(GstVaapiUpload *upload, GstVaapiUploadClass *klass)
     g_object_unref(srcpad);
 }
 
+static inline gboolean
+gst_vaapiupload_ensure_display(GstVaapiUpload *upload)
+{
+    return gst_vaapi_ensure_display(upload, GST_VAAPI_DISPLAY_TYPE_ANY,
+        &upload->display);
+}
+
 static gboolean
 gst_vaapiupload_start(GstBaseTransform *trans)
 {
     GstVaapiUpload * const upload = GST_VAAPIUPLOAD(trans);
 
-    if (!gst_vaapi_ensure_display(upload, &upload->display))
+    if (!gst_vaapiupload_ensure_display(upload))
         return FALSE;
-
     return TRUE;
 }
 
@@ -376,10 +382,8 @@ gst_vaapiupload_stop(GstBaseTransform *trans)
 {
     GstVaapiUpload * const upload = GST_VAAPIUPLOAD(trans);
 
-    if (upload->display) {
-        g_object_unref(upload->display);
-        upload->display = NULL;
-    }
+    g_clear_object(&upload->display);
+
     return TRUE;
 }
 
@@ -466,7 +470,7 @@ gst_vaapiupload_transform_caps(
         gst_structure_set(
             structure,
             "type", G_TYPE_STRING, "vaapi",
-            "opengl", G_TYPE_BOOLEAN, USE_VAAPI_GLX,
+            "opengl", G_TYPE_BOOLEAN, USE_GLX,
             NULL
         );
     }
@@ -505,8 +509,7 @@ gst_vaapiupload_ensure_image_pool(GstVaapiUpload *upload, GstCaps *caps)
     if (width != upload->image_width || height != upload->image_height) {
         upload->image_width  = width;
         upload->image_height = height;
-        if (upload->images)
-            g_object_unref(upload->images);
+        g_clear_object(&upload->images);
         upload->images = gst_vaapi_image_pool_new(upload->display, caps);
         if (!upload->images)
             return FALSE;
@@ -527,8 +530,7 @@ gst_vaapiupload_ensure_surface_pool(GstVaapiUpload *upload, GstCaps *caps)
     if (width != upload->surface_width || height != upload->surface_height) {
         upload->surface_width  = width;
         upload->surface_height = height;
-        if (upload->surfaces)
-            g_object_unref(upload->surfaces);
+        g_clear_object(&upload->surfaces);
         upload->surfaces = gst_vaapi_surface_pool_new(upload->display, caps);
         if (!upload->surfaces)
             return FALSE;

@@ -22,63 +22,18 @@
 #ifndef GST_VAAPI_COMPAT_H
 #define GST_VAAPI_COMPAT_H
 
-#ifdef GST_VAAPI_USE_OLD_VAAPI_0_29
-# include <va.h>
-# include <va_x11.h>
+#include <va/va.h>
+
+#ifdef HAVE_VA_VA_GLX_H
+# define USE_VAAPI_GLX 1
 #else
-# include <va/va.h>
-# if !VA_CHECK_VERSION(0,30,4)
-#  include <va/va_x11.h>
-# endif
+# define USE_VAAPI_GLX 0
 #endif
 
 #if USE_VAAPI_GLX
 # include <va/va_glx.h>
 #else
 # define vaGetDisplayGLX(dpy) vaGetDisplay(dpy)
-#endif
-
-/* Check for VA version */
-#ifndef VA_CHECK_VERSION
-#define VA_MAJOR_VERSION 0
-#define VA_MINOR_VERSION 29
-#define VA_MICRO_VERSION 0
-#define VA_SDS_VERSION   0
-#define VA_CHECK_VERSION(major,minor,micro) \
-        (VA_MAJOR_VERSION > (major) || \
-         (VA_MAJOR_VERSION == (major) && VA_MINOR_VERSION > (minor)) || \
-         (VA_MAJOR_VERSION == (major) && VA_MINOR_VERSION == (minor) && VA_MICRO_VERSION >= (micro)))
-#endif
-
-/* Check for VA/SDS version */
-#ifndef VA_CHECK_VERSION_SDS
-#define VA_CHECK_VERSION_SDS(major, minor, micro, sds)                  \
-    (VA_CHECK_VERSION(major, minor, (micro)+1) ||                       \
-     (VA_CHECK_VERSION(major, minor, micro) && VA_SDS_VERSION >= (sds)))
-#endif
-
-/* Compatibility glue with original VA-API 0.29 */
-#ifdef GST_VAAPI_USE_OLD_VAAPI_0_29
-typedef struct _VASliceParameterBufferBase {
-    unsigned int slice_data_size;
-    unsigned int slice_data_offset;
-    unsigned int slice_data_flag;
-} VASliceParameterBufferBase;
-#endif
-
-#ifndef VA_FOURCC
-#define VA_FOURCC(ch0, ch1, ch2, ch3)           \
-    ((guint32)(guint8)(ch0) |                   \
-     ((guint32)(guint8)(ch1) << 8) |            \
-     ((guint32)(guint8)(ch2) << 16) |           \
-     ((guint32)(guint8)(ch3) << 24 ))
-#endif
-
-#ifndef VA_INVALID_ID
-#define VA_INVALID_ID           0xffffffff
-#endif
-#ifndef VA_INVALID_SURFACE
-#define VA_INVALID_SURFACE      VA_INVALID_ID
 #endif
 
 /* Compatibility glue with VA-API < 0.31 */
@@ -94,7 +49,6 @@ typedef struct _VASliceParameterBufferBase {
 /* Compatibility glue with VA-API 0.34 */
 #if VA_CHECK_VERSION(0,34,0)
 # include <va/va_compat.h>
-# include <va/va_dec_jpeg.h>
 #endif
 
 #endif /* GST_VAAPI_COMPAT_H */

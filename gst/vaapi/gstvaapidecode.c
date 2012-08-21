@@ -35,29 +35,16 @@
 #include <gst/vaapi/gstvaapivideobuffer.h>
 #include <gst/video/videocontext.h>
 
-#if USE_VAAPI_GLX
-#include <gst/vaapi/gstvaapivideobuffer_glx.h>
-#define gst_vaapi_video_buffer_new(display) \
-    gst_vaapi_video_buffer_glx_new(GST_VAAPI_DISPLAY_GLX(display))
-#endif
-
 #include "gstvaapidecode.h"
 #include "gstvaapipluginutil.h"
+#include "gstvaapipluginbuffer.h"
 
-#if USE_FFMPEG
-# include <gst/vaapi/gstvaapidecoder_ffmpeg.h>
-#endif
-#if USE_CODEC_PARSERS
 # include <gst/vaapi/gstvaapidecoder_h264.h>
 //# include <gst/vaapi/gstvaapidecoder_jpeg.h>
 # include <gst/vaapi/gstvaapidecoder_mpeg2.h>
 //# include <gst/vaapi/gstvaapidecoder_mpeg4.h>
 # include <gst/vaapi/gstvaapidecoder_vc1.h>
 #endif
-
-/* Favor codecparsers-based decoders for 0.3.x series */
-#define USE_FFMPEG_DEFAULT \
-    (USE_FFMPEG && !USE_CODEC_PARSERS)
 
 #define GST_PLUGIN_NAME "vaapidecode"
 #define GST_PLUGIN_DESC "A VA-API based video decoder"
@@ -104,21 +91,21 @@ static GstStaticPadTemplate gst_vaapidecode_src_factory =
         GST_PAD_ALWAYS,
         GST_STATIC_CAPS(gst_vaapidecode_src_caps_str));
 
+static void
+gst_vaapidecode_implements_iface_init(GstImplementsInterfaceClass *iface);
+
+static void
+gst_video_context_interface_init(GstVideoContextInterface *iface);
+
 #define GstVideoContextClass GstVideoContextInterface
-GST_BOILERPLATE_WITH_INTERFACE(
+G_DEFINE_TYPE_WITH_CODE(
     GstVaapiDecode,
     gst_vaapidecode,
-    GstVideoDecoder,
-    GST_TYPE_VIDEO_DECODER,
-    GstVideoContext,
-    GST_TYPE_VIDEO_CONTEXT,
-    gst_video_context);
-
-enum {
-    PROP_0,
-
-    PROP_USE_FFMPEG,
-};
+    GST_TYPE_ELEMENT,
+    G_IMPLEMENT_INTERFACE(GST_TYPE_IMPLEMENTS_INTERFACE,
+                          gst_vaapidecode_implements_iface_init);
+    G_IMPLEMENT_INTERFACE(GST_TYPE_VIDEO_CONTEXT,
+                          gst_video_context_interface_init));
 
 static gboolean gst_vaapi_dec_open (GstVideoDecoder * decoder);
 static gboolean gst_vaapi_dec_start (GstVideoDecoder * decoder);
@@ -188,9 +175,17 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
         gst_structure_set_value(structure, "interlaced", v_interlaced);
 
     gst_structure_set(structure, "type", G_TYPE_STRING, "vaapi", NULL);
-    gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_VAAPI_GLX, NULL);
+    gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_GLX, NULL);
 
     return success;
+}
+
+static void
+gst_vaapidecode_release(GstVaapiDecode *decode, GObject *dead_object)
+{
+    g_mutex_lock(decode->decoder_mutex);
+    g_cond_signal(decode->decoder_ready);
+    g_mutex_unlock(decode->decoder_mutex);
 }
 
 static gboolean
@@ -200,42 +195,34 @@ gst_vaapidecode_create(GstVaapiDecode *decode, GstCaps *caps)
     GstStructure *structure;
     int version;
 
-    if (!gst_vaapi_ensure_display(decode, &decode->display))
+    if (!gst_vaapidecode_ensure_display(decode))
         return FALSE;
-
     dpy = decode->display;
-    if (decode->use_ffmpeg) {
-#if USE_FFMPEG
-        decode->decoder = gst_vaapi_decoder_ffmpeg_new(dpy, caps);
-#endif
-    }
-    else {
-#if USE_CODEC_PARSERS
-        structure = gst_caps_get_structure(caps, 0);
-        if (!structure)
+
+    structure = gst_caps_get_structure(caps, 0);
+    if (!structure)
+        return FALSE;
+    if (gst_structure_has_name(structure, "video/x-h264"))
+        decode->decoder = gst_vaapi_decoder_h264_new(dpy, caps);
+    else if (gst_structure_has_name(structure, "video/mpeg")) {
+        if (!gst_structure_get_int(structure, "mpegversion", &version))
             return FALSE;
-        if (gst_structure_has_name(structure, "video/x-h264"))
-            decode->decoder = gst_vaapi_decoder_h264_new(dpy, caps);
-        else if (gst_structure_has_name(structure, "video/mpeg")) {
-            if (!gst_structure_get_int(structure, "mpegversion", &version))
-                return FALSE;
-            if (version == 2)
-                decode->decoder = gst_vaapi_decoder_mpeg2_new(dpy, caps);
-            /*else if (version == 4)
-                decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);*/
-        }
-        else if (gst_structure_has_name(structure, "video/x-wmv"))
-            decode->decoder = gst_vaapi_decoder_vc1_new(dpy, caps);
-        /*else if (gst_structure_has_name(structure, "video/x-h263") ||
+    if (version == 2)
+        decode->decoder = gst_vaapi_decoder_mpeg2_new(dpy, caps);
+        /*else if (version == 4)
+            decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);*/
+    } 
+    else if (gst_structure_has_name(structure, "video/x-wmv"))
+          decode->decoder = gst_vaapi_decoder_vc1_new(dpy, caps);
+    /*else if (gst_structure_has_name(structure, "video/x-h263") ||
                  gst_structure_has_name(structure, "video/x-divx") ||
                  gst_structure_has_name(structure, "video/x-xvid"))
             decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);
+    }
 #if USE_JPEG_DECODER
         else if (gst_structure_has_name(structure, "image/jpeg"))
             decode->decoder = gst_vaapi_decoder_jpeg_new(dpy, caps);
 #endif */
-#endif
-    }
     if (!decode->decoder)
         return FALSE;
 
@@ -278,6 +265,23 @@ gst_vaapidecode_reset(GstVaapiDecode *decode, GstCaps *caps)
     return gst_vaapidecode_create(decode, caps);
 }
 
+/* GstImplementsInterface interface */
+
+static gboolean
+gst_vaapidecode_implements_interface_supported(
+    GstImplementsInterface *iface,
+    GType                   type
+)
+{
+    return (type == GST_TYPE_VIDEO_CONTEXT);
+}
+
+static void
+gst_vaapidecode_implements_iface_init(GstImplementsInterfaceClass *iface)
+{
+    iface->supported = gst_vaapidecode_implements_interface_supported;
+}
+
 /* GstVideoContext interface */
 
 static void
@@ -288,35 +292,10 @@ gst_vaapidecode_set_video_context(GstVideoContext *context, const gchar *type,
     gst_vaapi_set_display (type, value, &decode->display);
 }
 
-static gboolean
-gst_video_context_supported (GstVaapiDecode *decode, GType iface_type)
-{
-  return (iface_type == GST_TYPE_VIDEO_CONTEXT);
-}
-
 static void
 gst_video_context_interface_init(GstVideoContextInterface *iface)
 {
     iface->set_context = gst_vaapidecode_set_video_context;
-}
-
-static void
-gst_vaapidecode_base_init(gpointer klass)
-{
-    GstElementClass * const element_class = GST_ELEMENT_CLASS(klass);
-    GstPadTemplate *pad_template;
-
-    gst_element_class_set_details(element_class, &gst_vaapidecode_details);
-
-    /* sink pad */
-    pad_template = gst_static_pad_template_get(&gst_vaapidecode_sink_factory);
-    gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
-
-    /* src pad */
-    pad_template = gst_static_pad_template_get(&gst_vaapidecode_src_factory);
-    gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
 }
 
 static void
@@ -336,10 +315,7 @@ gst_vaapidecode_finalize(GObject *object)
         decode->srcpad_caps = NULL;
     }
 
-    if (decode->display) {
-        g_object_unref(decode->display);
-        decode->display = NULL;
-    }
+    g_clear_object(&decode->display);
 
     if (decode->allowed_caps) {
         gst_caps_unref(decode->allowed_caps);
@@ -360,9 +336,6 @@ gst_vaapidecode_set_property(
     GstVaapiDecode * const decode = GST_VAAPIDECODE(object);
 
     switch (prop_id) {
-    case PROP_USE_FFMPEG:
-        decode->use_ffmpeg = g_value_get_boolean(value);
-        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -380,9 +353,6 @@ gst_vaapidecode_get_property(
     GstVaapiDecode * const decode = GST_VAAPIDECODE(object);
 
     switch (prop_id) {
-    case PROP_USE_FFMPEG:
-        g_value_set_boolean(value, decode->use_ffmpeg);
-        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -395,24 +365,12 @@ gst_vaapidecode_class_init(GstVaapiDecodeClass *klass)
     GObjectClass * const object_class = G_OBJECT_CLASS(klass);
     GstElementClass * const element_class = GST_ELEMENT_CLASS(klass);
     GstVideoDecoderClass *video_decoder_class = GST_VIDEO_DECODER_CLASS (klass);
+    GstPadTemplate *pad_template;
 
     GST_DEBUG_CATEGORY_INIT(gst_debug_vaapidecode,
                             GST_PLUGIN_NAME, 0, GST_PLUGIN_DESC);
 
     object_class->finalize      = gst_vaapidecode_finalize;
-    object_class->set_property  = gst_vaapidecode_set_property;
-    object_class->get_property  = gst_vaapidecode_get_property;
-
-#if USE_FFMPEG
-    g_object_class_install_property
-        (object_class,
-         PROP_USE_FFMPEG,
-         g_param_spec_boolean("use-ffmpeg",
-                              "Use FFmpeg/VAAPI for decoding",
-                              "Uses FFmpeg/VAAPI for decoding",
-                              USE_FFMPEG_DEFAULT,
-                              G_PARAM_READWRITE));
-#endif
 
     video_decoder_class->open = GST_DEBUG_FUNCPTR (gst_vaapi_dec_open);
     video_decoder_class->start = GST_DEBUG_FUNCPTR (gst_vaapi_dec_start);
@@ -423,6 +381,24 @@ gst_vaapidecode_class_init(GstVaapiDecodeClass *klass)
     video_decoder_class->handle_frame =
       GST_DEBUG_FUNCPTR (gst_vaapi_dec_handle_frame);
     
+    gst_element_class_set_details_simple(
+        element_class,
+        gst_vaapidecode_details.longname,
+        gst_vaapidecode_details.klass,
+        gst_vaapidecode_details.description,
+        gst_vaapidecode_details.author
+    );
+
+    /* sink pad */
+    pad_template = gst_static_pad_template_get(&gst_vaapidecode_sink_factory);
+    gst_element_class_add_pad_template(element_class, pad_template);
+    gst_object_unref(pad_template);
+
+    /* src pad */
+    pad_template = gst_static_pad_template_get(&gst_vaapidecode_src_factory);
+    gst_element_class_add_pad_template(element_class, pad_template);
+    gst_object_unref(pad_template);
+
 }
 
 static gboolean
@@ -434,7 +410,7 @@ gst_vaapidecode_ensure_allowed_caps(GstVaapiDecode *decode)
     if (decode->allowed_caps)
         return TRUE;
 
-    if (!gst_vaapi_ensure_display(decode, &decode->display))
+    if (!gst_vaapidecode_ensure_display(decode))
         goto error_no_display;
 
     decode_caps = gst_vaapi_display_get_decode_caps(decode->display);

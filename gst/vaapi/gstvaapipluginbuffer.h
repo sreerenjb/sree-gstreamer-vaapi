@@ -1,7 +1,7 @@
 /*
- *  gstvaapiutils_tsb.h - Timestamp buffer store
+ *  gstvaapipluginbuffer.h - Private GStreamer/VA video buffers
  *
- *  Copyright (C) 2011 Intel Corporation
+ *  Copyright (C) 2012 Intel Corporation
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public License
@@ -19,40 +19,31 @@
  *  Boston, MA 02110-1301 USA
  */
 
-#ifndef GST_VAAPI_UTILS_TSB_H
-#define GST_VAAPI_UTILS_TSB_H
+#ifndef GST_VAAPI_PLUGIN_BUFFER_H
+#define GST_VAAPI_PLUGIN_BUFFER_H
 
-#include "config.h"
-#include <gst/gstbuffer.h>
-
-typedef struct _GstVaapiTSB GstVaapiTSB;
-
-GstVaapiTSB *
-gst_vaapi_tsb_new()
-    attribute_hidden;
-
-void
-gst_vaapi_tsb_destroy(GstVaapiTSB *tsb)
-    attribute_hidden;
-
-gboolean
-gst_vaapi_tsb_push(GstVaapiTSB *tsb, GstBuffer *buffer)
-    attribute_hidden;
-
-void
-gst_vaapi_tsb_pop(GstVaapiTSB *tsb, gsize size)
-    attribute_hidden;
-
+G_GNUC_INTERNAL
 GstBuffer *
-gst_vaapi_tsb_peek(GstVaapiTSB *tsb)
-    attribute_hidden;
+gst_vaapi_video_buffer_new(GstVaapiDisplay *display);
 
-GstClockTime
-gst_vaapi_tsb_get_timestamp(GstVaapiTSB *tsb)
-    attribute_hidden;
+G_GNUC_INTERNAL
+GstBuffer *
+gst_vaapi_video_buffer_new_from_pool(GstVaapiVideoPool *pool);
 
-gsize
-gst_vaapi_tsb_get_size(GstVaapiTSB *tsb)
-    attribute_hidden;
+G_GNUC_INTERNAL
+GstBuffer *
+gst_vaapi_video_buffer_new_from_buffer(GstBuffer *buffer);
 
-#endif /* GST_VAAPI_UTILS_TSB_H */
+G_GNUC_INTERNAL
+GstBuffer *
+gst_vaapi_video_buffer_new_with_image(GstVaapiImage *image);
+
+G_GNUC_INTERNAL
+GstBuffer *
+gst_vaapi_video_buffer_new_with_surface(GstVaapiSurface *surface);
+
+G_GNUC_INTERNAL
+GstBuffer *
+gst_vaapi_video_buffer_new_with_surface_proxy(GstVaapiSurfaceProxy *proxy);
+
+#endif /* GST_VAAPI_PLUGIN_BUFFER_H */
