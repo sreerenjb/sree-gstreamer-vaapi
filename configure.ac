@@ -20,8 +20,8 @@ m4_define([glib_version],
 
 # gst version number
 m4_define([gst_major_version], [0])
-m4_define([gst_minor_version], [10])
-m4_define([gst_micro_version], [14])
+m4_define([gst_minor_version], [11])
+m4_define([gst_micro_version], [93])
 m4_define([gst_major_minor_version],
           [gst_major_version.gst_minor_version])
 m4_define([gst_version],
@@ -29,15 +29,15 @@ m4_define([gst_version],
 
 # gst plugins-base version number
 m4_define([gst_plugins_base_major_version], [0])
-m4_define([gst_plugins_base_minor_version], [10])
-m4_define([gst_plugins_base_micro_version], [31])
+m4_define([gst_plugins_base_minor_version], [11])
+m4_define([gst_plugins_base_micro_version], [93])
 m4_define([gst_plugins_base_version],
           [gst_plugins_base_major_version.gst_plugins_base_minor_version.gst_plugins_base_micro_version])
 
 # gst plugins-bad version number
 m4_define([gst_plugins_bad_major_version], [0])
-m4_define([gst_plugins_bad_minor_version], [10])
-m4_define([gst_plugins_bad_micro_version], [22])
+m4_define([gst_plugins_bad_minor_version], [11])
+m4_define([gst_plugins_bad_micro_version], [93])
 m4_define([gst_plugins_bad_version],
           [gst_plugins_bad_major_version.gst_plugins_bad_minor_version.gst_plugins_bad_micro_version])
 
@@ -84,7 +84,7 @@ LIBVA_PACKAGE_VERSION=libva_x11_package_version
 AC_SUBST(LIBVA_PACKAGE_VERSION)
 
 dnl Versions for GStreamer and plugins-base
-GST_MAJORMINOR=gst_major_minor_version
+GST_MAJORMINOR=1.0
 GST_VERSION_REQUIRED=gst_version
 GST_PLUGINS_BASE_VERSION_REQUIRED=gst_plugins_base_version
 GST_PLUGINS_BAD_VERSION_REQUIRED=gst_plugins_bad_version
@@ -170,8 +170,6 @@ fi
 dnl GStreamer -base plugins
 PKG_CHECK_MODULES([GST_PLUGINS_BASE],
     [gstreamer-plugins-base-$GST_MAJORMINOR >= gst_plugins_base_version])
-PKG_CHECK_MODULES([GST_INTERFACES],
-    [gstreamer-interfaces-$GST_MAJORMINOR >= gst_plugins_base_version])
 
 dnl ... GstVideoOverlayComposition (gstreamer-video)
 PKG_CHECK_MODULES([GST_VIDEO],
@@ -180,9 +178,9 @@ PKG_CHECK_MODULES([GST_VIDEO],
 AC_CACHE_CHECK([for GstVideoOverlayComposition],
     ac_cv_have_gst_video_overlay_composition, [
     saved_CFLAGS="$CFLAGS"
-    CFLAGS="$CFLAGS $GST_CFLAGS"
+    CFLAGS="$CFLAGS $GST_CFLAGS $GST_VIDEO_CFLAGS"
     saved_LIBS="$LIBS"
-    LIBS="$LIBS $GST_LIBS"
+    LIBS="$LIBS $GST_LIBS $GST_VIDEO_CFLAGS"
     AC_COMPILE_IFELSE(
         [AC_LANG_PROGRAM(
             [[#include <gst/video/video-overlay-composition.h>]],
