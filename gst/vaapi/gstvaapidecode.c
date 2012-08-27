@@ -32,7 +32,6 @@
 
 #include <gst/vaapi/gstvaapidisplay.h>
 #include <gst/vaapi/gstvaapivideosink.h>
-#include <gst/vaapi/gstvaapivideobuffer.h>
 #include <gst/video/videocontext.h>
 
 #include "gstvaapidecode.h"
@@ -51,14 +50,6 @@
 GST_DEBUG_CATEGORY_STATIC(gst_debug_vaapidecode);
 #define GST_CAT_DEFAULT gst_debug_vaapidecode
 
-/* ElementFactory information */
-static const GstElementDetails gst_vaapidecode_details =
-    GST_ELEMENT_DETAILS(
-        "VA-API decoder",
-        "Codec/Decoder/Video",
-        GST_PLUGIN_DESC,
-        "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
-
 /* Default templates */
 #define GST_CAPS_CODEC(CODEC) CODEC "; "
 
@@ -73,8 +64,8 @@ static const char gst_vaapidecode_sink_caps_str[] =
     GST_CAPS_CODEC("image/jpeg")
     ;
 
-static const char gst_vaapidecode_src_caps_str[] =
-    GST_VAAPI_SURFACE_CAPS;
+/*static const char gst_vaapidecode_src_caps_str[] =
+    GST_VAAPI_SURFACE_CAPS;*/
 
 static GstStaticPadTemplate gst_vaapidecode_sink_factory =
     GST_STATIC_PAD_TEMPLATE(
@@ -88,10 +79,7 @@ static GstStaticPadTemplate gst_vaapidecode_src_factory =
         "src",
         GST_PAD_SRC,
         GST_PAD_ALWAYS,
-        GST_STATIC_CAPS(gst_vaapidecode_src_caps_str));
-
-static void
-gst_vaapidecode_implements_iface_init(GstImplementsInterfaceClass *iface);
+        GST_STATIC_CAPS("video/x-raw"));
 
 static void
 gst_video_context_interface_init(GstVideoContextInterface *iface);
@@ -101,8 +89,6 @@ G_DEFINE_TYPE_WITH_CODE(
     GstVaapiDecode,
     gst_vaapidecode,
     GST_TYPE_VIDEO_DECODER,
-    G_IMPLEMENT_INTERFACE(GST_TYPE_IMPLEMENTS_INTERFACE,
-                          gst_vaapidecode_implements_iface_init);
     G_IMPLEMENT_INTERFACE(GST_TYPE_VIDEO_CONTEXT,
                           gst_video_context_interface_init));
 
@@ -149,7 +135,7 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
     gboolean success = TRUE;
 
     if (!decode->srcpad_caps) {
-        decode->srcpad_caps = gst_caps_from_string(GST_VAAPI_SURFACE_CAPS_NAME);
+        decode->srcpad_caps = gst_caps_from_string("video/x-raw");
         if (!decode->srcpad_caps)
             return FALSE;
     }
@@ -175,6 +161,7 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
 
     gst_structure_set(structure, "type", G_TYPE_STRING, "vaapi", NULL);
     gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_GLX, NULL);
+    gst_structure_set(structure, "format", G_TYPE_STRING, "YV12", NULL); /*Fixme*/
 
     return success;
 }
@@ -378,27 +365,21 @@ gst_vaapidecode_class_init(GstVaapiDecodeClass *klass)
     video_decoder_class->parse = GST_DEBUG_FUNCPTR (gst_vaapi_dec_parse);
     video_decoder_class->handle_frame =
       GST_DEBUG_FUNCPTR (gst_vaapi_dec_handle_frame);
-    
-    gst_element_class_set_details_simple(
-        element_class,
-        gst_vaapidecode_details.longname,
-        gst_vaapidecode_details.klass,
-        gst_vaapidecode_details.description,
-        gst_vaapidecode_details.author
-    );
+   
+    gst_element_class_set_static_metadata (element_class,
+      "VA-API decoder",
+      "Codec/Decoder/Video", GST_PLUGIN_DESC,
+      "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
 
-    /* sink pad */
-    pad_template = gst_static_pad_template_get(&gst_vaapidecode_sink_factory);
-    gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
 
-    /* src pad */
-    pad_template = gst_static_pad_template_get(&gst_vaapidecode_src_factory);
-    gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
+   /* sink pad */
+   gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&gst_vaapidecode_sink_factory));
 
+   /* src pad */
+   gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&gst_vaapidecode_src_factory));
 }
 
+#if 0
 static gboolean
 gst_vaapidecode_ensure_allowed_caps(GstVaapiDecode *decode)
 {
@@ -461,10 +442,8 @@ error_no_memory:
 }
 
 static GstCaps *
-gst_vaapidecode_get_caps(GstPad *pad)
+gst_vaapidecode_get_caps(GstVaapiDecode *decode, GstPad *pad, GstCaps *filter)
 {
-    GstVaapiDecode * const decode = GST_VAAPIDECODE(GST_OBJECT_PARENT(pad));
-
     if (!decode->is_ready)
         return gst_static_pad_template_get_caps(&gst_vaapidecode_sink_factory);
 
@@ -473,10 +452,11 @@ gst_vaapidecode_get_caps(GstPad *pad)
 
     return gst_caps_ref(decode->allowed_caps);
 }
+#endif
 
 static gboolean
-gst_vaapidecode_query (GstPad *pad, GstQuery *query) {
-    GstVaapiDecode *decode = GST_VAAPIDECODE (gst_pad_get_parent_element (pad));
+gst_vaapidecode_query (GstPad *pad, GstObject *parent, GstQuery *query) {
+    GstVaapiDecode *decode = GST_VAAPIDECODE (parent);
     GstVideoDecoder *bdec  = GST_VIDEO_DECODER (decode);
     gboolean res = TRUE;
 
@@ -512,7 +492,7 @@ gst_vaapidecode_init(GstVaapiDecode *decode)
     gst_pad_set_query_function(GST_VIDEO_DECODER_SINK_PAD(decode), gst_vaapidecode_query);
     gst_pad_set_query_function(GST_VIDEO_DECODER_SRC_PAD(decode), gst_vaapidecode_query); 
  
-    gst_pad_set_getcaps_function(GST_VIDEO_DECODER (decode)->sinkpad, gst_vaapidecode_get_caps); 
+    /*gst_pad_set_getcaps_function(GST_VIDEO_DECODER (decode)->sinkpad, gst_vaapidecode_get_caps); */
     gst_video_decoder_set_packetized (GST_VIDEO_DECODER(decode), FALSE);
     
 }
