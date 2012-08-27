@@ -993,8 +993,8 @@ gst_vaapi_decoder_mpeg2_parse(
         goto beach;
     }
 
-    buf_data = data + 4;
-    buf_size = ofs - 4;
+    buf_data = data;
+    buf_size = ofs;
 
     switch (type) {
         case GST_MPEG_VIDEO_PACKET_PICTURE:
@@ -1008,7 +1008,7 @@ gst_vaapi_decoder_mpeg2_parse(
             break;
 
         case GST_MPEG_VIDEO_PACKET_EXTENSION: {
-            const guchar id = buf_data[0] >> 4;
+            const guchar id = buf_data[4] >> 4;
             switch (id) {
                 case GST_MPEG_VIDEO_PACKET_EXT_SEQUENCE:
                     status = parse_sequence_ext(decoder, buf_data, buf_size);
