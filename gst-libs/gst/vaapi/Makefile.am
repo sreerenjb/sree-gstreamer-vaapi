@@ -52,7 +52,6 @@ libgstvaapi_source_c =				\
 	gstvaapidisplaycache.c			\
 	gstvaapiimage.c				\
 	gstvaapiimageformat.c			\
-#	gstvaapiimagepool.c			\
 	gstvaapiobject.c			\
 	gstvaapiparamspecs.c			\
 	gstvaapiprofile.c			\
@@ -62,7 +61,6 @@ libgstvaapi_source_c =				\
 	gstvaapisurfaceproxy.c			\
 	gstvaapiutils.c				\
 	gstvaapivalue.c				\
-#       gstvaapivideobuffer.c			\
 	gstvaapivideopool.c			\
 	gstvaapivideosink.c			\
 	gstvaapiwindow.c			\
@@ -78,7 +76,6 @@ libgstvaapi_source_h =				\
 	gstvaapidisplaycache.h			\
 	gstvaapiimage.h				\
 	gstvaapiimageformat.h			\
-#	gstvaapiimagepool.h			\
 	gstvaapiobject.h			\
 	gstvaapiparamspecs.h			\
 	gstvaapiprofile.h			\
@@ -88,7 +85,6 @@ libgstvaapi_source_h =				\
 	gstvaapisurfaceproxy.h			\
 	gstvaapitypes.h				\
 	gstvaapivalue.h				\
-#	gstvaapivideobuffer.h			\
 	gstvaapivideopool.h			\
 	gstvaapivideosink.h			\
 	gstvaapiwindow.h			\
@@ -107,7 +103,6 @@ libgstvaapi_source_priv_h =			\
 	gstvaapiobject_priv.h			\
 	gstvaapisurface_priv.h			\
 	gstvaapiutils.h				\
-#	gstvaapivideobuffer_priv.h		\
 	gstvaapiworkarounds.h			\
 	sysdeps.h				\
 	$(NULL)
@@ -159,16 +154,12 @@ libgstvaapi_glx_source_c =			\
 	gstvaapiutils.c				\
 	gstvaapiutils_glx.c			\
 	gstvaapiutils_x11.c			\
-#	gstvaapivideobuffer_glx.c		\
-#	gstvaapivideoconverter_glx.c		\
 	gstvaapiwindow_glx.c			\
 	$(NULL)
 
 libgstvaapi_glx_source_h =			\
 	gstvaapidisplay_glx.h			\
 	gstvaapitexture.h			\
-#	gstvaapivideobuffer_glx.h		\
-#	gstvaapivideoconverter_glx.h		\
 	gstvaapiwindow_glx.h			\
 	$(NULL)
 
