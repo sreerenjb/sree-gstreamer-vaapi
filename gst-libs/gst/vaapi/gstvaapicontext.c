@@ -219,9 +219,15 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
     GstCaps *caps;
     GstVaapiSurface *surface;
     guint i, num_ref_frames, num_surfaces;
+    guint size, min, max;
+    GstStructure *config;
+    GstFlowReturn result;
+    GstBuffer *out;
+    GstMapInfo map_info;
 
     /* Number of scratch surfaces beyond those used as reference */
-    const guint SCRATCH_SURFACES_COUNT = 4;
+    /*Fixme: with default value's from Gwenole's repo*/
+    const guint SCRATCH_SURFACES_COUNT = 6;
 
     if (!gst_vaapi_context_create_overlay(context))
         return FALSE;
@@ -234,7 +240,8 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
 
     if (!priv->surfaces_pool) {
         caps = gst_caps_new_simple(
-            GST_VAAPI_SURFACE_CAPS_NAME,
+	    "video/x-raw",
+	    "format", G_TYPE_STRING, "YV12",
             "type", G_TYPE_STRING, "vaapi",
             "width",  G_TYPE_INT, priv->width,
             "height", G_TYPE_INT, priv->height,
@@ -256,19 +263,29 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
         num_ref_frames = 16;
     num_surfaces = num_ref_frames + SCRATCH_SURFACES_COUNT;
 
-    gst_vaapi_video_pool_set_capacity(priv->surfaces_pool, num_surfaces);
+    min = num_surfaces;
+    max = 24;
+    config = gst_buffer_pool_get_config ((GstBufferPool *)priv->surfaces_pool);
+    gst_buffer_pool_config_set_params (config, caps, priv->width*priv->height, min, max);
+
+    gst_buffer_pool_set_config ((GstBufferPool *)priv->surfaces_pool, config);
+    gst_buffer_pool_set_active ((GstBufferPool *)priv->surfaces_pool, TRUE);
 
     for (i = priv->surfaces->len; i < num_surfaces; i++) {
-        surface = gst_vaapi_surface_new(
-            GST_VAAPI_OBJECT_DISPLAY(context),
-            GST_VAAPI_CHROMA_TYPE_YUV420,
-            priv->width, priv->height
-        );
+
+        result = gst_buffer_pool_acquire_buffer ((GstBufferPool *)priv->surfaces_pool, &out, NULL);
+
+        gst_buffer_map (out, &map_info, GST_MAP_READ);
+
+        surface = map_info.data;
         if (!surface)
-            return FALSE;
+        {
+                GST_DEBUG ("Mapping failed...");
+                return FALSE;
+        }
         g_ptr_array_add(priv->surfaces, surface);
-        if (!gst_vaapi_video_pool_add_object(priv->surfaces_pool, surface))
-            return FALSE;
+        gst_buffer_unmap (out, &map_info);
+        gst_buffer_pool_release_buffer ((GstBufferPool *)priv->surfaces_pool, out);
     }
     return TRUE;
 }
@@ -516,7 +533,8 @@ gst_vaapi_context_new(
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
     unsigned int        width,
-    unsigned int        height
+    unsigned int        height,
+    GstQuery		*query
 )
 {
     GstVaapiContext *context;
@@ -541,6 +559,9 @@ gst_vaapi_context_new(
         g_object_unref(context);
         return NULL;
     }
+    
+    /*Fixme */
+    gst_query_add_allocation_pool (query, (GstBufferPool *)context->priv->surfaces_pool, 720*576, 6, 24);
     return context;
 }
 
@@ -689,7 +710,7 @@ gst_vaapi_context_get_size(
     if (pheight)
         *pheight = context->priv->height;
 }
-
+#if 0 
 /**
  * gst_vaapi_context_get_surface:
  * @context: a #GstVaapiContext
@@ -714,6 +735,14 @@ gst_vaapi_context_get_surface(GstVaapiContext *context)
 
     gst_vaapi_surface_set_parent_context(surface, context);
     return surface;
+}
+#endif
+
+GstVaapiSurfacePool *
+gst_vaapi_context_get_surface_pool (GstVaapiContext *context)
+{
+    GstVaapiContextPrivate * const priv = context->priv;
+    return priv->surfaces_pool;
 }
 
 /**
@@ -747,6 +776,16 @@ gst_vaapi_context_put_surface(GstVaapiContext *context, GstVaapiSurface *surface
 
     gst_vaapi_surface_set_parent_context(surface, NULL);
     gst_vaapi_video_pool_put_object(context->priv->surfaces_pool, surface);
+}
+
+void
+gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffer)
+{
+    g_return_if_fail(GST_VAAPI_IS_CONTEXT(context));
+    GstVaapiContextPrivate * const priv = context->priv;
+//Fixme
+//    gst_vaapi_surface_set_parent_context(surface, NULL);
+   gst_buffer_pool_release_buffer ((GstBufferPool *)priv->surfaces_pool, buffer);
 }
 
 /**
