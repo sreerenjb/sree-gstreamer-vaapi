@@ -67,7 +67,7 @@ push_buffer(GstVaapiDecoder *decoder, GstBuffer *buffer)
     }
 
     GST_DEBUG("queue encoded data buffer %p (%d bytes)",
-              buffer, GST_BUFFER_SIZE(buffer));
+              buffer, gst_buffer_get_size(buffer));
 
     g_queue_push_tail(priv->buffers, buffer);
     return TRUE;
@@ -79,7 +79,7 @@ push_back_buffer(GstVaapiDecoder *decoder, GstBuffer *buffer)
     GstVaapiDecoderPrivate * const priv = decoder->priv;
 
     GST_DEBUG("requeue encoded data buffer %p (%d bytes)",
-              buffer, GST_BUFFER_SIZE(buffer));
+              buffer, gst_buffer_get_size(buffer));
 
     g_queue_push_head(priv->buffers, buffer);
 }
@@ -95,7 +95,7 @@ pop_buffer(GstVaapiDecoder *decoder)
         return NULL;
 
     GST_DEBUG("dequeue buffer %p for decoding (%d bytes)",
-              buffer, GST_BUFFER_SIZE(buffer));
+              buffer, gst_buffer_get_size(buffer));
 
     return buffer;
 }
@@ -352,6 +352,7 @@ gst_vaapi_decoder_init(GstVaapiDecoder *decoder)
     priv->par_d                 = 0;
     priv->buffers               = g_queue_new();
     priv->surfaces              = g_queue_new();
+    priv->surface_buffers       = g_queue_new();
     priv->is_interlaced         = FALSE;
 }
 
@@ -445,6 +446,22 @@ gst_vaapi_decoder_get_surface(
         *pstatus = status;
     return proxy;
 }
+static inline GstBuffer *
+pop_surface_buffer(GstVaapiDecoder *decoder)
+{
+    GstVaapiDecoderPrivate * const priv = decoder->priv;
+
+    return g_queue_pop_head(priv->surface_buffers);
+}
+
+static inline void
+push_surface_buffer (GstVaapiDecoder *decoder, GstBuffer *buffer)
+{
+    GstVaapiDecoderPrivate * const priv = decoder->priv;
+
+    g_queue_push_tail(priv->surface_buffers, buffer);
+}
+
 
 /**
  * gst_vaapi_decoder_parse:
