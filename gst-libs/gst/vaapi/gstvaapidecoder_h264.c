@@ -2372,10 +2372,11 @@ gst_vaapi_decoder_h264_reset(GstVaapiDecoder *bdec)
 
     priv->adapter = NULL;
 
-    if (!gst_vaapi_decoder_h264_open(decoder)) {
-       GST_ERROR("Failed to re-initialize the mpeg2 decoder");
-       return FALSE;
-    }
+    gst_vaapi_picture_replace(&priv->current_picture, NULL);
+    clear_references(decoder, priv->short_ref, &priv->short_ref_count);
+    clear_references(decoder, priv->long_ref,  &priv->long_ref_count );
+    clear_references(decoder, priv->dpb,       &priv->dpb_count      );
+
     return TRUE;
 }
 
