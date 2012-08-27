@@ -495,7 +495,7 @@ parse_sequence(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
     GstMpegVideoSequenceHdr * const seq_hdr = &priv->seq_hdr;
 
-    if (!gst_mpeg_video_parse_sequence_header(seq_hdr, buf, buf_size, 0)) {
+    if (!gst_mpeg_video_parse_sequence_header(seq_hdr, buf, buf_size, 4)) {
         GST_ERROR("failed to parse sequence header");
         return GST_VAAPI_DECODER_STATUS_ERROR_BITSTREAM_PARSER;
     }
@@ -523,7 +523,7 @@ parse_sequence_ext(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     GstVaapiProfile profile;
     guint width, height;
 
-    if (!gst_mpeg_video_parse_sequence_extension(seq_ext, buf, buf_size, 0)) {
+    if (!gst_mpeg_video_parse_sequence_extension(seq_ext, buf, buf_size, 4)) {
         GST_ERROR("failed to parse sequence-extension");
         return GST_VAAPI_DECODER_STATUS_ERROR_BITSTREAM_PARSER;
     }
@@ -591,7 +591,7 @@ parse_quant_matrix_ext(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_siz
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
     GstMpegVideoQuantMatrixExt * const quant_matrix_ext = &priv->quant_matrix_ext;
 
-    if (!gst_mpeg_video_parse_quant_matrix_extension(quant_matrix_ext, buf, buf_size, 0)) {
+    if (!gst_mpeg_video_parse_quant_matrix_extension(quant_matrix_ext, buf, buf_size, 4)) {
         GST_ERROR("failed to parse quant-matrix-extension");
         return GST_VAAPI_DECODER_STATUS_ERROR_BITSTREAM_PARSER;
     }
@@ -607,7 +607,7 @@ parse_gop(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     GstMpegVideoGop gop;
     GstClockTime pts;
 
-    if (!gst_mpeg_video_parse_gop(&gop, buf, buf_size, 0)) {
+    if (!gst_mpeg_video_parse_gop(&gop, buf, buf_size, 4)) {
         GST_ERROR("failed to parse GOP");
         return GST_VAAPI_DECODER_STATUS_ERROR_BITSTREAM_PARSER;
     }
@@ -664,7 +664,7 @@ parse_picture(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
         return status;
     }
 
-    if (!gst_mpeg_video_parse_picture_header(pic_hdr, buf, buf_size, 0)) {
+    if (!gst_mpeg_video_parse_picture_header(pic_hdr, buf, buf_size, 4)) {
         GST_ERROR("failed to parse picture header");
         return GST_VAAPI_DECODER_STATUS_ERROR_BITSTREAM_PARSER;
     }
@@ -701,7 +701,7 @@ parse_picture_ext(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     GstMpegVideoPictureExt * const pic_ext = &priv->pic_ext;
     GstVaapiPicture * const picture = priv->current_picture;
 
-    if (!gst_mpeg_video_parse_picture_extension(pic_ext, buf, buf_size, 0)) {
+    if (!gst_mpeg_video_parse_picture_extension(pic_ext, buf, buf_size, 4)) {
         GST_ERROR("failed to parse picture-extension");
         return GST_VAAPI_DECODER_STATUS_ERROR_BITSTREAM_PARSER;
     }
@@ -877,6 +877,7 @@ parse_slice(
 
     /* Parse slice */
     gst_bit_reader_init(&br, buf, buf_size);
+    SKIP(&br, 32); /* slice_start_code */
     if (priv->height > 2800)
         READ_UINT8(&br, slice_vertical_position_extension, 3);
     if (priv->has_seq_scalable_ext) {
