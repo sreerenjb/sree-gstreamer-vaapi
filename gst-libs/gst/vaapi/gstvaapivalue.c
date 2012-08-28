@@ -163,3 +163,48 @@ gst_vaapi_value_set_id(GValue *value, GstVaapiID id)
 
     GST_VAAPI_VALUE_ID(value) = id;
 }
+
+/* --- GstVaapiRenderMode --- */
+
+GType
+gst_vaapi_render_mode_get_type(void)
+{
+    static GType render_mode_type = 0;
+
+    static const GEnumValue render_modes[] = {
+        { GST_VAAPI_RENDER_MODE_OVERLAY,
+          "Overlay render mode", "overlay" },
+        { GST_VAAPI_RENDER_MODE_TEXTURE,
+          "Textured-blit render mode", "texture" },
+        { 0, NULL, NULL }
+    };
+
+    if (!render_mode_type) {
+        render_mode_type =
+            g_enum_register_static("GstVaapiRenderMode", render_modes);
+    }
+    return render_mode_type;
+}
+
+/* --- GstVaapiRotation --- */
+
+GType
+gst_vaapi_rotation_get_type(void)
+{
+    static GType g_type = 0;
+
+    static const GEnumValue rotation_values[] = {
+        { GST_VAAPI_ROTATION_0,
+          "Unrotated mode", "0" },
+        { GST_VAAPI_ROTATION_90,
+          "Rotated by 90°, clockwise", "90" },
+        { GST_VAAPI_ROTATION_180,
+          "Rotated by 180°, clockwise", "180" },
+        { GST_VAAPI_ROTATION_270,
+          "Rotated by 270°, clockwise", "270" },
+    };
+
+    if (!g_type)
+        g_type = g_enum_register_static("GstVaapiRotation", rotation_values);
+    return g_type;
+}

@@ -45,6 +45,16 @@ struct _GstVaapiConfig {
     GstVaapiEntrypoint  entrypoint;
 };
 
+typedef struct _GstVaapiProperty GstVaapiProperty;
+struct _GstVaapiProperty {
+    const gchar        *name;
+    VADisplayAttribute  attribute;
+};
+
+/* XXX: export property names when the API is stable enough */
+#define GST_VAAPI_DISPLAY_PROP_RENDER_MODE      "render-mode"
+#define GST_VAAPI_DISPLAY_PROP_ROTATION         "rotation"
+
 enum {
     PROP_0,
 
@@ -304,6 +314,40 @@ get_format_caps(GArray *formats)
     return out_caps;
 }
 
+/* Find display attribute */
+static const GstVaapiProperty *
+find_property(GArray *properties, const gchar *name)
+{
+    GstVaapiProperty *prop;
+    guint i;
+
+    if (!name)
+        return NULL;
+
+    for (i = 0; i < properties->len; i++) {
+        prop = &g_array_index(properties, GstVaapiProperty, i);
+        if (strcmp(prop->name, name) == 0)
+            return prop;
+    }
+    return NULL;
+}
+
+#if 0
+static const GstVaapiProperty *
+find_property_by_type(GArray *properties, VADisplayAttribType type)
+{
+    GstVaapiProperty *prop;
+    guint i;
+
+    for (i = 0; i < properties->len; i++) {
+        prop = &g_array_index(properties, GstVaapiProperty, i);
+        if (prop->attribute.type == type)
+            return prop;
+    }
+    return NULL;
+}
+#endif
+
 static void
 gst_vaapi_display_calculate_pixel_aspect_ratio(GstVaapiDisplay *display)
 {
@@ -372,6 +416,11 @@ gst_vaapi_display_destroy(GstVaapiDisplay *display)
     if (priv->subpicture_formats) {
         g_array_free(priv->subpicture_formats, TRUE);
         priv->subpicture_formats = NULL;
+    }
+
+    if (priv->properties) {
+        g_array_free(priv->properties, TRUE);
+        priv->properties = NULL;
     }
 
     if (priv->display) {
@@ -523,9 +572,38 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
     if (!vaapi_check_status(status, "vaQueryDisplayAttributes()"))
         goto end;
 
+    priv->properties = g_array_new(FALSE, FALSE, sizeof(GstVaapiProperty));
+    if (!priv->properties)
+        goto end;
+
     GST_DEBUG("%d display attributes", n);
-    for (i = 0; i < n; i++)
-        GST_DEBUG("  %s", string_of_VADisplayAttributeType(display_attrs[i].type));
+    for (i = 0; i < n; i++) {
+        VADisplayAttribute * const attr = &display_attrs[i];
+        GstVaapiProperty prop;
+
+        GST_DEBUG("  %s", string_of_VADisplayAttributeType(attr->type));
+
+        switch (attr->type) {
+#if !VA_CHECK_VERSION(0,34,0)
+        case VADisplayAttribDirectSurface:
+            prop.name = GST_VAAPI_DISPLAY_PROP_RENDER_MODE;
+            break;
+#endif
+        case VADisplayAttribRenderMode:
+            prop.name = GST_VAAPI_DISPLAY_PROP_RENDER_MODE;
+            break;
+        case VADisplayAttribRotation:
+            prop.name = GST_VAAPI_DISPLAY_PROP_ROTATION;
+            break;
+        default:
+            prop.name = NULL;
+            break;
+        }
+        if (!prop.name)
+            continue;
+        prop.attribute = *attr;
+        g_array_append_val(priv->properties, prop);
+    }
 
     /* VA image formats */
     formats = g_new(VAImageFormat, vaMaxNumImageFormats(priv->display));
@@ -755,6 +833,7 @@ gst_vaapi_display_init(GstVaapiDisplay *display)
     priv->encoders              = NULL;
     priv->image_formats         = NULL;
     priv->subpicture_formats    = NULL;
+    priv->properties            = NULL;
     priv->create_display        = TRUE;
 
     g_static_rec_mutex_init(&priv->mutex);
@@ -1152,4 +1231,254 @@ gst_vaapi_display_has_subpicture_format(
     g_return_val_if_fail(format, FALSE);
 
     return find_format(display->priv->subpicture_formats, format);
+}
+
+/**
+ * gst_vaapi_display_has_property:
+ * @display: a #GstVaapiDisplay
+ * @name: the property name to check
+ *
+ * Returns whether VA @display supports the requested property. The
+ * check is performed against the property @name. So, the client
+ * application may perform this check only once and cache this
+ * information.
+ *
+ * Return value: %TRUE if VA @display supports property @name
+ */
+gboolean
+gst_vaapi_display_has_property(GstVaapiDisplay *display, const gchar *name)
+{
+    g_return_val_if_fail(GST_VAAPI_IS_DISPLAY(display), FALSE);
+    g_return_val_if_fail(name, FALSE);
+
+    return find_property(display->priv->properties, name) != NULL;
+}
+
+static gboolean
+get_attribute(GstVaapiDisplay *display, VADisplayAttribType type, gint *value)
+{
+    VADisplayAttribute attr;
+    VAStatus status;
+
+    attr.type  = type;
+    attr.flags = VA_DISPLAY_ATTRIB_GETTABLE;
+    status = vaGetDisplayAttributes(display->priv->display, &attr, 1);
+    if (!vaapi_check_status(status, "vaGetDisplayAttributes()"))
+        return FALSE;
+    *value = attr.value;
+    return TRUE;
+}
+
+static gboolean
+set_attribute(GstVaapiDisplay *display, VADisplayAttribType type, gint value)
+{
+    VADisplayAttribute attr;
+    VAStatus status;
+
+    attr.type  = type;
+    attr.value = value;
+    attr.flags = VA_DISPLAY_ATTRIB_SETTABLE;
+    status = vaSetDisplayAttributes(display->priv->display, &attr, 1);
+    if (!vaapi_check_status(status, "vaSetDisplayAttributes()"))
+        return FALSE;
+    return TRUE;
+}
+
+static gboolean
+get_render_mode_VADisplayAttribRenderMode(
+    GstVaapiDisplay    *display,
+    GstVaapiRenderMode *pmode
+)
+{
+    gint modes, devices;
+
+    if (!get_attribute(display, VADisplayAttribRenderDevice, &devices))
+        return FALSE;
+    if (!devices)
+        return FALSE;
+    if (!get_attribute(display, VADisplayAttribRenderMode, &modes))
+        return FALSE;
+
+    /* Favor "overlay" mode since it is the most restrictive one */
+    if (modes & (VA_RENDER_MODE_LOCAL_OVERLAY|VA_RENDER_MODE_EXTERNAL_OVERLAY))
+        *pmode = GST_VAAPI_RENDER_MODE_OVERLAY;
+    else
+        *pmode = GST_VAAPI_RENDER_MODE_TEXTURE;
+    return TRUE;
+}
+
+static gboolean
+get_render_mode_VADisplayAttribDirectSurface(
+    GstVaapiDisplay    *display,
+    GstVaapiRenderMode *pmode
+)
+{
+#if VA_CHECK_VERSION(0,34,0)
+    /* VADisplayAttribDirectsurface was removed in VA-API >= 0.34.0 */
+    return FALSE;
+#else
+    gint direct_surface;
+
+    if (!get_attribute(display, VADisplayAttribDirectSurface, &direct_surface))
+        return FALSE;
+    if (direct_surface)
+        *pmode = GST_VAAPI_RENDER_MODE_OVERLAY;
+    else
+        *pmode = GST_VAAPI_RENDER_MODE_TEXTURE;
+    return TRUE;
+#endif
+}
+
+static gboolean
+get_render_mode_default(
+    GstVaapiDisplay    *display,
+    GstVaapiRenderMode *pmode
+)
+{
+    switch (display->priv->display_type) {
+#if USE_WAYLAND
+    case GST_VAAPI_DISPLAY_TYPE_WAYLAND:
+        /* wl_buffer mapped from VA surface through vaGetSurfaceBufferWl() */
+        *pmode = GST_VAAPI_RENDER_MODE_OVERLAY;
+        break;
+#endif
+#if USE_DRM
+    case GST_VAAPI_DISPLAY_TYPE_DRM:
+        /* vaGetSurfaceBufferDRM() returns the underlying DRM buffer handle */
+        *pmode = GST_VAAPI_RENDER_MODE_OVERLAY;
+        break;
+#endif
+    default:
+        /* This includes VA/X11 and VA/GLX modes */
+        *pmode = GST_VAAPI_RENDER_MODE_TEXTURE;
+        break;
+    }
+    return TRUE;
+}
+
+/**
+ * gst_vaapi_display_get_render_mode:
+ * @display: a #GstVaapiDisplay
+ * @pmode: return location for the VA @display rendering mode
+ *
+ * Returns the current VA @display rendering mode.
+ *
+ * Return value: %TRUE if VA @display rendering mode could be determined
+ */
+gboolean
+gst_vaapi_display_get_render_mode(
+    GstVaapiDisplay    *display,
+    GstVaapiRenderMode *pmode
+)
+{
+    g_return_val_if_fail(GST_VAAPI_IS_DISPLAY(display), FALSE);
+
+    /* Try with render-mode attribute */
+    if (get_render_mode_VADisplayAttribRenderMode(display, pmode))
+        return TRUE;
+
+    /* Try with direct-surface attribute */
+    if (get_render_mode_VADisplayAttribDirectSurface(display, pmode))
+        return TRUE;
+
+    /* Default: determine from the display type */
+    return get_render_mode_default(display, pmode);
+}
+
+/**
+ * gst_vaapi_display_set_render_mode:
+ * @display: a #GstVaapiDisplay
+ * @mode: the #GstVaapiRenderMode to set
+ *
+ * Sets the VA @display rendering mode to the supplied @mode. This
+ * function returns %FALSE if the rendering mode could not be set,
+ * e.g. run-time switching rendering mode is not supported.
+ *
+ * Return value: %TRUE if VA @display rendering @mode could be changed
+ *   to the requested value
+ */
+gboolean
+gst_vaapi_display_set_render_mode(
+    GstVaapiDisplay   *display,
+    GstVaapiRenderMode mode
+)
+{
+    gint modes, devices;
+
+    g_return_val_if_fail(GST_VAAPI_IS_DISPLAY(display), FALSE);
+
+    if (!get_attribute(display, VADisplayAttribRenderDevice, &devices))
+        return FALSE;
+
+    modes = 0;
+    switch (mode) {
+    case GST_VAAPI_RENDER_MODE_OVERLAY:
+        if (devices & VA_RENDER_DEVICE_LOCAL)
+            modes |= VA_RENDER_MODE_LOCAL_OVERLAY;
+        if (devices & VA_RENDER_DEVICE_EXTERNAL)
+            modes |= VA_RENDER_MODE_EXTERNAL_OVERLAY;
+        break;
+    case GST_VAAPI_RENDER_MODE_TEXTURE:
+        if (devices & VA_RENDER_DEVICE_LOCAL)
+            modes |= VA_RENDER_MODE_LOCAL_GPU;
+        if (devices & VA_RENDER_DEVICE_EXTERNAL)
+            modes |= VA_RENDER_MODE_EXTERNAL_GPU;
+        break;
+    }
+    if (!modes)
+        return FALSE;
+    if (!set_attribute(display, VADisplayAttribRenderMode, modes))
+        return FALSE;
+    return TRUE;
+}
+
+/**
+ * gst_vaapi_display_get_rotation:
+ * @display: a #GstVaapiDisplay
+ *
+ * Returns the current VA @display rotation angle. If the VA driver
+ * does not support "rotation" display attribute, then the display is
+ * assumed to be un-rotated.
+ *
+ * Return value: the current #GstVaapiRotation value
+ */
+GstVaapiRotation
+gst_vaapi_display_get_rotation(GstVaapiDisplay *display)
+{
+    gint value;
+
+    g_return_val_if_fail(GST_VAAPI_IS_DISPLAY(display), GST_VAAPI_ROTATION_0);
+
+    if (!get_attribute(display, VADisplayAttribRotation, &value))
+        value = VA_ROTATION_NONE;
+    return to_GstVaapiRotation(value);
+}
+
+/**
+ * gst_vaapi_display_set_rotation:
+ * @display: a #GstVaapiDisplay
+ * @rotation: the #GstVaapiRotation value to set
+ *
+ * Sets the VA @display rotation angle to the supplied @rotation
+ * value. This function returns %FALSE if the rotation angle could not
+ * be set, e.g. the VA driver does not allow to change the display
+ * rotation angle.
+ *
+ * Return value: %TRUE if VA @display rotation angle could be changed
+ *   to the requested value
+ */
+gboolean
+gst_vaapi_display_set_rotation(
+    GstVaapiDisplay *display,
+    GstVaapiRotation rotation
+)
+{
+    guint value;
+
+    g_return_val_if_fail(GST_VAAPI_IS_DISPLAY(display), FALSE);
+
+    value = from_GstVaapiRotation(rotation);
+    if (!set_attribute(display, VADisplayAttribRotation, value))
+        return FALSE;
+    return TRUE;
 }
