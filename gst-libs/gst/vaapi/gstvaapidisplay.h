@@ -25,6 +25,7 @@
 
 #include <va/va.h>
 #include <gst/gst.h>
+#include <gst/vaapi/gstvaapitypes.h>
 #include <gst/vaapi/gstvaapiimageformat.h>
 #include <gst/vaapi/gstvaapiprofile.h>
 
@@ -216,6 +217,30 @@ gboolean
 gst_vaapi_display_has_subpicture_format(
     GstVaapiDisplay    *display,
     GstVaapiImageFormat format
+);
+
+gboolean
+gst_vaapi_display_has_property(GstVaapiDisplay *display, const gchar *name);
+
+gboolean
+gst_vaapi_display_get_render_mode(
+    GstVaapiDisplay    *display,
+    GstVaapiRenderMode *pmode
+);
+
+gboolean
+gst_vaapi_display_set_render_mode(
+    GstVaapiDisplay   *display,
+    GstVaapiRenderMode mode
+);
+
+GstVaapiRotation
+gst_vaapi_display_get_rotation(GstVaapiDisplay *display);
+
+gboolean
+gst_vaapi_display_set_rotation(
+    GstVaapiDisplay *display,
+    GstVaapiRotation rotation
 );
 
 G_END_DECLS
