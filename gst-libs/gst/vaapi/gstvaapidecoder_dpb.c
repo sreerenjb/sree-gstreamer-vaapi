@@ -32,12 +32,12 @@
 static GstVaapiDpb *
 dpb_new(GType type, guint max_pictures)
 {
-    GstMiniObject *obj;
+    GObject *obj;
     GstVaapiDpb *dpb;
 
     g_return_val_if_fail(max_pictures > 0, NULL);
 
-    obj = gst_mini_object_new(type);
+    obj = g_object_new(type);
     if (!obj)
         return NULL;
 
@@ -49,7 +49,7 @@ dpb_new(GType type, guint max_pictures)
     return dpb;
 
 error:
-    gst_mini_object_unref(obj);
+    g__object_unref(obj);
     return NULL;
 }
 
@@ -123,7 +123,7 @@ dpb_clear(GstVaapiDpb *dpb)
 /* --- Base Decoded Picture Buffer                                       --- */
 /* ------------------------------------------------------------------------- */
 
-G_DEFINE_TYPE(GstVaapiDpb, gst_vaapi_dpb, GST_TYPE_MINI_OBJECT)
+G_DEFINE_TYPE(GstVaapiDpb, gst_vaapi_dpb, G_TYPE_OBJECT)
 
 static void
 gst_vaapi_dpb_base_flush(GstVaapiDpb *dpb)
@@ -178,17 +178,17 @@ gst_vaapi_dpb_base_add(GstVaapiDpb *dpb, GstVaapiPicture *picture)
 }
 
 static void
-gst_vaapi_dpb_finalize(GstMiniObject *object)
+gst_vaapi_dpb_finalize(GObject *object)
 {
     GstVaapiDpb * const dpb = GST_VAAPI_DPB_CAST(object);
-    GstMiniObjectClass *parent_class;
+    GObjectClass *parent_class;
 
     if (dpb->pictures) {
         dpb_clear(dpb);
         g_free(dpb->pictures);
     }
 
-    parent_class = GST_MINI_OBJECT_CLASS(gst_vaapi_dpb_parent_class);
+    parent_class = GST_OBJECT_CLASS(gst_vaapi_dpb_parent_class);
     if (parent_class->finalize)
         parent_class->finalize(object);
 }
@@ -204,7 +204,7 @@ gst_vaapi_dpb_init(GstVaapiDpb *dpb)
 static void
 gst_vaapi_dpb_class_init(GstVaapiDpbClass *klass)
 {
-    GstMiniObjectClass * const object_class = GST_MINI_OBJECT_CLASS(klass);
+    GObjectClass * const object_class = G_OBJECT_CLASS(klass);
 
     object_class->finalize = gst_vaapi_dpb_finalize;
     klass->flush           = gst_vaapi_dpb_base_flush;

@@ -90,7 +90,7 @@ static const GstVaapiProfileMap gst_vaapi_profiles[] = {
       "video/x-wmv, wmvversion=3", "main"
     },
     { GST_VAAPI_PROFILE_VC1_ADVANCED, VAProfileVC1Advanced,
-      "video/x-wmv, wmvversion=3, format=(fourcc)WVC1", "advanced"
+      "video/x-wmv, wmvversion=3, format=(string)WVC1", "advanced"
     },
 #if VA_CHECK_VERSION(0,32,0)
     { GST_VAAPI_PROFILE_JPEG_BASELINE, VAProfileJPEGBaseline,
@@ -166,8 +166,14 @@ gst_vaapi_profile(VAProfile profile)
 static GstVaapiProfile
 gst_vaapi_profile_from_codec_data_h264(GstBuffer *buffer)
 {
+    GstMapInfo map_info;
+    guchar * buf;
+
     /* MPEG-4 Part 15: Advanced Video Coding (AVC) file format */
-    guchar * const buf = GST_BUFFER_DATA(buffer);
+    i/*guchar * const buf = GST_BUFFER_DATA(buffer);*/
+    gst_buffer_map (buffer, &map_info, GST_MAP_READ);
+    buf = map_info.data;
+
 
     if (buf[0] != 1)    /* configurationVersion = 1 */
         return 0;

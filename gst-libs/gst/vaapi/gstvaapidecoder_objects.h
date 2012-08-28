@@ -29,40 +29,17 @@ G_BEGIN_DECLS
 
 typedef enum _GstVaapiPictureType       GstVaapiPictureType;
 typedef struct _GstVaapiPicture         GstVaapiPicture;
-typedef struct _GstVaapiPictureClass    GstVaapiPictureClass;
 typedef struct _GstVaapiSlice           GstVaapiSlice;
-typedef struct _GstVaapiSliceClass      GstVaapiSliceClass;
 
 /* ------------------------------------------------------------------------- */
 /* --- Pictures                                                          --- */
 /* ------------------------------------------------------------------------- */
 
-#define GST_VAAPI_TYPE_PICTURE \
-    (gst_vaapi_picture_get_type())
+#define GST_VAAPI_TYPE_PICTURE          (gst_vaapi_picture_get_type())
+#define GST_VAAPI_IS_PICTURE(obj)       (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_PICTURE))
+#define GST_VAAPI_PICTURE_CAST(obj)     ((GstVaapiPicture *)(obj))
+#define GST_VAAPI_PICTURE(obj)          (GST_VAAPI_PICTURE_CAST (obj))  
 
-#define GST_VAAPI_PICTURE_CAST(obj) \
-    ((GstVaapiPicture *)(obj))
-
-#define GST_VAAPI_PICTURE(obj)                          \
-    (G_TYPE_CHECK_INSTANCE_CAST((obj),                  \
-                                GST_VAAPI_TYPE_PICTURE, \
-                                GstVaapiPicture))
-
-#define GST_VAAPI_PICTURE_CLASS(klass)                  \
-    (G_TYPE_CHECK_CLASS_CAST((klass),                   \
-                             GST_VAAPI_TYPE_PICTURE,    \
-                             GstVaapiPictureClass))
-
-#define GST_VAAPI_IS_PICTURE(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_VAAPI_TYPE_PICTURE))
-
-#define GST_VAAPI_IS_PICTURE_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_TYPE((klass), GST_VAAPI_TYPE_PICTURE))
-
-#define GST_VAAPI_PICTURE_GET_CLASS(obj)                \
-    (G_TYPE_INSTANCE_GET_CLASS((obj),                   \
-                               GST_VAAPI_TYPE_PICTURE,  \
-                               GstVaapiPictureClass))
 
 enum _GstVaapiPictureType {
     GST_VAAPI_PICTURE_TYPE_NONE = 0,        // Undefined
@@ -136,6 +113,8 @@ struct _GstVaapiPicture {
     /*< private >*/
     GstVaapiCodecObject         parent_instance;
     GstVaapiSurface            *surface;
+    GstBuffer                  *surface_buffer;
+    GstVaapiSurfacePool        *surface_pool;
     GstVaapiSurfaceProxy       *proxy;
     VABufferID                  param_id;
     guint                       param_size;
@@ -152,16 +131,6 @@ struct _GstVaapiPicture {
     gint32                      poc;
     guint                       structure;
     gint			frame_id;
-};
-
-/**
- * GstVaapiPictureClass:
- *
- * The #GstVaapiPicture base class.
- */
-struct _GstVaapiPictureClass {
-    /*< private >*/
-    GstVaapiCodecObjectClass    parent_class;
 };
 
 G_GNUC_INTERNAL
@@ -212,32 +181,10 @@ gst_vaapi_picture_unref(gpointer ptr)
 /* --- Slices                                                            --- */
 /* ------------------------------------------------------------------------- */
 
-#define GST_VAAPI_TYPE_SLICE \
-    (gst_vaapi_slice_get_type())
-
-#define GST_VAAPI_SLICE_CAST(obj) \
-    ((GstVaapiSlice *)(obj))
-
-#define GST_VAAPI_SLICE(obj)                            \
-    (G_TYPE_CHECK_INSTANCE_CAST((obj),                  \
-                                GST_VAAPI_TYPE_SLICE,   \
-                                GstVaapiSlice))
-
-#define GST_VAAPI_SLICE_CLASS(klass)                    \
-    (G_TYPE_CHECK_CLASS_CAST((klass),                   \
-                             GST_VAAPI_TYPE_SLICE,      \
-                             GstVaapiSliceClass))
-
-#define GST_VAAPI_IS_SLICE(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_VAAPI_TYPE_SLICE))
-
-#define GST_VAAPI_IS_SLICE_CLASS(klass) \
-    (G_TYPE_CHECK_CLASS_TYPE((klass), GST_VAAPI_TYPE_SLICE))
-
-#define GST_VAAPI_SLICE_GET_CLASS(obj)                  \
-    (G_TYPE_INSTANCE_GET_CLASS((obj),                   \
-                               GST_VAAPI_TYPE_SLICE,    \
-                               GstVaapiSliceClass))
+#define GST_VAAPI_TYPE_SLICE       (gst_vaapi_slice_get_type())
+#define GST_VAAPI_IS_SLICE(obj)    (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_SLICE)) 
+#define GST_VAAPI_SLICE_CAST(obj)  ((GstVaapiSlice *)(obj))
+#define GST_VAAPI_SLICE (obj)      (GST_VAAPI_SLICE_CAST(obj)) 
 
 /**
  * GstVaapiSlice:
@@ -252,16 +199,6 @@ struct _GstVaapiSlice {
     VABufferID                  param_id;
     VABufferID                  data_id;
     gpointer                    param;
-};
-
-/**
- * GstVaapiSliceClass:
- *
- * The #GstVaapiSlice base class.
- */
-struct _GstVaapiSliceClass {
-    /*< private >*/
-    GstVaapiCodecObjectClass    parent_class;
 };
 
 G_GNUC_INTERNAL
