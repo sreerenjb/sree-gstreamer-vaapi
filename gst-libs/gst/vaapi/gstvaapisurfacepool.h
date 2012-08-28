@@ -24,8 +24,16 @@
 
 #include <gst/vaapi/gstvaapisurface.h>
 #include <gst/vaapi/gstvaapivideopool.h>
-
+#include <gst/video/gstvideometa.h>
+#include <gst/vaapi/gstvaapisurfacememory.h>
 G_BEGIN_DECLS
+
+/*#define GST_VAAPI_TYPE_SURFACE_MEMORY \
+	(gst_vaapi_surface_memory_get_type())
+#define GST_IS_VAAPI_SURFACE_MEMORY(obj)        (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_SURFACE_MEMORY))
+#define GST_VAAPI_SURFACE_MEMORY_CAST(obj)      ((GstVaapiSurfaceMemory *)(obj))
+#define GST_VAAPI_SURFACE_MEMORY(obj)           (GST_VAAPI_SURFACE_MEMORY_CAST(obj))
+*/
 
 #define GST_VAAPI_TYPE_SURFACE_POOL \
     (gst_vaapi_surface_pool_get_type())
@@ -54,7 +62,19 @@ G_BEGIN_DECLS
 typedef struct _GstVaapiSurfacePool             GstVaapiSurfacePool;
 typedef struct _GstVaapiSurfacePoolPrivate      GstVaapiSurfacePoolPrivate;
 typedef struct _GstVaapiSurfacePoolClass        GstVaapiSurfacePoolClass;
+/*
+typedef struct _GstVaapiSurfaceMemory GstVaapiSurfaceMemory;
 
+struct _GstVaapiSurfaceMemory {
+   GstMemory memory;
+   GstVaapiSurface *surface;
+   gsize slice_size;
+   gpointer user_data;
+   GDestroyNotify notify;
+};
+
+#define  GST_ALLOCATOR_SURFACE_MEMORY  "GstVaapiSurfaceMemoryAllocator"
+*/
 /**
  * GstVaapiSurfacePool:
  *
@@ -78,10 +98,11 @@ struct _GstVaapiSurfacePoolClass {
 };
 
 GType
-gst_vaapi_surface_pool_get_type(void) G_GNUC_CONST;
+gst_vaapi_surface_pool_get_type (void);
 
 GstVaapiVideoPool *
 gst_vaapi_surface_pool_new(GstVaapiDisplay *display, GstCaps *caps);
+
 
 G_END_DECLS
 

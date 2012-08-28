@@ -25,6 +25,8 @@
 #include <glib.h>
 #include <gst/gstcaps.h>
 #include <gst/vaapi/gstvaapidisplay.h>
+#include <gst/video/gstvideopool.h>
+#include <gst/video/gstvideometa.h>
 
 G_BEGIN_DECLS
 
@@ -63,7 +65,7 @@ typedef struct _GstVaapiVideoPoolClass          GstVaapiVideoPoolClass;
  */
 struct _GstVaapiVideoPool {
     /*< private >*/
-    GObject parent_instance;
+    GstBufferPool bufferpool;	
 
     GstVaapiVideoPoolPrivate *priv;
 };
@@ -72,51 +74,24 @@ struct _GstVaapiVideoPool {
  * GstVaapiVideoPoolClass:
  * @set_caps: virtual function for notifying the subclass of the
  *   negotiated caps
- * @alloc_object: virtual function for allocating a video pool object
  *
  * A pool base class used to hold video objects. e.g. surfaces, images.
  */
 struct _GstVaapiVideoPoolClass {
     /*< private >*/
-    GObjectClass parent_class;
-
+    GstBufferPoolClass parent_class;
     /*< public >*/
     void     (*set_caps)    (GstVaapiVideoPool *pool, GstCaps *caps);
-    gpointer (*alloc_object)(GstVaapiVideoPool *pool, GstVaapiDisplay *display);
 };
 
 GType
-gst_vaapi_video_pool_get_type(void) G_GNUC_CONST;
+gst_vaapi_video_pool_get_type(void);
 
 GstVaapiDisplay *
 gst_vaapi_video_pool_get_display(GstVaapiVideoPool *pool);
 
 GstCaps *
 gst_vaapi_video_pool_get_caps(GstVaapiVideoPool *pool);
-
-gpointer
-gst_vaapi_video_pool_get_object(GstVaapiVideoPool *pool);
-
-void
-gst_vaapi_video_pool_put_object(GstVaapiVideoPool *pool, gpointer object);
-
-gboolean
-gst_vaapi_video_pool_add_object(GstVaapiVideoPool *pool, gpointer object);
-
-gboolean
-gst_vaapi_video_pool_add_objects(GstVaapiVideoPool *pool, GPtrArray *objects);
-
-guint
-gst_vaapi_video_pool_get_size(GstVaapiVideoPool *pool);
-
-gboolean
-gst_vaapi_video_pool_reserve(GstVaapiVideoPool *pool, guint n);
-
-guint
-gst_vaapi_video_pool_get_capacity(GstVaapiVideoPool *pool);
-
-void
-gst_vaapi_video_pool_set_capacity(GstVaapiVideoPool *pool, guint capacity);
 
 G_END_DECLS
 

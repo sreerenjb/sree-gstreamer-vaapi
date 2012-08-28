@@ -51,10 +51,10 @@ struct _GstVaapiImageFormatMap {
     GST_VAAPI_IMAGE_##FORMAT,                                           \
     CAPS_STR
 #define DEF_YUV(FORMAT, FOURCC, ENDIAN, BPP)                            \
-    { DEF(YCBCR, FORMAT, GST_VIDEO_CAPS_YUV(#FORMAT)),                  \
+    { DEF(YCBCR, FORMAT, GST_VIDEO_CAPS_MAKE(#FORMAT)),                  \
         { VA_FOURCC FOURCC, VA_##ENDIAN##_FIRST, BPP, }, }
 #define DEF_RGB(FORMAT, FOURCC, ENDIAN, BPP, DEPTH, R,G,B,A)            \
-    { DEF(RGB, FORMAT, GST_VIDEO_CAPS_##FORMAT),                        \
+    { DEF(RGB, FORMAT, GST_VIDEO_CAPS_MAKE(#FORMAT)),                        \
         { VA_FOURCC FOURCC, VA_##ENDIAN##_FIRST, BPP, DEPTH, R,G,B,A }, }
 
 /* Image formats, listed in HW order preference */
@@ -177,6 +177,10 @@ gst_vaapi_image_format_from_caps(GstCaps *caps)
     VAImageFormat *va_format, va_formats[2];
     gint endian, rmask, gmask, bmask, amask = 0;
     guint32 fourcc;
+    const gchar *format;
+    GstVideoFormat fmt;
+    const GstVideoFormatInfo *vinfo;
+
 
     if (!caps)
         return 0;
@@ -185,9 +189,16 @@ gst_vaapi_image_format_from_caps(GstCaps *caps)
     if (!structure)
         return 0;
 
+    format = gst_structure_get_string (structure, "format");
+    fmt = gst_video_format_from_string (format);
+    vinfo = gst_video_format_get_info (fmt);
+
     /* Check for YUV format */
-    if (gst_structure_get_fourcc(structure, "format", &fourcc))
-        return gst_vaapi_image_format_from_fourcc(fourcc);
+    /*if (gst_structure_get_fourcc(structure, "format", &fourcc))
+        return gst_vaapi_image_format_from_fourcc(fourcc);*/
+    if (fmt)
+        return gst_vaapi_image_format_from_fourcc(gst_video_format_to_fourcc(fmt));
+
 
     /* Check for RGB format */
     gst_structure_get_int(structure, "endianness", &endian);
