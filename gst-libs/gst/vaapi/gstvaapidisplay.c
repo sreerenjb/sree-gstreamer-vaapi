@@ -28,6 +28,7 @@
 #include "sysdeps.h"
 #include <string.h>
 #include "gstvaapiutils.h"
+#include "gstvaapivalue.h"
 #include "gstvaapidisplay.h"
 #include "gstvaapidisplay_priv.h"
 #include "gstvaapiworkarounds.h"
@@ -49,11 +50,11 @@ typedef struct _GstVaapiProperty GstVaapiProperty;
 struct _GstVaapiProperty {
     const gchar        *name;
     VADisplayAttribute  attribute;
+    gint                old_value;
 };
 
-/* XXX: export property names when the API is stable enough */
-#define GST_VAAPI_DISPLAY_PROP_RENDER_MODE      "render-mode"
-#define GST_VAAPI_DISPLAY_PROP_ROTATION         "rotation"
+#define DEFAULT_RENDER_MODE     GST_VAAPI_RENDER_MODE_TEXTURE
+#define DEFAULT_ROTATION        GST_VAAPI_ROTATION_0
 
 enum {
     PROP_0,
@@ -61,10 +62,32 @@ enum {
     PROP_DISPLAY,
     PROP_DISPLAY_TYPE,
     PROP_WIDTH,
-    PROP_HEIGHT
+    PROP_HEIGHT,
+    PROP_RENDER_MODE,
+    PROP_ROTATION,
+    PROP_HUE,
+    PROP_SATURATION,
+    PROP_BRIGHTNESS,
+    PROP_CONTRAST,
+
+    N_PROPERTIES
 };
 
 static GstVaapiDisplayCache *g_display_cache = NULL;
+
+static GParamSpec *g_properties[N_PROPERTIES] = { NULL, };
+
+static gboolean
+get_attribute(GstVaapiDisplay *display, VADisplayAttribType type, gint *value);
+
+static gboolean
+set_attribute(GstVaapiDisplay *display, VADisplayAttribType type, gint value);
+
+static gboolean
+get_color_balance(GstVaapiDisplay *display, guint prop_id, gfloat *v);
+
+static gboolean
+set_color_balance(GstVaapiDisplay *display, guint prop_id, gfloat v);
 
 static inline GstVaapiDisplayCache *
 get_display_cache(void)
@@ -348,6 +371,12 @@ find_property_by_type(GArray *properties, VADisplayAttribType type)
 }
 #endif
 
+static inline const GstVaapiProperty *
+find_property_by_pspec(GstVaapiDisplay *display, GParamSpec *pspec)
+{
+    return find_property(display->priv->properties, pspec->name);
+}
+
 static void
 gst_vaapi_display_calculate_pixel_aspect_ratio(GstVaapiDisplay *display)
 {
@@ -580,6 +609,7 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
     for (i = 0; i < n; i++) {
         VADisplayAttribute * const attr = &display_attrs[i];
         GstVaapiProperty prop;
+        gint value;
 
         GST_DEBUG("  %s", string_of_VADisplayAttributeType(attr->type));
 
@@ -595,13 +625,44 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
         case VADisplayAttribRotation:
             prop.name = GST_VAAPI_DISPLAY_PROP_ROTATION;
             break;
+        case VADisplayAttribHue:
+            prop.name = GST_VAAPI_DISPLAY_PROP_HUE;
+            break;
+        case VADisplayAttribSaturation:
+            prop.name = GST_VAAPI_DISPLAY_PROP_SATURATION;
+            break;
+        case VADisplayAttribBrightness:
+            prop.name = GST_VAAPI_DISPLAY_PROP_BRIGHTNESS;
+            break;
+        case VADisplayAttribContrast:
+            prop.name = GST_VAAPI_DISPLAY_PROP_CONTRAST;
+            break;
         default:
             prop.name = NULL;
             break;
         }
         if (!prop.name)
             continue;
+
+        /* Assume the attribute is really supported if we can get the
+         * actual and current value */
+        if (!get_attribute(display, attr->type, &value))
+            continue;
+
+        /* Some drivers (e.g. EMGD) have completely random initial
+         * values. So try to reset sensible ones */
+        if (value < attr->min_value || value > attr->max_value) {
+            gint v;
+            if (!(attr->flags & VA_DISPLAY_ATTRIB_SETTABLE))
+                continue;
+            if (!set_attribute(display, attr->type, attr->value))
+                continue;
+            if (!get_attribute(display, attr->type, &v) || v != value)
+                continue;
+        }
+
         prop.attribute = *attr;
+        prop.old_value = value;
         g_array_append_val(priv->properties, prop);
     }
 
@@ -709,6 +770,18 @@ gst_vaapi_display_set_property(
     case PROP_DISPLAY_TYPE:
         display->priv->display_type = g_value_get_enum(value);
         break;
+    case PROP_RENDER_MODE:
+        gst_vaapi_display_set_render_mode(display, g_value_get_enum(value));
+        break;
+    case PROP_ROTATION:
+        gst_vaapi_display_set_rotation(display, g_value_get_enum(value));
+        break;
+    case PROP_HUE:
+    case PROP_SATURATION:
+    case PROP_BRIGHTNESS:
+    case PROP_CONTRAST:
+        set_color_balance(display, prop_id, g_value_get_float(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -738,6 +811,26 @@ gst_vaapi_display_get_property(
     case PROP_HEIGHT:
         g_value_set_uint(value, gst_vaapi_display_get_height(display));
         break;
+    case PROP_RENDER_MODE: {
+        GstVaapiRenderMode mode;
+        if (!gst_vaapi_display_get_render_mode(display, &mode))
+            mode = DEFAULT_RENDER_MODE;
+        g_value_set_enum(value, mode);
+        break;
+    }
+    case PROP_ROTATION:
+        g_value_set_enum(value, gst_vaapi_display_get_rotation(display));
+        break;
+    case PROP_HUE:
+    case PROP_SATURATION:
+    case PROP_BRIGHTNESS:
+    case PROP_CONTRAST: {
+        gfloat v;
+        if (!get_color_balance(display, prop_id, &v))
+            v = G_PARAM_SPEC_FLOAT(pspec)->default_value;
+        g_value_set_float(value, v);
+        break;
+    }
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -777,41 +870,113 @@ gst_vaapi_display_class_init(GstVaapiDisplayClass *klass)
     dpy_class->lock             = gst_vaapi_display_lock_default;
     dpy_class->unlock           = gst_vaapi_display_unlock_default;
 
-    g_object_class_install_property
-        (object_class,
-         PROP_DISPLAY,
-         g_param_spec_pointer("display",
-                              "VA display",
-                              "VA display",
-                              G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY));
+    g_properties[PROP_DISPLAY] =
+        g_param_spec_pointer("display",
+                             "VA display",
+                             "VA display",
+                             G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
 
-    g_object_class_install_property
-        (object_class,
-         PROP_DISPLAY_TYPE,
-         g_param_spec_enum("display-type",
-                           "VA display type",
-                           "VA display type",
-                           GST_VAAPI_TYPE_DISPLAY_TYPE,
-                           GST_VAAPI_DISPLAY_TYPE_ANY,
-                           G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY));
+    g_properties[PROP_DISPLAY_TYPE] =
+        g_param_spec_enum("display-type",
+                          "VA display type",
+                          "VA display type",
+                          GST_VAAPI_TYPE_DISPLAY_TYPE,
+                          GST_VAAPI_DISPLAY_TYPE_ANY,
+                          G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY);
 
-    g_object_class_install_property
-        (object_class,
-         PROP_WIDTH,
-         g_param_spec_uint("width",
-                           "Width",
-                           "The display width",
-                           1, G_MAXUINT32, 1,
-                           G_PARAM_READABLE));
+    g_properties[PROP_WIDTH] =
+        g_param_spec_uint("width",
+                          "Width",
+                          "The display width",
+                          1, G_MAXUINT32, 1,
+                          G_PARAM_READABLE);
 
-    g_object_class_install_property
-        (object_class,
-         PROP_HEIGHT,
-         g_param_spec_uint("height",
-                           "height",
-                           "The display height",
-                           1, G_MAXUINT32, 1,
-                           G_PARAM_READABLE));
+    g_properties[PROP_HEIGHT] =
+        g_param_spec_uint("height",
+                          "height",
+                          "The display height",
+                          1, G_MAXUINT32, 1,
+                          G_PARAM_READABLE);
+
+    /**
+     * GstVaapiDisplay:render-mode:
+     *
+     * The VA display rendering mode, expressed as a #GstVaapiRenderMode.
+     */
+    g_properties[PROP_RENDER_MODE] =
+        g_param_spec_enum(GST_VAAPI_DISPLAY_PROP_RENDER_MODE,
+                          "render mode",
+                          "The display rendering mode",
+                          GST_VAAPI_TYPE_RENDER_MODE,
+                          DEFAULT_RENDER_MODE,
+                          G_PARAM_READWRITE);
+
+    /**
+     * GstVaapiDisplay:rotation:
+     *
+     * The VA display rotation mode, expressed as a #GstVaapiRotation.
+     */
+    g_properties[PROP_ROTATION] =
+        g_param_spec_enum(GST_VAAPI_DISPLAY_PROP_ROTATION,
+                          "rotation",
+                          "The display rotation mode",
+                          GST_VAAPI_TYPE_ROTATION,
+                          DEFAULT_ROTATION,
+                          G_PARAM_READWRITE);
+
+    /**
+     * GstVaapiDisplay:hue:
+     *
+     * The VA display hue, expressed as a float value. Range is -180.0
+     * to 180.0. Default value is 0.0 and represents no modification.
+     */
+    g_properties[PROP_HUE] =
+        g_param_spec_float(GST_VAAPI_DISPLAY_PROP_HUE,
+                           "hue",
+                           "The display hue value",
+                           -180.0, 180.0, 0.0,
+                           G_PARAM_READWRITE);
+
+    /**
+     * GstVaapiDisplay:saturation:
+     *
+     * The VA display saturation, expressed as a float value. Range is
+     * 0.0 to 2.0. Default value is 1.0 and represents no modification.
+     */
+    g_properties[PROP_SATURATION] =
+        g_param_spec_float(GST_VAAPI_DISPLAY_PROP_SATURATION,
+                           "saturation",
+                           "The display saturation value",
+                           0.0, 2.0, 1.0,
+                           G_PARAM_READWRITE);
+
+    /**
+     * GstVaapiDisplay:brightness:
+     *
+     * The VA display brightness, expressed as a float value. Range is
+     * -1.0 to 1.0. Default value is 0.0 and represents no modification.
+     */
+    g_properties[PROP_BRIGHTNESS] =
+        g_param_spec_float(GST_VAAPI_DISPLAY_PROP_BRIGHTNESS,
+                           "brightness",
+                           "The display brightness value",
+                           -1.0, 1.0, 0.0,
+                           G_PARAM_READWRITE);
+
+    /**
+     * GstVaapiDisplay:contrast:
+     *
+     * The VA display contrast, expressed as a float value. Range is
+     * 0.0 to 2.0. Default value is 1.0 and represents no modification.
+     */
+    g_properties[PROP_CONTRAST] =
+        g_param_spec_float(GST_VAAPI_DISPLAY_PROP_CONTRAST,
+                           "contrast",
+                           "The display contrast value",
+                           0.0, 2.0, 1.0,
+                           G_PARAM_READWRITE);
+
+    g_object_class_install_properties(object_class, N_PROPERTIES, g_properties);
 }
 
 static void
@@ -1350,7 +1515,7 @@ get_render_mode_default(
 #endif
     default:
         /* This includes VA/X11 and VA/GLX modes */
-        *pmode = GST_VAAPI_RENDER_MODE_TEXTURE;
+        *pmode = DEFAULT_RENDER_MODE;
         break;
     }
     return TRUE;
@@ -1429,6 +1594,8 @@ gst_vaapi_display_set_render_mode(
         return FALSE;
     if (!set_attribute(display, VADisplayAttribRenderMode, modes))
         return FALSE;
+
+    g_object_notify_by_pspec(G_OBJECT(display), g_properties[PROP_RENDER_MODE]);
     return TRUE;
 }
 
@@ -1447,7 +1614,7 @@ gst_vaapi_display_get_rotation(GstVaapiDisplay *display)
 {
     gint value;
 
-    g_return_val_if_fail(GST_VAAPI_IS_DISPLAY(display), GST_VAAPI_ROTATION_0);
+    g_return_val_if_fail(GST_VAAPI_IS_DISPLAY(display), DEFAULT_ROTATION);
 
     if (!get_attribute(display, VADisplayAttribRotation, &value))
         value = VA_ROTATION_NONE;
@@ -1480,5 +1647,76 @@ gst_vaapi_display_set_rotation(
     value = from_GstVaapiRotation(rotation);
     if (!set_attribute(display, VADisplayAttribRotation, value))
         return FALSE;
+
+    g_object_notify_by_pspec(G_OBJECT(display), g_properties[PROP_ROTATION]);
+    return TRUE;
+}
+
+/* Get color balance attributes */
+static gboolean
+get_color_balance(GstVaapiDisplay *display, guint prop_id, gfloat *v)
+{
+    GParamSpecFloat * const pspec = G_PARAM_SPEC_FLOAT(g_properties[prop_id]);
+    const GstVaapiProperty *prop;
+    const VADisplayAttribute *attr;
+    gfloat out_value;
+    gint value;
+
+    if (!pspec)
+        return FALSE;
+
+    prop = find_property_by_pspec(display, &pspec->parent_instance);
+    if (!prop)
+        return FALSE;
+    attr = &prop->attribute;
+
+    if (!get_attribute(display, attr->type, &value))
+        return FALSE;
+
+    /* Scale wrt. the medium ("default") value */
+    out_value = pspec->default_value;
+    if (value > attr->value)
+        out_value += ((gfloat)(value - attr->value) /
+                      (attr->max_value - attr->value) *
+                      (pspec->maximum - pspec->default_value));
+    else if (value < attr->value)
+        out_value -= ((gfloat)(attr->value - value) /
+                      (attr->value - attr->min_value) *
+                      (pspec->default_value - pspec->minimum));
+    *v = out_value;
+    return TRUE;
+}
+
+/* Set color balance attribute */
+static gboolean
+set_color_balance(GstVaapiDisplay *display, guint prop_id, gfloat v)
+{
+    GParamSpecFloat * const pspec = G_PARAM_SPEC_FLOAT(g_properties[prop_id]);
+    const GstVaapiProperty *prop;
+    const VADisplayAttribute *attr;
+    gint value;
+
+    if (!pspec)
+        return FALSE;
+
+    prop = find_property_by_pspec(display, &pspec->parent_instance);
+    if (!prop)
+        return FALSE;
+    attr = &prop->attribute;
+
+    /* Scale wrt. the medium ("default") value */
+    value = attr->value;
+    if (v > pspec->default_value)
+        value += ((v - pspec->default_value) /
+                  (pspec->maximum - pspec->default_value) *
+                  (attr->max_value - attr->value));
+    else if (v < pspec->default_value)
+        value -= ((pspec->default_value - v) /
+                  (pspec->default_value - pspec->minimum) *
+                  (attr->value - attr->min_value));
+    if (!set_attribute(display, attr->type, value))
+        return FALSE;
+
+    g_object_notify_by_pspec(G_OBJECT(display), g_properties[prop_id]);
     return TRUE;
 }
