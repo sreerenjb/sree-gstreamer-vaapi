@@ -85,10 +85,12 @@ gst_vaapi_picture_destroy(GstVaapiPicture *picture)
         g_object_unref(picture->proxy);
         picture->proxy = NULL;
     }
+#if 0
     else if (picture->surface) {
         /* Explicitly release any surface that was not bound to a proxy */
         gst_vaapi_context_put_surface(GET_CONTEXT(picture), picture->surface);
     }
+#endif
     picture->surface_id = VA_INVALID_ID;
     picture->surface = NULL;
 
@@ -105,6 +107,8 @@ gst_vaapi_picture_create(
     const GstVaapiCodecObjectConstructorArgs *args
 )
 {
+    GstVaapiSurface *surface;
+    GstMapInfo map_info;
     gboolean success;
 
     if (args->flags & GST_VAAPI_CREATE_PICTURE_FLAG_CLONE) {
@@ -146,12 +150,19 @@ gst_vaapi_picture_create(
     }
     else {
 	/*Fixme*/
-        picture->surface = gst_vaapi_context_get_surface(GET_CONTEXT(picture));
-        if (!picture->surface)
+  	picture->surface_buffer = gst_vaapi_context_get_surface_buffer(GET_CONTEXT(picture));
+
+        gst_buffer_map (picture->surface_buffer, &map_info, GST_MAP_READ);
+        surface = (GstVaapiSurface *)map_info.data;
+        if (!surface) {
+            GST_DEBUG ("Mapping failed...");
             return FALSE;
+        }
+
+	picture->surface = surface;
 
         picture->proxy =
-            gst_vaapi_surface_proxy_new(GET_CONTEXT(picture), picture->surface);
+            gst_vaapi_surface_proxy_new(GET_CONTEXT(picture), picture->surface, picture->surface_buffer);
         if (!picture->proxy)
             return FALSE;
 
@@ -241,7 +252,7 @@ gst_vaapi_picture_new_field(GstVaapiPicture *picture)
     GstMiniObject *obj;
     GstVaapiCodecObject *va_obj;
     GstVaapiCodecObjectConstructorArgs args;
-    GstVaapiPicture object;
+    GstVaapiPicture *object;
 
     g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), NULL);
 

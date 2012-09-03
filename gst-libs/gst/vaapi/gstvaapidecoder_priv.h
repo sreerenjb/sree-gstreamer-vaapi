@@ -164,7 +164,8 @@ gst_vaapi_decoder_ensure_context(
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
     guint               width,
-    guint               height
+    guint               height,
+    GstQuery		*query
 );
 
 G_GNUC_INTERNAL

@@ -30,164 +30,159 @@
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
-GST_DEFINE_MINI_OBJECT_TYPE (GstVaapiSurfaceMemory, gst_vaapi_surface_memory);
+static GstAllocator *_surface_allocator;
+static SurfaceAllocatorParams *_allocator_params;
 
-typedef struct _AllocatorParams AllocatorParams;
+typedef struct _GstVaapiSurfaceMemory GstVaapiSurfaceMemory;
 
-struct _AllocatorParams {
-  GstVaapiDisplay *display;
-  GstCaps *caps;
-  guint width;
-  guint height;
+struct _GstVaapiSurfaceMemory {
+    GstMemory memory;
+    GstVaapiSurface *surface;
+    gsize slice_size;
+    gpointer user_data;
+    GDestroyNotify notify;
 };
 
-static AllocatorParams *_allocator_params;
+G_DEFINE_TYPE (GstVaapiSurfaceAllocator, gst_vaapi_surface_allocator, GST_TYPE_ALLOCATOR);
 
-static gpointer
-gst_vaapi_surface_mem_map (GstVaapiSurfaceMemory *mem, gsize maxsize, GstMapFlags flags)
+static GstVaapiSurface*
+allocate_surface (GstAllocationParams *param, gsize maxsize, gsize size)
 {
-  return mem->surface;
-}
-
-static gboolean
-gst_vaapi_surface_mem_unmap (GstVaapiSurfaceMemory *mem)
-{
-  return TRUE;
-}
-
-static void
-gst_vaapi_surface_mem_free (GstVaapiSurfaceMemory *mem)
-{
-  
- 
-  if (mem->surface)
-    mem->surface = NULL;
-
-  if (mem->memory.parent)
-    gst_memory_unref (mem->memory.parent);
-
-  if (mem->notify)
-    mem->notify (mem->user_data);
-
-   g_slice_free1 (mem->slice_size, mem);
-}
-
-static GstVaapiSurfaceMemory*
-gst_vaapi_surface_mem_share (GstVaapiSurfaceMemory *mem, gssize offset, gsize size)
-{
-  return (GstVaapiSurfaceMemory *)gst_mini_object_ref(GST_MINI_OBJECT_CAST(mem));
-}
-
-static void
-_vaapi_surface_memory_allocator_notify (gpointer user_data)
-{
-  g_warning ("Vaapi Surface Memory Allocator was freed..!");
-  if (user_data)
-    g_slice_free1 ((AllocatorParams *) user_data,sizeof(AllocatorParams));
-}
-
-static void
-default_mem_init (GstVaapiSurfaceMemory * mem, GstMemoryFlags flags,
-    GstMemory * parent, gsize maxsize, gsize offset, gsize size, gsize align, gsize slice_size)
-{
-   mem->memory.parent = parent ? gst_memory_ref (parent) : NULL;
-   mem->memory.state = (flags & GST_MEMORY_FLAG_READONLY ? 0x1 : 0);
-   mem->memory.maxsize = maxsize;
-   mem->memory.align = align;
-   mem->memory.offset = offset;
-   mem->memory.size = size;
-   mem->slice_size = slice_size;
-}
-
-static void
-gst_vaapi_surface_memory_init (GstVaapiSurfaceMemory *surface_mem, gsize slice_size)
-{
-  gst_mini_object_init (GST_MINI_OBJECT_CAST (surface_mem), GST_VAAPI_TYPE_SURFACE_MEMORY);
-  surface_mem->slice_size = slice_size;
-}
-
-static GstVaapiSurfaceMemory *
-gst_vaapi_surface_memory_new (void)
-{
-  GstVaapiSurfaceMemory *surface_mem;
-  gsize  slice_size;
-  slice_size = sizeof (GstVaapiSurfaceMemory);
-
-  surface_mem = g_slice_alloc (slice_size);
-  if (surface_mem == NULL)
-  {
-        GST_ERROR ("Failed to allcoate GstVaapiSurfaceMemory....");
-        return NULL;
-  }
-
-  gst_vaapi_surface_memory_init (surface_mem, slice_size);
-  return GST_VAAPI_SURFACE_MEMORY_CAST(surface_mem);
-}
-
-static GstVaapiSurfaceMemory*
-vaapi_surface_new_mem (gpointer user_data, GstMemoryFlags flags, gsize maxsize, gsize align, gsize offset, gsize size)
-{
-  GstVaapiSurfaceMemory *surface_mem;
-
-  surface_mem = gst_vaapi_surface_memory_new ();
-
-  default_mem_init (surface_mem, flags, NULL, maxsize,
-      offset, size, align, sizeof(GstVaapiSurfaceMemory));
-
-  surface_mem->surface = gst_vaapi_surface_new(
-            _allocator_params->display,
-            GST_VAAPI_CHROMA_TYPE_YUV420,
-            _allocator_params->width, _allocator_params->height
-        );
-  return surface_mem;
-
+    GstVaapiSurface *surface;
+    surface = gst_vaapi_surface_new(
+                 _allocator_params->display,
+                 GST_VAAPI_CHROMA_TYPE_YUV420,
+                 _allocator_params->width, 
+ 	         _allocator_params->height
+              );
+    return surface;
 }
 
 static GstMemory*
-gst_vaapi_surface_mem_alloc_alloc (GstAllocator *allocator, gsize size,  GstAllocationParams * params, gpointer user_data)
+_gst_vaapi_surface_mem_alloc (GstAllocator *allocator, gsize size,  GstAllocationParams * params)
 {
-  GstMemory *mem;
-  gsize maxsize;
+    GstVaapiSurfaceMemory *mem;
+    gsize maxsize;
 
-  maxsize = size + params->prefix + params->padding;
+    maxsize = size + params->prefix + params->padding;
 
-  mem =  (GstMemory *)vaapi_surface_new_mem  (user_data, params->flags, maxsize, params->align, params->prefix, size);
-  mem->allocator = allocator;
-  mem->offset = 0;
-  return mem;
+    GST_DEBUG ("alloc from allocator %p", allocator);
+
+    mem = g_slice_new (GstVaapiSurfaceMemory);
+
+    gst_memory_init (GST_MEMORY_CAST (mem), params->flags, allocator, NULL,
+      maxsize, params->align, params->prefix, size);
+
+    mem->surface = (GstVaapiSurface *)allocate_surface (params, maxsize, size);
+
+    return (GstMemory *)mem;
 }
 
-GstAllocator *
-gst_vaapi_create_allocator (GstVaapiDisplay *display, GstCaps *caps)
+static void
+_gst_vaapi_surface_mem_free (GstAllocator *allocator, GstMemory *mem)
 {
-    GstAllocator *allocator;
-    GstVideoInfo info;
+    GstVaapiSurfaceMemory *surface_mem = (GstVaapiSurfaceMemory *)mem; 
+    
+    if (surface_mem->surface) {
+	g_object_unref(G_OBJECT(surface_mem->surface));
+        surface_mem->surface = NULL;
+    }
 
-    _allocator_params = g_slice_alloc (sizeof (AllocatorParams));
-    _allocator_params->display = g_object_ref (G_OBJECT(display));
-    _allocator_params->caps    = gst_caps_ref (caps);
+    if (surface_mem->notify)
+       surface_mem->notify (surface_mem->user_data);
+
+    g_slice_free1 (surface_mem->slice_size, surface_mem);
+    GST_DEBUG ("%p: freed", surface_mem);
+}
+
+static gpointer
+_gst_vaapi_surface_mem_map (GstVaapiSurfaceMemory *mem, gsize maxsize, GstMapFlags flags)
+{
+    GST_DEBUG("%p mapped", mem->surface);
+    return mem->surface;
+}
+
+static gboolean
+_gst_vaapi_surface_mem_unmap (GstVaapiSurfaceMemory *mem)
+{
+    GST_DEBUG("%p unmapped", mem->surface);
+    return TRUE;
+}
+
+static GstVaapiSurface*
+_gst_vaapi_surface_mem_share (GstVaapiSurfaceMemory *mem, gssize offset, gsize size)
+{
+    return mem->surface;
+}
+
+static void
+gst_vaapi_surface_allocator_class_init (GstVaapiSurfaceAllocatorClass * klass)
+{
+    GstAllocatorClass *allocator_class;
+
+    allocator_class = (GstAllocatorClass *) klass;
+
+    allocator_class->alloc = _gst_vaapi_surface_mem_alloc;
+    allocator_class->free = _gst_vaapi_surface_mem_free;
+}
+
+static void
+gst_vaapi_surface_allocator_init (GstVaapiSurfaceAllocator * allocator)
+{
+    GstAllocator *alloc = GST_ALLOCATOR_CAST (allocator);
+
+    alloc->mem_type = GST_VAAPI_SURFACE_MEMORY_NAME;
+    alloc->mem_map = (GstMemoryMapFunction) _gst_vaapi_surface_mem_map;
+    alloc->mem_unmap = (GstMemoryUnmapFunction) _gst_vaapi_surface_mem_unmap;
+    alloc->mem_share = (GstMemoryShareFunction) _gst_vaapi_surface_mem_share;
+}
+
+gboolean
+surface_allocator_params_init(
+    GstVaapiSurfaceAllocator *surface_allocator, 
+    GstVaapiDisplay *display, 
+    GstCaps *caps)
+{
+    GstVideoInfo info;
+    SurfaceAllocatorParams *allocator_params;
+    /*Fixme*/
+    allocator_params = &(surface_allocator->allocator_params);
+    _allocator_params = &(surface_allocator->allocator_params);
+
+    allocator_params->display = g_object_ref (G_OBJECT(display));
+    allocator_params->caps    = gst_caps_ref (caps);
     if (!gst_video_info_from_caps (&info, caps))
     {
         GST_ERROR ("Failed to parse video info");
-        return;
+        return FALSE;
     }
-    _allocator_params->width  = info.width;
-    _allocator_params->height = info.height;
-    
-    static const GstMemoryInfo surface_mem_info = {
-      GST_ALLOCATOR_SURFACE_MEMORY,
-      (GstAllocatorAllocFunction) gst_vaapi_surface_mem_alloc_alloc,
-      (GstMemoryMapFunction) gst_vaapi_surface_mem_map,
-      (GstMemoryUnmapFunction) gst_vaapi_surface_mem_unmap,
-      (GstMemoryFreeFunction) gst_vaapi_surface_mem_free,
-      (GstMemoryCopyFunction)  NULL,
-      (GstMemoryShareFunction) gst_vaapi_surface_mem_share,
-      (GstMemoryIsSpanFunction) NULL,
-    };
+    allocator_params->width  = info.width;
+    allocator_params->height = info.height; 
 
-    allocator = gst_allocator_new (&surface_mem_info, _allocator_params, _vaapi_surface_memory_allocator_notify);
-    gst_allocator_register (GST_ALLOCATOR_SURFACE_MEMORY, allocator);
-
-    return allocator;
+    return TRUE;
 }
+gboolean
+gst_vaapi_surface_memory_init (GstVaapiDisplay *display, GstCaps *caps)
+{
+    GstAllocator *allocator;
+    GstVaapiSurfaceAllocator *surface_allocator;
+    gboolean ret = TRUE;
 
+    allocator = g_object_new (gst_vaapi_surface_allocator_get_type (), NULL);
+    if (!allocator) {
+	GST_ERROR("Failed to create the allocator");
+	ret = FALSE;
+	goto beach;
+    }
+    gst_allocator_register (GST_VAAPI_SURFACE_ALLOCATOR_NAME, allocator);
+
+    _surface_allocator = allocator;
+
+    surface_allocator = GST_VAAPI_SURFACE_ALLOCATOR(allocator);
+    if (!surface_allocator_params_init(surface_allocator, display, caps)) {
+        GST_ERROR("Failed to initialize the surface_allocator_params");
+	ret = FALSE;
+    }
+beach:
+    return ret;
+}

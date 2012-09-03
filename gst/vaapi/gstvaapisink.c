@@ -51,7 +51,7 @@
 #endif
 
 /* Supported interfaces */
-#include <gst/interfaces/videooverlay.h>
+#include <gst/video/videooverlay.h>
 
 #include "gstvaapisink.h"
 #include "gstvaapipluginutil.h"
@@ -68,10 +68,7 @@ static GstStaticPadTemplate gst_vaapisink_sink_factory =
         "sink",
         GST_PAD_SINK,
         GST_PAD_ALWAYS,
-        GST_STATIC_CAPS(video/x-raw));
-
-static void
-gst_vaapisink_implements_iface_init(GstImplementsInterfaceClass *iface);
+        GST_STATIC_CAPS("video/x-raw"));
 
 static void
 gst_vaapisink_video_context_iface_init(GstVideoContextInterface *iface);
@@ -186,7 +183,7 @@ gst_vaapisink_video_overlay_expose(GstVideoOverlay *overlay)
 }
 
 static void
-gst_vaapisink_video_overlay_iface_init(GstVideoOverlayClass *iface)
+gst_vaapisink_video_overlay_iface_init(GstVideoOverlayInterface *iface)
 {
     iface->set_window_handle    = gst_vaapisink_video_overlay_set_window_handle;
     iface->set_render_rectangle = gst_vaapisink_video_overlay_set_render_rectangle;
@@ -358,7 +355,7 @@ gst_vaapisink_ensure_window(GstVaapiSink *sink, guint width, guint height)
             if (!sink->window)
                 break;
             gst_video_overlay_got_window_handle(
-                GST_X_OVERLAY(sink),
+                GST_VIDEO_OVERLAY(sink),
                 gst_vaapi_window_x11_get_xid(GST_VAAPI_WINDOW_X11(sink->window))
             );
             break;
@@ -497,7 +494,7 @@ gst_vaapisink_set_caps(GstBaseSink *base_sink, GstCaps *caps)
     }
     else {
         gst_vaapi_display_lock(sink->display);
-        gst_video_overlay_prepare_xwindow_id(GST_X_OVERLAY(sink));
+        gst_video_overlay_prepare_window_handle(GST_VIDEO_OVERLAY(sink));
         gst_vaapi_display_unlock(sink->display);
         if (sink->window)
             return TRUE;
@@ -703,7 +700,7 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     GstMapInfo map_info;
 
     /*Fixme: to handle the sub_buffer creation in GstVideoDecoder*/
-    if (GST_VAAPI_IS_VIDEO_BUFFER(buf))
+    /*if (GST_VAAPI_IS_VIDEO_BUFFER(buf))
 	buffer = buf;
     else if (GST_VAAPI_IS_VIDEO_BUFFER(buf->parent))
 	buffer = buf->parent;
@@ -714,7 +711,7 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     
     vbuffer = GST_VAAPI_VIDEO_BUFFER(buffer);
     composition = gst_video_buffer_get_overlay_composition(buffer);
-
+     */
    /* if (sink->display != gst_vaapi_video_buffer_get_display (vbuffer)) {
       g_clear_object(&sink->display);
       sink->display = g_object_ref (gst_vaapi_video_buffer_get_display (vbuffer));

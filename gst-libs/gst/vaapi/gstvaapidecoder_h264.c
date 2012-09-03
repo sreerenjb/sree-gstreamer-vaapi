@@ -528,7 +528,7 @@ gst_vaapi_decoder_h264_create(GstVaapiDecoderH264 *decoder)
 }
 
 static GstVaapiDecoderStatus
-ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
+ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps, GstQuery *query)
 {
     GstVaapiDecoderH264Private * const priv = decoder->priv;
     GstVaapiProfile profiles[2];
@@ -597,7 +597,8 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
             GST_VAAPI_DECODER(decoder),
             priv->profile,
             entrypoint,
-            priv->width, priv->height
+            priv->width, priv->height,
+	    query
         );
         if (!success)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
@@ -659,8 +660,8 @@ decode_sps(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu)
     result = gst_h264_parser_parse_sps(priv->parser, nalu, sps, TRUE);
     if (result != GST_H264_PARSER_OK)
         return get_status(result);
-
-    return ensure_context(decoder, sps);
+/*Fixme: third argument*/
+    return ensure_context(decoder, sps, NULL);
 }
 
 static GstVaapiDecoderStatus
@@ -1876,11 +1877,11 @@ decode_picture(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu, GstH264SliceH
     GstH264PPS * const pps = slice_hdr->pps;
     GstH264SPS * const sps = pps->sequence;
 
-    status = ensure_context(decoder, sps);
+    /*status = ensure_context(decoder, sps);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_DEBUG("failed to reset context");
         return status;
-    }
+    }*/
    
     picture = gst_vaapi_picture_h264_new(decoder);
     if (!picture) {
@@ -2169,7 +2170,7 @@ gst_vaapi_decoder_h264_parse(
 
     priv->adapter = adapter;
     size = gst_adapter_available (adapter);
-    data = (guint8 *)gst_adapter_peek (adapter,size);
+    data = (guint8 *)gst_adapter_map (adapter,size);
 
     if (!data && size == 0)
         return decode_sequence_end(decoder);
@@ -2253,9 +2254,12 @@ decode_codec_data(GstVaapiDecoderH264 *decoder, GstBuffer *buffer)
     guchar *buf;
     guint buf_size;
     guint i, ofs, num_sps, num_pps;
+    GstMapInfo map_info;
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    gst_buffer_map(buffer, &map_info, GST_MAP_READ);
+    buf = map_info.data;
+    buf_size = map_info.size;
+    
     if (!buf || buf_size == 0)
         return GST_VAAPI_DECODER_STATUS_SUCCESS;
 

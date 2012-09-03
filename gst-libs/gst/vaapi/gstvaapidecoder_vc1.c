@@ -145,7 +145,7 @@ gst_vaapi_decoder_vc1_create(GstVaapiDecoderVC1 *decoder)
 }
 
 static GstVaapiDecoderStatus
-ensure_context(GstVaapiDecoderVC1 *decoder)
+ensure_context(GstVaapiDecoderVC1 *decoder, GstQuery *query)
 {
     GstVaapiDecoderVC1Private * const priv = decoder->priv;
     GstVaapiProfile profiles[2];
@@ -183,7 +183,8 @@ ensure_context(GstVaapiDecoderVC1 *decoder)
             GST_VAAPI_DECODER(decoder),
             priv->profile,
             entrypoint,
-            priv->width, priv->height
+            priv->width, priv->height,
+	    query
         );
         if (!reset_context)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
@@ -877,11 +878,11 @@ decode_frame(GstVaapiDecoderVC1 *decoder, GstVC1BDU *rbdu, GstVC1BDU *ebdu)
     VASliceParameterBufferVC1 *slice_param;
     GstClockTime pts;
 
-    status = ensure_context(decoder);
+    /*status = ensure_context(decoder);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_DEBUG("failed to reset context");
         return status;
-    }
+    }*/
 
     priv->current_picture = GST_VAAPI_PICTURE_NEW(VC1, decoder);
     if (!priv->current_picture) {
@@ -1069,7 +1070,7 @@ gst_vaapi_decoder_vc1_parse(
 
     priv->adapter = adapter;
     size = gst_adapter_available (adapter);
-    data = (guint8 *)gst_adapter_peek (adapter,size);
+    data = (guint8 *)gst_adapter_map (adapter,size);
     
     /*Fixme*/
     if (!data && size == 0)
@@ -1137,9 +1138,13 @@ decode_codec_data(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
     guint buf_size, ofs;
     gint width, height;
     guint32 format;
+    GstMapInfo map_info;
 
-    buf      = GST_BUFFER_DATA(buffer);
-    buf_size = GST_BUFFER_SIZE(buffer);
+    gst_buffer_map (buffer, &map_info, GST_MAP_READ);
+
+    buf      = map_info.data;
+    buf_size = map_info.size;
+
     if (!buf || buf_size == 0)
         return GST_VAAPI_DECODER_STATUS_SUCCESS;
 
@@ -1152,10 +1157,14 @@ decode_codec_data(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
         return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
     }
 
-    if (!gst_structure_get_fourcc(structure, "format", &format)) {
+/*Fixme*/
+    if(gst_structure_get_uint (structure, "format", &format))
+        GST_DEBUG ("format=%d",format);
+
+/*    if (!gst_structure_get_fourcc(structure, "format", &format)) {
         GST_DEBUG("failed to parse profile from codec-data");
         return GST_VAAPI_DECODER_STATUS_ERROR_UNSUPPORTED_CODEC;
-    }
+    }*/
 
     /* WMV3 -- expecting sequence header */
     if (format == GST_MAKE_FOURCC('W','M','V','3')) {

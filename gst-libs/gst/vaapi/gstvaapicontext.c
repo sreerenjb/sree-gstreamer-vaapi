@@ -277,7 +277,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
 
         gst_buffer_map (out, &map_info, GST_MAP_READ);
 
-        surface = map_info.data;
+        surface = (GstVaapiSurface *)map_info.data;
         if (!surface)
         {
                 GST_DEBUG ("Mapping failed...");
@@ -710,7 +710,7 @@ gst_vaapi_context_get_size(
     if (pheight)
         *pheight = context->priv->height;
 }
-#if 0 
+
 /**
  * gst_vaapi_context_get_surface:
  * @context: a #GstVaapiContext
@@ -722,27 +722,40 @@ gst_vaapi_context_get_size(
  *
  * Return value: a free surface, or %NULL if none is available
  */
-GstVaapiSurface *
-gst_vaapi_context_get_surface(GstVaapiContext *context)
+GstBuffer *
+gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
 {
     GstVaapiSurface *surface;
+    GstBuffer *buffer;
+    GstVaapiContextPrivate * const priv = context->priv;
 
     g_return_val_if_fail(GST_VAAPI_IS_CONTEXT(context), NULL);
 
-    surface = gst_vaapi_video_pool_get_object(context->priv->surfaces_pool);
-    if (!surface)
-        return NULL;
-
+    if (gst_buffer_pool_acquire_buffer((GstBufferPool *)priv->surfaces_pool, &buffer, NULL) != GST_FLOW_OK){
+	GST_ERROR("Failed to acquire buffer");
+	buffer = NULL;
+    }
     gst_vaapi_surface_set_parent_context(surface, context);
-    return surface;
+    return buffer;
 }
-#endif
+
+/**
+ * gst_vaapi_context_get_surface:
+ * @context: a #GstVaapiContext
+ *
+ * Acquires a free surface. The returned surface but be released with
+ * gst_vaapi_context_put_surface(). This function returns %NULL if
+ * there is no free surface available in the pool. The surfaces are
+ * pre-allocated during context creation though.
+ *
+ * Return value: a free surface, or %NULL if none is available
+ */
 
 GstVaapiSurfacePool *
 gst_vaapi_context_get_surface_pool (GstVaapiContext *context)
 {
     GstVaapiContextPrivate * const priv = context->priv;
-    return priv->surfaces_pool;
+    return (GstVaapiSurfacePool *)priv->surfaces_pool;
 }
 
 /**
@@ -753,30 +766,14 @@ gst_vaapi_context_get_surface_pool (GstVaapiContext *context)
  *
  * Return value: the number of free surfaces available in the pool
  */
-guint
+/*guint
 gst_vaapi_context_get_surface_count(GstVaapiContext *context)
 {
     g_return_val_if_fail(GST_VAAPI_IS_CONTEXT(context), 0);
 
     return gst_vaapi_video_pool_get_size(context->priv->surfaces_pool);
-}
+}*/
 
-/**
- * gst_vaapi_context_put_surface:
- * @context: a #GstVaapiContext
- * @surface: the #GstVaapiSurface to release
- *
- * Releases a surface acquired by gst_vaapi_context_get_surface().
- */
-void
-gst_vaapi_context_put_surface(GstVaapiContext *context, GstVaapiSurface *surface)
-{
-    g_return_if_fail(GST_VAAPI_IS_CONTEXT(context));
-    g_return_if_fail(GST_VAAPI_IS_SURFACE(surface));
-
-    gst_vaapi_surface_set_parent_context(surface, NULL);
-    gst_vaapi_video_pool_put_object(context->priv->surfaces_pool, surface);
-}
 
 void
 gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffer)
@@ -785,7 +782,7 @@ gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffe
     GstVaapiContextPrivate * const priv = context->priv;
 //Fixme
 //    gst_vaapi_surface_set_parent_context(surface, NULL);
-   gst_buffer_pool_release_buffer ((GstBufferPool *)priv->surfaces_pool, buffer);
+    gst_buffer_pool_release_buffer ((GstBufferPool *)priv->surfaces_pool, buffer);
 }
 
 /**

@@ -720,9 +720,10 @@ gst_vaapiupload_buffer_alloc(
     if (!gst_vaapi_image_map(image))
         goto error;
 
-    GST_BUFFER_DATA(buffer) = gst_vaapi_image_get_plane(image, 0);
+    /*Fixme*/
+    /*GST_BUFFER_DATA(buffer) = gst_vaapi_image_get_plane(image, 0);
     GST_BUFFER_SIZE(buffer) = gst_vaapi_image_get_data_size(image);
-
+    */
     gst_buffer_set_caps(buffer, caps);
     *pbuf = buffer;
     return GST_FLOW_OK;

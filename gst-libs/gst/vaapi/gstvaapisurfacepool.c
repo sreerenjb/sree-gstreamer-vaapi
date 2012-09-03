@@ -83,6 +83,7 @@ gst_vaapi_surface_pool_set_config (GstBufferPool * pool, GstStructure * config)
 
   GstVaapiSurfacePool *surface_pool = GST_VAAPI_SURFACE_POOL (pool);
   GstVaapiSurfacePoolPrivate *priv = surface_pool->priv;
+  GstAllocationParams params;
   GstVideoInfo info;
   GstCaps *caps;
 
@@ -102,6 +103,9 @@ gst_vaapi_surface_pool_set_config (GstBufferPool * pool, GstStructure * config)
   /* keep track of the width and height and caps */
   priv->width = info.width;
   priv->height = info.height;
+
+  gst_allocation_params_init(&params);
+  gst_buffer_pool_config_set_allocator(config, priv->allocator, &params);
 
   return GST_BUFFER_POOL_CLASS (gst_vaapi_surface_pool_parent_class)->set_config (pool, config);
 
@@ -129,12 +133,13 @@ wrong_caps:
   
 static GstFlowReturn
 gst_vaapi_surface_pool_alloc (GstBufferPool * pool, GstBuffer ** buffer,
-    GstBufferPoolAcquireParams * params)
+    GstBufferPoolAcquireParams * buf_alloc_params)
 {
 
    GstBuffer *surface_buffer;
    GstVaapiDisplay *display;
    GstMemory *surface_mem;
+   GstAllocationParams params;
 
    GstVaapiVideoPool *video_pool = GST_VAAPI_VIDEO_POOL (pool);
    GstVaapiSurfacePool *surface_pool = GST_VAAPI_SURFACE_POOL (pool);
@@ -142,7 +147,8 @@ gst_vaapi_surface_pool_alloc (GstBufferPool * pool, GstBuffer ** buffer,
 
    display = gst_vaapi_video_pool_get_display (video_pool);
 
-   surface_mem = gst_allocator_alloc (priv->allocator , priv->width*priv->height, 0);
+   gst_allocation_params_init(&params);   
+   surface_mem = gst_allocator_alloc (priv->allocator , priv->width*priv->height, &params);
 
    surface_buffer = gst_buffer_new ();
    gst_buffer_insert_memory (surface_buffer, -1, (GstMemory *)surface_mem);
@@ -160,7 +166,7 @@ gst_vaapi_surface_pool_finalize(GObject *object)
     GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL_GET_PRIVATE(pool);
 
     if (priv->allocator)
-	gst_allocator_unref (priv->allocator);
+	gst_object_unref (GST_OBJECT(priv->allocator));
 
     G_OBJECT_CLASS(gst_vaapi_surface_pool_parent_class)->finalize(object);
 }
@@ -216,7 +222,12 @@ gst_vaapi_surface_pool_new(GstVaapiDisplay *display, GstCaps *caps)
                         NULL);
     GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL_GET_PRIVATE(pool);
 
-    priv->allocator = gst_vaapi_create_allocator (display, caps);
+    if (!gst_vaapi_surface_memory_init(display,caps)) {
+	GST_ERROR("Failed to initialize the surface_memory and surface_meory allocator");
+	return NULL;
+    }
+  
+    priv->allocator = gst_allocator_find("GstVaapiSurfaceAllocator");
 
     return pool;
 }

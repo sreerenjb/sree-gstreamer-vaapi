@@ -170,7 +170,7 @@ gst_vaapi_profile_from_codec_data_h264(GstBuffer *buffer)
     guchar * buf;
 
     /* MPEG-4 Part 15: Advanced Video Coding (AVC) file format */
-    i/*guchar * const buf = GST_BUFFER_DATA(buffer);*/
+    /*guchar * const buf = GST_BUFFER_DATA(buffer);*/
     gst_buffer_map (buffer, &map_info, GST_MAP_READ);
     buf = map_info.data;
 

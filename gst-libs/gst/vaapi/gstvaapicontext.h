@@ -27,6 +27,7 @@
 #include <gst/vaapi/gstvaapiprofile.h>
 #include <gst/vaapi/gstvaapidisplay.h>
 #include <gst/vaapi/gstvaapisurface.h>
+#include <gst/vaapi/gstvaapisurfacepool.h>
 #include <gst/video/video-overlay-composition.h>
 
 G_BEGIN_DECLS
@@ -121,12 +122,15 @@ gst_vaapi_context_get_size(
     guint           *pwidth,
     guint           *pheight
 );
-
+/*
 void
 gst_vaapi_context_put_surface(GstVaapiContext *context, GstVaapiSurface *surface);
-
+*/
 void
 gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffer);
+
+GstBuffer *
+gst_vaapi_context_get_surface_buffer(GstVaapiContext *context);
 
 GstVaapiSurfacePool *
 gst_vaapi_context_get_surface_pool (GstVaapiContext *context);

@@ -37,7 +37,7 @@ dpb_new(GType type, guint max_pictures)
 
     g_return_val_if_fail(max_pictures > 0, NULL);
 
-    obj = g_object_new(type);
+    obj = g_object_new(type,NULL);
     if (!obj)
         return NULL;
 
@@ -49,7 +49,7 @@ dpb_new(GType type, guint max_pictures)
     return dpb;
 
 error:
-    g__object_unref(obj);
+    g_object_unref(obj);
     return NULL;
 }
 
@@ -188,7 +188,7 @@ gst_vaapi_dpb_finalize(GObject *object)
         g_free(dpb->pictures);
     }
 
-    parent_class = GST_OBJECT_CLASS(gst_vaapi_dpb_parent_class);
+    parent_class = G_OBJECT_CLASS(gst_vaapi_dpb_parent_class);
     if (parent_class->finalize)
         parent_class->finalize(object);
 }

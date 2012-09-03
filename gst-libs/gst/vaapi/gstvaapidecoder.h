@@ -113,7 +113,7 @@ struct _GstVaapiDecoderClass {
     GObjectClass parent_class;
 
     GstVaapiDecoderStatus (*parse) (GstVaapiDecoder *deccoder, GstAdapter *adapter, guint *toadd, gboolean *have_frame);
-
+    gboolean (*decide_allocation) (GstVaapiDecoder *decoder, GstQuery *query);
     GstVaapiDecoderStatus (*decode) (GstVaapiDecoder *decoder, GstVideoCodecFrame *frame);
     gboolean (*reset) (GstVaapiDecoder *decoder);
 };
@@ -142,6 +142,11 @@ gst_vaapi_decoder_parse(
     GstAdapter *adapter, 
     guint *toadd,
     gboolean *have_frame);
+
+gboolean
+gst_vaapi_decoder_decide_allocation(
+    GstVaapiDecoder *decoder,
+    GstQuery *query);
 
 gboolean
 gst_vaapi_decoder_reset(GstVaapiDecoder * decoder);

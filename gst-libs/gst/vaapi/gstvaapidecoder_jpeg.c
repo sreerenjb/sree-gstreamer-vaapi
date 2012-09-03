@@ -110,7 +110,7 @@ gst_vaapi_decoder_jpeg_create(GstVaapiDecoderJpeg *decoder)
 }
 
 static GstVaapiDecoderStatus
-ensure_context(GstVaapiDecoderJpeg *decoder)
+ensure_context(GstVaapiDecoderJpeg *decoder, GstQuery *query)
 {
     GstVaapiDecoderJpegPrivate * const priv = decoder->priv;
     GstVaapiProfile profiles[2];
@@ -142,7 +142,8 @@ ensure_context(GstVaapiDecoderJpeg *decoder)
             GST_VAAPI_DECODER(decoder),
             priv->profile,
             entrypoint,
-            priv->width, priv->height
+            priv->width, priv->height,
+	    query
         );
         if (!reset_context)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
@@ -337,11 +338,11 @@ decode_picture(
     priv->height = frame_hdr->height;
     priv->width  = frame_hdr->width;
 
-    status = ensure_context(decoder);
+    /*status = ensure_context(decoder);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_ERROR("failed to reset context");
         return status;
-    }
+    }*/
 
     picture = GST_VAAPI_PICTURE_NEW(JPEGBaseline, decoder);
     if (!picture) {
@@ -502,7 +503,8 @@ gst_vaapi_decoder_jpeg_parse(
     static guint init = 0;
 
     size = gst_adapter_available (adapter);
-    data = (guint8 *)gst_adapter_peek (adapter,size);
+    data = (guint8 *)gst_adapter_mamp (adapter,size);
+
 
     if (!data && size == 0)
         return GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA;

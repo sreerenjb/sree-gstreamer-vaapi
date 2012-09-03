@@ -509,8 +509,25 @@ error_decode_timeout:
     {
         GST_DEBUG("decode timeout. Decoder required a VA surface but none "
                   "got available within one second");
-        return GST_FLOW_UNEXPECTED;
+        return GST_FLOW_EOS;
     }
+}
+
+/**
+ * gst_vaapi_decoder_decide_allocation
+ * @decoder: a #GstVaapiDecoder
+ * @Query: query contains the result of downstream allocation query 
+ */
+gboolean
+gst_vaapi_decoder_decide_allocation(
+    GstVaapiDecoder *decoder,
+    GstQuery *query
+)
+{   
+    gboolean result;
+    result = GST_VAAPI_DECODER_GET_CLASS(decoder)->decide_allocation(decoder, query);
+    GST_DEBUG("decide_allocation status: %d ",result);
+    return result;
 }
 
 /**
@@ -668,7 +685,8 @@ gst_vaapi_decoder_ensure_context(
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
     guint               width,
-    guint               height
+    guint               height,
+    GstQuery		*query
 )
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
@@ -684,7 +702,8 @@ gst_vaapi_decoder_ensure_context(
         profile,
         entrypoint,
         width,
-        height
+        height,
+	query
     );
     if (!priv->context)
         return FALSE;
@@ -703,11 +722,14 @@ gst_vaapi_decoder_push_buffer_sub(
 {
     GstBuffer *subbuffer;
 
-    subbuffer = gst_buffer_create_sub(buffer, offset, size);
+    /*Fixme*/
+    g_message ("create sub buff,,failed");
+    return FALSE;
+    /*subbuffer = gst_buffer_create_sub(buffer, offset, size);
     if (!subbuffer)
         return FALSE;
 
-    push_back_buffer(decoder, subbuffer);
+    push_back_buffer(decoder, subbuffer);*/
     return TRUE;
 }
 
@@ -725,7 +747,8 @@ gst_vaapi_decoder_check_status(GstVaapiDecoder *decoder)
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
 
-    if (priv->context && gst_vaapi_context_get_surface_count(priv->context) < 1)
-        return GST_VAAPI_DECODER_STATUS_ERROR_NO_SURFACE;
+    /*Fixme*/
+    /*if (priv->context && gst_vaapi_context_get_surface_count(priv->context) < 1)
+        return GST_VAAPI_DECODER_STATUS_ERROR_NO_SURFACE;*/
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
 }

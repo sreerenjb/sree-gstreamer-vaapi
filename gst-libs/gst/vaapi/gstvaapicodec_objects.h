@@ -81,6 +81,7 @@ G_GNUC_INTERNAL
 GType
 gst_vaapi_codec_object_get_type(void) G_GNUC_CONST;
 
+/*
 G_GNUC_INTERNAL
 GstVaapiCodecObject *
 gst_vaapi_codec_object_new(
@@ -90,6 +91,18 @@ gst_vaapi_codec_object_new(
     guint              param_size,
     gconstpointer      data,
     guint              data_size    
+);
+*/
+
+G_GNUC_INTERNAL
+GstVaapiCodecObject *
+gst_vaapi_codec_object_finish(
+    GstVaapiCodecObject  *va_obj,
+    GstVaapiCodecBase    *codec,
+    gconstpointer        param,
+    guint                param_size,
+    gconstpointer        data,
+    guint                data_size
 );
 
 G_GNUC_INTERNAL
@@ -125,7 +138,7 @@ struct _GstVaapiIqMatrix {
 
 G_GNUC_INTERNAL
 GType
-gst_vaapi_iq_matrix_get_type(void) G_GNUC_CONST;
+gst_vaapi_iq_matrix_get_type(void)G_GNUC_CONST;
 
 G_GNUC_INTERNAL
 GstVaapiIqMatrix *
@@ -161,7 +174,7 @@ struct _GstVaapiBitPlane {
 
 G_GNUC_INTERNAL
 GType
-gst_vaapi_bitplane_get_type(void) G_GNUC_CONST;
+gst_vaapi_bitplane_get_type(void)G_GNUC_CONST;
 
 G_GNUC_INTERNAL
 GstVaapiBitPlane *
@@ -193,7 +206,7 @@ struct _GstVaapiHuffmanTable {
 
 G_GNUC_INTERNAL
 GType
-gst_vaapi_huffman_table_get_type(void) G_GNUC_CONST;
+gst_vaapi_huffman_table_get_type(void)G_GNUC_CONST;
 
 G_GNUC_INTERNAL
 GstVaapiHuffmanTable *
@@ -206,7 +219,6 @@ gst_vaapi_huffman_table_new(
 /* ------------------------------------------------------------------------- */
 /* --- Helpers to create codec-dependent objects                         --- */
 /* ------------------------------------------------------------------------- */
-
 #define GST_VAAPI_CODEC_DEFINE_TYPE(type, prefix, base_type)            \
 GST_DEFINE_MINI_OBJECT_TYPE(type, prefix)                               \
                                                                         \
@@ -221,8 +233,7 @@ prefix##_create(                                                        \
                                                                         \
 static void                                                             \
 prefix##_free(GstMiniObject *object)                                    \
-{   									\		
-    gst_vaapi_codec_object_finalize(object)                             \
+{									\
     prefix##_destroy((type *)object);                                   \
 }     									\
 									\
@@ -231,9 +242,8 @@ prefix##_construct(                                                     \
     GstVaapiCodecObject                      *object,                   \
     const GstVaapiCodecObjectConstructorArgs *args                      \
 )                                                                       \
-{                                                                       \
-    if (!gst_vaapi_codec_object_create (obj, args))			\
-	return FALSE;							\
+{   									\               
+    object->codec = args->codec;                                        \
     return prefix##_create((type *)object, args);                       \
 }                                                                       \
                                                                         \
@@ -244,13 +254,14 @@ prefix##_initialize(type *obj)                                		\
         GST_MINI_OBJECT(obj);                                    	\
     GstVaapiCodecObject * const codec_obj =                      	\
         GST_VAAPI_CODEC_OBJECT(obj);		                        \
-    gst_mini_object_init (GST_MINI_OBJECT_CAST (obj), 0, prefix##_get_type,         \
-        (GstMiniObjectCopyFunction) NULL,			    		    \	
-        (GstMiniObjectDisposeFunction) NULL,			   	            \	
+    gst_mini_object_init (GST_MINI_OBJECT_CAST (obj), 0, (GType)prefix##_get_type,         \
+        (GstMiniObjectCopyFunction) NULL,					    \
+        (GstMiniObjectDisposeFunction) NULL,			   	            \
         (GstMiniObjectFreeFunction) prefix##_free);			            \
-    gst_vaapi_codec_object_init (codec_obj);				            \
+    codec_obj->codec = NULL;				            \
     codec_obj->construct_obj = prefix##_construct;                                  \
-}									            \	
+}
+										    
 #define GST_VAAPI_IQ_MATRIX_NEW(codec, decoder)                         \
     gst_vaapi_iq_matrix_new(GST_VAAPI_DECODER_CAST(decoder),            \
                             NULL, sizeof(VAIQMatrixBuffer##codec))

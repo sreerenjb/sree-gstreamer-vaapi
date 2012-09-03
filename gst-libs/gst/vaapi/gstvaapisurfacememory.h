@@ -29,28 +29,45 @@
 
 G_BEGIN_DECLS
 
-#define GST_VAAPI_TYPE_SURFACE_MEMORY           (gst_vaapi_surface_memory_get_type())
-#define GST_IS_VAAPI_SURFACE_MEMORY(obj)        (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_SURFACE_MEMORY))
-#define GST_VAAPI_SURFACE_MEMORY_CAST(obj)      ((GstVaapiSurfaceMemory *)(obj))
-#define GST_VAAPI_SURFACE_MEMORY(obj)           (GST_VAAPI_SURFACE_MEMORY_CAST(obj))
+/** For internal use **/
+typedef struct _SurfaceAllocatorParams SurfaceAllocatorParams;
 
-#define  GST_ALLOCATOR_SURFACE_MEMORY  "GstVaapiSurfaceMemoryAllocator"
-
-typedef struct _GstVaapiSurfaceMemory GstVaapiSurfaceMemory;
-
-struct _GstVaapiSurfaceMemory {
-   GstMemory memory;
-   GstVaapiSurface *surface;
-   gsize slice_size;
-   gpointer user_data;
-   GDestroyNotify notify;
+struct _SurfaceAllocatorParams {
+  GstVaapiDisplay *display;
+  GstCaps *caps;
+  guint width;
+  guint height;
 };
 
-GstAllocator *
-gst_vaapi_create_allocator (GstVaapiDisplay *display, GstCaps *caps);
+#define  GST_VAAPI_SURFACE_MEMORY_NAME  "GstVaapiSurfaceMemory"
+
+/*------------- SurfaceAllocator -----------------*/
+
+#define GST_VAAPI_TYPE_SURFACE_ALLOCATOR        (gst_vaapi_surface_allocator_get_type())
+#define GST_IS_VAAPI_SURFACE_ALLOCATOR(obj)     (GST_IS_OBJECT_TYPE(obj, GST_VAAPI_TYPE_SURFACE_ALLOCATOR))
+#define GST_VAAPI_SURFACE_ALLOCATOR_CAST(obj)   ((GstVaapiSurfaceAllocator *)(obj))
+#define GST_VAAPI_SURFACE_ALLOCATOR(obj)        (GST_VAAPI_SURFACE_ALLOCATOR_CAST(obj))
+
+#define  GST_VAAPI_SURFACE_ALLOCATOR_NAME  "GstVaapiSurfaceAllocator"
+
+typedef struct _GstVaapiSurfaceAllocator GstVaapiSurfaceAllocator;
+typedef struct _GstVaapiSurfaceAllocatorClass GstVaapiSurfaceAllocatorClass;
+
+struct _GstVaapiSurfaceAllocator {
+    GstAllocator parent;
+    SurfaceAllocatorParams allocator_params;
+};
+
+struct _GstVaapiSurfaceAllocatorClass
+{
+    GstAllocatorClass parent_class;
+};
+
+gboolean
+gst_vaapi_surface_memory_init(GstVaapiDisplay *display, GstCaps *caps);
 
 GType
-gst_vaapi_surface_memory_get_type (void);
+gst_vaapi_surface_allocator_get_type (void);
 
 G_END_DECLS
 

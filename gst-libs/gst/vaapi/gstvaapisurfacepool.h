@@ -62,19 +62,7 @@ G_BEGIN_DECLS
 typedef struct _GstVaapiSurfacePool             GstVaapiSurfacePool;
 typedef struct _GstVaapiSurfacePoolPrivate      GstVaapiSurfacePoolPrivate;
 typedef struct _GstVaapiSurfacePoolClass        GstVaapiSurfacePoolClass;
-/*
-typedef struct _GstVaapiSurfaceMemory GstVaapiSurfaceMemory;
 
-struct _GstVaapiSurfaceMemory {
-   GstMemory memory;
-   GstVaapiSurface *surface;
-   gsize slice_size;
-   gpointer user_data;
-   GDestroyNotify notify;
-};
-
-#define  GST_ALLOCATOR_SURFACE_MEMORY  "GstVaapiSurfaceMemoryAllocator"
-*/
 /**
  * GstVaapiSurfacePool:
  *

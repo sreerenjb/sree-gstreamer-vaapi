@@ -378,7 +378,7 @@ get_profile(GstVaapiDecoderMpeg2 *decoder, GstVaapiEntrypoint entrypoint)
 }
 
 static GstVaapiDecoderStatus
-ensure_context(GstVaapiDecoderMpeg2 *decoder)
+ensure_context(GstVaapiDecoderMpeg2 *decoder, GstQuery *query)
 {
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
     GstVaapiEntrypoint entrypoint = GST_VAAPI_ENTRYPOINT_VLD;
@@ -405,7 +405,8 @@ ensure_context(GstVaapiDecoderMpeg2 *decoder)
             GST_VAAPI_DECODER(decoder),
             priv->hw_profile,
             entrypoint,
-            priv->width, priv->height
+            priv->width, priv->height,
+	    query
         );
         if (!reset_context)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
@@ -633,11 +634,11 @@ parse_picture(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     GstVaapiDecoderStatus status;
     GstClockTime pts;
 
-    status = ensure_context(decoder);
+    /*status = ensure_context(decoder);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_ERROR("failed to reset context");
         return status;
-    }
+    }*/
 
     if (priv->current_picture) {
         /* Re-use current picture where the first field was decoded */
@@ -930,6 +931,24 @@ scan_for_start_code(GstAdapter *adapter, guint ofs, guint size, guint32 *scp)
                                                      scp);
 }
 
+gboolean
+gst_vaapi_decoder_mpeg2_decide_allocation(
+    GstVaapiDecoder *dec,
+    GstQuery *query)
+{
+    GstVaapiDecoderMpeg2 *decoder = GST_VAAPI_DECODER_MPEG2(dec);
+    GstVaapiDecoderMpeg2Private * priv = decoder->priv;
+    GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+ 
+    status = ensure_context(decoder, query);
+
+    if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
+        g_message("failed to create context,,failed to create the pool....");
+        return FALSE;
+    }
+    return TRUE;
+}
+
 GstVaapiDecoderStatus
 gst_vaapi_decoder_mpeg2_parse(
     GstVaapiDecoder *dec, 
@@ -949,7 +968,7 @@ gst_vaapi_decoder_mpeg2_parse(
 
     priv->adapter = adapter;
     size = gst_adapter_available (adapter);
-    data = (guint8 *)gst_adapter_peek (adapter,size);
+    data = (guint8 *)gst_adapter_map (adapter,size);
 
     if (size < 8)
         goto need_data;
@@ -1157,12 +1176,13 @@ gst_vaapi_decoder_mpeg2_class_init(GstVaapiDecoderMpeg2Class *klass)
 
     g_type_class_add_private(klass, sizeof(GstVaapiDecoderMpeg2Private));
 
-    object_class->finalize      = gst_vaapi_decoder_mpeg2_finalize;
-    object_class->constructed   = gst_vaapi_decoder_mpeg2_constructed;
+    object_class->finalize           = gst_vaapi_decoder_mpeg2_finalize;
+    object_class->constructed        = gst_vaapi_decoder_mpeg2_constructed;
 
-    decoder_class->parse        = gst_vaapi_decoder_mpeg2_parse;
-    decoder_class->decode       = gst_vaapi_decoder_mpeg2_decode;
-    decoder_class->reset        = gst_vaapi_decoder_mpeg2_reset;
+    decoder_class->parse             = gst_vaapi_decoder_mpeg2_parse;
+    decoder_class->decide_allocation = gst_vaapi_decoder_mpeg2_decide_allocation;
+    decoder_class->decode            = gst_vaapi_decoder_mpeg2_decode;
+    decoder_class->reset             = gst_vaapi_decoder_mpeg2_reset;
 }
 
 static void
