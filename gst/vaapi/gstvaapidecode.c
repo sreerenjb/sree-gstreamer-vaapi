@@ -649,7 +649,9 @@ gst_vaapi_dec_decide_allocation (GstVideoDecoder * decoder, GstQuery * query)
 
     gst_query_parse_allocation (query, &caps, &need_pool);
 
+    g_message ("decide allocation1");
     if (need_pool) {
+    g_message ("decide allocation2");
         ret = gst_vaapi_decoder_decide_allocation (dec->decoder, query);
         if (!ret) {
             GST_DEBUG_OBJECT (dec, "Failed to allocate buffer pool..");

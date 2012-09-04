@@ -41,8 +41,7 @@
 /* ------------------------------------------------------------------------- */
 
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiPicture,
-                            gst_vaapi_picture,
-                            GST_VAAPI_TYPE_CODEC_OBJECT)
+                            gst_vaapi_picture)
 
 enum {
     GST_VAAPI_CREATE_PICTURE_FLAG_CLONE = 1 << 0,
@@ -114,11 +113,18 @@ gst_vaapi_picture_create(
     if (args->flags & GST_VAAPI_CREATE_PICTURE_FLAG_CLONE) {
         GstVaapiPicture * const parent_picture = GST_VAAPI_PICTURE(args->data);
 
-        picture->surface =  g_object_ref(parent_picture->surface);
+        //picture->surface =  g_object_ref(parent_picture->surface);
         picture->surface_buffer = gst_buffer_ref(parent_picture->surface_buffer);
 
-//        picture->proxy   = g_object_ref(parent_picture->proxy);
-//        picture->surface = gst_vaapi_surface_proxy_get_surface(picture->proxy);
+	gst_buffer_map (picture->surface_buffer, &map_info, GST_MAP_READ);
+        surface = (GstVaapiSurface *)map_info.data;
+        if (!surface) {
+            GST_DEBUG ("Mapping failed...");
+            return FALSE;
+        }
+
+        picture->proxy   = g_object_ref(parent_picture->proxy);
+        picture->surface = surface;
         picture->type    = parent_picture->type;
         picture->pts     = parent_picture->pts;
         picture->poc     = parent_picture->poc;
@@ -151,7 +157,6 @@ gst_vaapi_picture_create(
     else {
 	/*Fixme*/
   	picture->surface_buffer = gst_vaapi_context_get_surface_buffer(GET_CONTEXT(picture));
-
         gst_buffer_map (picture->surface_buffer, &map_info, GST_MAP_READ);
         surface = (GstVaapiSurface *)map_info.data;
         if (!surface) {
@@ -161,6 +166,7 @@ gst_vaapi_picture_create(
 
 	picture->surface = surface;
 
+        gst_vaapi_surface_set_parent_context(surface, GET_CONTEXT(picture));
         picture->proxy =
             gst_vaapi_surface_proxy_new(GET_CONTEXT(picture), picture->surface, picture->surface_buffer);
         if (!picture->proxy)
@@ -171,6 +177,7 @@ gst_vaapi_picture_create(
     }
     picture->surface_id = gst_vaapi_surface_get_id(picture->surface);
 
+    picture->surface_pool = gst_vaapi_context_get_surface_pool(GET_CONTEXT(picture));
     success = vaapi_create_buffer(
         GET_VA_DISPLAY(picture),
         GET_VA_CONTEXT(picture),
@@ -224,15 +231,16 @@ gst_vaapi_picture_new(
     obj = g_slice_new0(GstVaapiPicture);
     if (!obj)
         return NULL;
-    gst_vaapi_picture_init(obj);
 
-    gst_vaapi_picture_initialize(obj);
+    gst_vaapi_picture_initialize((GstVaapiPicture *)obj);
+    gst_vaapi_picture_init(obj);
 
     object = gst_vaapi_codec_object_finish(
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
         GST_VAAPI_CODEC_BASE(decoder),
         param, param_size,
-        NULL, 0
+        NULL, 0,
+	0
     );
 
     /*object = gst_vaapi_codec_object_new(
@@ -249,12 +257,11 @@ gst_vaapi_picture_new(
 GstVaapiPicture *
 gst_vaapi_picture_new_field(GstVaapiPicture *picture)
 {
-    GstMiniObject *obj;
-    GstVaapiCodecObject *va_obj;
-    GstVaapiCodecObjectConstructorArgs args;
     GstVaapiPicture *object;
+    guint flags = (GST_VAAPI_CREATE_PICTURE_FLAG_CLONE|
+                       GST_VAAPI_CREATE_PICTURE_FLAG_FIELD);
 
-    g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), NULL);
+    //g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), NULL);
 
     object = g_slice_new0(GstVaapiPicture);
     if (!object)
@@ -262,26 +269,23 @@ gst_vaapi_picture_new_field(GstVaapiPicture *picture)
     gst_vaapi_picture_init(object);
     gst_vaapi_picture_initialize(object);
 
-    va_obj = GST_VAAPI_CODEC_OBJECT(object);
-    args.codec      = GST_VAAPI_CODEC_BASE(GET_DECODER(picture));
-    args.param      = NULL;
-    args.param_size = picture->param_size;
-    args.data       = picture;
-    args.data_size  = 0;
-    args.flags      = (GST_VAAPI_CREATE_PICTURE_FLAG_CLONE|
-                       GST_VAAPI_CREATE_PICTURE_FLAG_FIELD);
-    if (gst_vaapi_codec_object_construct(va_obj, &args))
-        return GST_VAAPI_PICTURE_CAST(va_obj);
-
-    gst_mini_object_unref(obj);
-    return NULL;
+    object = gst_vaapi_codec_object_finish(
+        GST_VAAPI_CODEC_OBJECT_CAST(object),
+        GST_VAAPI_CODEC_BASE(GET_DECODER(picture)),
+        NULL, picture->param_size,
+        picture, 0,
+	flags
+    );
+     if (!object)
+        return NULL;
+     return GST_VAAPI_PICTURE_CAST(object);
 }
 
 void
 gst_vaapi_picture_add_slice(GstVaapiPicture *picture, GstVaapiSlice *slice)
 {
-    g_return_if_fail(GST_VAAPI_IS_PICTURE(picture));
-    g_return_if_fail(GST_VAAPI_IS_SLICE(slice));
+//    g_return_if_fail(GST_VAAPI_IS_PICTURE(picture));
+ //   g_return_if_fail(GST_VAAPI_IS_SLICE(slice));
 
     g_ptr_array_add(picture->slices, slice);
 }
@@ -313,7 +317,7 @@ gst_vaapi_picture_decode(GstVaapiPicture *picture)
     VAStatus status;
     guint i;
 
-    g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);
+//    g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);
 
     va_display = GET_VA_DISPLAY(picture);
     va_context = GET_VA_CONTEXT(picture);
@@ -370,7 +374,7 @@ gst_vaapi_picture_output(GstVaapiPicture *picture)
 {
     GstVaapiSurfaceProxy *proxy;
 
-    g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);
+//    g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);
 
     if (!picture->proxy)
         return FALSE;
@@ -394,8 +398,7 @@ gst_vaapi_picture_output(GstVaapiPicture *picture)
 /* ------------------------------------------------------------------------- */
 
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiSlice,
-                            gst_vaapi_slice,
-                            GST_VAAPI_TYPE_CODEC_OBJECT)
+                            gst_vaapi_slice)
 
 static void
 gst_vaapi_slice_destroy(GstVaapiSlice *slice)
@@ -472,15 +475,16 @@ gst_vaapi_slice_new(
     obj = g_slice_new0(GstVaapiSlice);
     if (!obj)
         return NULL;
-    gst_vaapi_slice_init(obj);
 
     gst_vaapi_slice_initialize(obj);
+    gst_vaapi_slice_init(obj);
 
     object = gst_vaapi_codec_object_finish(
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
         GST_VAAPI_CODEC_BASE(decoder),
         param, param_size,
-        data, data_size
+        data, data_size,
+	0
     );
 
     /*object = gst_vaapi_codec_object_new(
@@ -489,5 +493,5 @@ gst_vaapi_slice_new(
         param, param_size,
         data, data_size
     );*/
-    return GST_VAAPI_SLICE_CAST(object);
+    return GST_VAAPI_SLICE_CAST(obj);
 }

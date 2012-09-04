@@ -55,6 +55,7 @@ allocate_surface (GstAllocationParams *param, gsize maxsize, gsize size)
                  _allocator_params->width, 
  	         _allocator_params->height
               );
+    g_message ("initial surface creation 0X%X",surface);
     return surface;
 }
 

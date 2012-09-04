@@ -513,6 +513,16 @@ error_decode_timeout:
     }
 }
 
+GstBufferPool *
+gst_vaapi_decoder_get_buffer_pool(GstVaapiDecoder *decoder)
+{
+    GstBufferPool *pool;
+    
+    pool = (GstBufferPool *)gst_vaapi_context_get_surface_pool (GST_VAAPI_DECODER_CONTEXT(decoder));
+
+    return pool;   
+}
+
 /**
  * gst_vaapi_decoder_decide_allocation
  * @decoder: a #GstVaapiDecoder
@@ -523,9 +533,14 @@ gst_vaapi_decoder_decide_allocation(
     GstVaapiDecoder *decoder,
     GstQuery *query
 )
-{   
+{  
+    GstBufferPool *pool;
     gboolean result;
     result = GST_VAAPI_DECODER_GET_CLASS(decoder)->decide_allocation(decoder, query);
+    if (query){
+	 pool = gst_vaapi_decoder_get_buffer_pool(decoder);
+	 gst_query_add_allocation_pool (query, (GstBufferPool *)pool, 720*576, 6, 24);
+    }
     GST_DEBUG("decide_allocation status: %d ",result);
     return result;
 }
@@ -705,6 +720,7 @@ gst_vaapi_decoder_ensure_context(
         height,
 	query
     );
+    g_message ("context created.... %p",priv->context);
     if (!priv->context)
         return FALSE;
 

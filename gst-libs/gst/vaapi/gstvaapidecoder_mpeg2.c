@@ -383,7 +383,8 @@ ensure_context(GstVaapiDecoderMpeg2 *decoder, GstQuery *query)
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
     GstVaapiEntrypoint entrypoint = GST_VAAPI_ENTRYPOINT_VLD;
     gboolean reset_context = FALSE;
-
+	
+    g_message ("ensure context...");
     if (priv->profile_changed) {
         GST_DEBUG("profile changed");
         priv->profile_changed = FALSE;
@@ -634,11 +635,11 @@ parse_picture(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     GstVaapiDecoderStatus status;
     GstClockTime pts;
 
-    /*status = ensure_context(decoder);
+    status = ensure_context(decoder, NULL);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_ERROR("failed to reset context");
         return status;
-    }*/
+    }
 
     if (priv->current_picture) {
         /* Re-use current picture where the first field was decoded */
@@ -650,6 +651,7 @@ parse_picture(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     }
     else {
         /* Create new picture */
+	g_message ("creating new pic...");
         picture = GST_VAAPI_PICTURE_NEW(MPEG2, decoder);
         if (!picture) {
             GST_ERROR("failed to allocate picture");
@@ -822,7 +824,7 @@ fill_picture(GstVaapiDecoderMpeg2 *decoder, GstVaapiPicture *picture)
 
     gst_vaapi_dpb_mpeg2_get_references(
         priv->dpb,
-        picture,
+        (GstVaapiPicture *)picture,
         &prev_picture,
         &next_picture
     );

@@ -561,7 +561,8 @@ gst_vaapi_context_new(
     }
     
     /*Fixme */
-    gst_query_add_allocation_pool (query, (GstBufferPool *)context->priv->surfaces_pool, 720*576, 6, 24);
+    if (query)
+        gst_query_add_allocation_pool (query, (GstBufferPool *)context->priv->surfaces_pool, 720*576, 6, 24);
     return context;
 }
 
@@ -735,7 +736,7 @@ gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
 	GST_ERROR("Failed to acquire buffer");
 	buffer = NULL;
     }
-    gst_vaapi_surface_set_parent_context(surface, context);
+    //gst_vaapi_surface_set_parent_context(surface, context);
     return buffer;
 }
 

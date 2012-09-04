@@ -730,7 +730,7 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     flags = gst_vaapi_video_buffer_get_render_flags(vbuffer);*/
 
     flags = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
-    gst_buffer_map (buffer, &map_info, GST_MAP_READ);
+    gst_buffer_map (buf, &map_info, GST_MAP_READ);
     surface = map_info.data;
     if (!surface){
         GST_DEBUG_OBJECT (sink, "Failed to map the memory(GstVaapiSurface)");

@@ -67,8 +67,7 @@ struct _GstVaapiPictureH264 {
 };
 
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiPictureH264,
-                            gst_vaapi_picture_h264,
-                            GST_VAAPI_TYPE_PICTURE)
+                            gst_vaapi_picture_h264)
 
 static void
 gst_vaapi_picture_h264_destroy(GstVaapiPictureH264 *decoder)
@@ -120,7 +119,8 @@ gst_vaapi_picture_h264_new(GstVaapiDecoderH264 *decoder)
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
         GST_VAAPI_CODEC_BASE(decoder),
         NULL, sizeof(VAPictureParameterBufferH264),
-        NULL, 0
+        NULL, 0,
+	0
     );
 
     /*object = gst_vaapi_codec_object_new(
@@ -149,8 +149,7 @@ struct _GstVaapiSliceH264 {
 };
 
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiSliceH264,
-                            gst_vaapi_slice_h264,
-                            GST_VAAPI_TYPE_SLICE)
+                            gst_vaapi_slice_h264)
 
 static void
 gst_vaapi_slice_h264_destroy(GstVaapiSliceH264 *slice)
@@ -194,7 +193,8 @@ gst_vaapi_slice_h264_new(
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
         GST_VAAPI_CODEC_BASE(decoder),
 	NULL, sizeof(VASliceParameterBufferH264),
-        data, data_size
+        data, data_size,
+	0
     );
 
 

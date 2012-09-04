@@ -86,7 +86,8 @@ gst_vaapi_codec_object_finish(
     gconstpointer        param,
     guint                param_size,
     gconstpointer        data,
-    guint                data_size
+    guint                data_size,
+    guint		 flags
 )
 {
     GstVaapiCodecObjectConstructorArgs args;
@@ -96,7 +97,7 @@ gst_vaapi_codec_object_finish(
     args.param_size = param_size;
     args.data       = data;
     args.data_size  = data_size;
-    args.flags      = 0;
+    args.flags      = flags;
     if (gst_vaapi_codec_object_construct(va_obj, &args))
         return va_obj;
 
@@ -134,8 +135,7 @@ gst_vaapi_codec_object_construct(
 /* ------------------------------------------------------------------------- */
 
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiIqMatrix,
-                            gst_vaapi_iq_matrix,
-                            GST_VAAPI_TYPE_CODEC_OBJECT)
+                            gst_vaapi_iq_matrix)
 
 static void
 gst_vaapi_iq_matrix_destroy(GstVaapiIqMatrix *iq_matrix)
@@ -188,7 +188,8 @@ gst_vaapi_iq_matrix_new(
 	GST_VAAPI_CODEC_OBJECT_CAST(obj), 
 	GST_VAAPI_CODEC_BASE(decoder),
         param, param_size,
-        NULL, 0
+        NULL, 0,
+	0
     );
 
     /*object = gst_vaapi_codec_object_new(
@@ -207,8 +208,7 @@ gst_vaapi_iq_matrix_new(
 /* ------------------------------------------------------------------------- */
 
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiBitPlane,
-                            gst_vaapi_bitplane,
-                            GST_VAAPI_TYPE_CODEC_OBJECT)
+                            gst_vaapi_bitplane)
 
 static void
 gst_vaapi_bitplane_destroy(GstVaapiBitPlane *bitplane)
@@ -257,7 +257,8 @@ gst_vaapi_bitplane_new(GstVaapiDecoder *decoder, guint8 *data, guint data_size)
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
         GST_VAAPI_CODEC_BASE(decoder),
         data, data_size,
-        NULL, 0
+        NULL, 0,
+	0
     );
 
 
@@ -332,7 +333,8 @@ gst_vaapi_huffman_table_new(
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
         GST_VAAPI_CODEC_BASE(decoder),
         data, data_size,
-        NULL, 0
+        NULL, 0,
+	0
     );
 
     /*object = gst_vaapi_codec_object_new(

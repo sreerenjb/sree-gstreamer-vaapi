@@ -188,6 +188,9 @@ G_GNUC_INTERNAL
 GstVaapiDecoderStatus
 gst_vaapi_decoder_check_status(GstVaapiDecoder *decoder);
 
+G_GNUC_INTERNAL
+GstBufferPool *
+gst_vaapi_decoder_get_buffer_pool(GstVaapiDecoder *decoder);
 G_END_DECLS
 
 #endif /* GST_VAAPI_DECODER_PRIV_H */

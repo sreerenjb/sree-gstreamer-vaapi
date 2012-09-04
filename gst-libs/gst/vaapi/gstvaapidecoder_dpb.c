@@ -230,7 +230,7 @@ gst_vaapi_dpb_add(GstVaapiDpb *dpb, GstVaapiPicture *picture)
     GstVaapiDpbClass *klass;
 
     g_return_val_if_fail(GST_VAAPI_IS_DPB(dpb), FALSE);
-    g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);
+    //g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);
 
     klass = GST_VAAPI_DPB_GET_CLASS(dpb);
     if (G_UNLIKELY(!klass || !klass->add))
@@ -321,7 +321,7 @@ gst_vaapi_dpb_mpeg2_get_references(
     guint i, index;
 
     g_return_if_fail(GST_VAAPI_IS_DPB_MPEG2(dpb));
-    g_return_if_fail(GST_VAAPI_IS_PICTURE(picture));
+    //g_return_if_fail(GST_VAAPI_IS_PICTURE(picture));
 
     ref_pictures[0] = NULL;
     ref_pictures[1] = NULL;

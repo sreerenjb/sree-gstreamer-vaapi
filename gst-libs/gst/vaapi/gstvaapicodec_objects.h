@@ -43,7 +43,7 @@ typedef struct _GstVaapiHuffmanTable            GstVaapiHuffmanTable;
     ((GstVaapiCodecBase *)(obj))
 
 #define GST_VAAPI_TYPE_CODEC_OBJECT             (gst_vaapi_codec_object_get_type())
-#define GST_VAAPI_IS_CODEC_OBJECT(obj)          (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_CODEC_OBJECT))
+//#define GST_VAAPI_IS_CODEC_OBJECT_TYPE(obj)     (GST_IS_MINI_OBJECT_TYPE(obj))
 #define GST_VAAPI_CODEC_OBJECT_CAST(obj)        ((GstVaapiCodecObject *)(obj))
 #define GST_VAAPI_CODEC_OBJECT(obj)             (GST_VAAPI_CODEC_OBJECT_CAST(obj))
 
@@ -102,7 +102,8 @@ gst_vaapi_codec_object_finish(
     gconstpointer        param,
     guint                param_size,
     gconstpointer        data,
-    guint                data_size
+    guint                data_size,
+    guint		 flags
 );
 
 G_GNUC_INTERNAL
@@ -117,7 +118,7 @@ gst_vaapi_codec_object_construct(
 /* ------------------------------------------------------------------------- */
 
 #define GST_VAAPI_TYPE_IQ_MATRIX        (gst_vaapi_iq_matrix_get_type())
-#define GST_VAAPI_IS_IQ_MATRIX(obj)     (GST_VAAPI_IS_CODEC_OBJECT (obj, GST_VAAPI_TYPE_IQ_MATRIX)
+#define GST_VAAPI_IS_IQ_MATRIX(obj)     (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_IQ_MATRIX))
 #define GST_VAAPI_IQ_MATRIX_CAST(obj)   ((GstVaapiIqMatrix *)(obj))
 #define GST_VAAPI_IQ_MATRIX(obj)        (GST_VAAPI_IQ_MATRIX_CAST(obj)
 
@@ -155,7 +156,7 @@ gst_vaapi_iq_matrix_new(
 #define GST_VAAPI_TYPE_BITPLANE       (gst_vaapi_bitplane_get_type())
 #define GST_VAAPI_BITPLANE_CAST(obj)  ((GstVaapiBitPlane *)(obj))
 #define GST_VAAPI_BITPLANE(obj)       (GST_VAAPI_BITPLANE_CAST(obj))    
-#define GST_VAAPI_IS_BITPLANE(obj)    (GST_VAAPI_IS_CODEC_OBJECT(obj, GST_VAAPI_TYPE_BITPLANE)
+#define GST_VAAPI_IS_BITPLANE(obj)    (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_BITPLANE))
 
 /**
  * GstVaapiBitPlane:
@@ -187,7 +188,8 @@ gst_vaapi_bitplane_new(GstVaapiDecoder *decoder, guint8 *data, guint data_size);
 #define GST_VAAPI_TYPE_HUFFMAN_TABLE       (gst_vaapi_huffman_table_get_type())
 #define GST_VAAPI_HUFFMAN_TABLE_CAST(obj)  ((GstVaapiHuffmanTable *)(obj))
 #define GST_VAAPI_HUFFMAN_TABLE(obj)       (GST_VAAPI_HUFFMAN_TABLE_CAST(obj))    
-#define GST_VAAPI_IS_HUFFMAN_TABLE(obj)    (GST_VAAPI_IS_CODEC_OBJECT(obj, GST_VAAPI_TYPE_HUFFMAN_TABLE)
+#define GST_VAAPI_IS_HUFFMAN_TABLE(obj)    (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_HUFFMAN_TABLE))
+
 
 /**
  * GstVaapiHuffmanTable:
@@ -219,7 +221,7 @@ gst_vaapi_huffman_table_new(
 /* ------------------------------------------------------------------------- */
 /* --- Helpers to create codec-dependent objects                         --- */
 /* ------------------------------------------------------------------------- */
-#define GST_VAAPI_CODEC_DEFINE_TYPE(type, prefix, base_type)            \
+#define GST_VAAPI_CODEC_DEFINE_TYPE(type, prefix)            		\
 GST_DEFINE_MINI_OBJECT_TYPE(type, prefix)                               \
                                                                         \
 static void                                                             \
@@ -242,23 +244,21 @@ prefix##_construct(                                                     \
     GstVaapiCodecObject                      *object,                   \
     const GstVaapiCodecObjectConstructorArgs *args                      \
 )                                                                       \
-{   									\               
+{   									\
     object->codec = args->codec;                                        \
     return prefix##_create((type *)object, args);                       \
 }                                                                       \
                                                                         \
 static void                                                             \
-prefix##_initialize(type *obj)                                		\
-{                                                                       \
-    GstMiniObject * const mini_object =                                 \
-        GST_MINI_OBJECT(obj);                                    	\
-    GstVaapiCodecObject * const codec_obj =                      	\
-        GST_VAAPI_CODEC_OBJECT(obj);		                        \
-    gst_mini_object_init (GST_MINI_OBJECT_CAST (obj), 0, (GType)prefix##_get_type,         \
+prefix##_initialize(type *obj)                                			    \
+{										    \
+    GstVaapiCodecObject *codec_obj;                      			    \
+    gst_mini_object_init (GST_MINI_OBJECT_CAST (obj), 0, (GType)prefix##_get_type,  \
         (GstMiniObjectCopyFunction) NULL,					    \
         (GstMiniObjectDisposeFunction) NULL,			   	            \
         (GstMiniObjectFreeFunction) prefix##_free);			            \
-    codec_obj->codec = NULL;				            \
+    codec_obj	= GST_VAAPI_CODEC_OBJECT_CAST(obj);		                    \
+    codec_obj->codec = NULL;				                            \
     codec_obj->construct_obj = prefix##_construct;                                  \
 }
 										    

@@ -182,7 +182,7 @@ gst_vaapi_picture_unref(gpointer ptr)
 /* ------------------------------------------------------------------------- */
 
 #define GST_VAAPI_TYPE_SLICE       (gst_vaapi_slice_get_type())
-#define GST_VAAPI_IS_SLICE(obj)    (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_SLICE)) 
+#define GST_VAAPI_IS_SLICE(obj)    (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_SLICE))
 #define GST_VAAPI_SLICE_CAST(obj)  ((GstVaapiSlice *)(obj))
 #define GST_VAAPI_SLICE (obj)      (GST_VAAPI_SLICE_CAST(obj)) 
 
