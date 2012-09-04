@@ -91,8 +91,7 @@ gst_vaapi_context_new(
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
     guint               width,
-    guint               height,
-    GstQuery		*query
+    guint               height
 );
 
 gboolean

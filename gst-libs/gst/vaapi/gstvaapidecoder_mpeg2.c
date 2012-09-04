@@ -378,13 +378,12 @@ get_profile(GstVaapiDecoderMpeg2 *decoder, GstVaapiEntrypoint entrypoint)
 }
 
 static GstVaapiDecoderStatus
-ensure_context(GstVaapiDecoderMpeg2 *decoder, GstQuery *query)
+ensure_context(GstVaapiDecoderMpeg2 *decoder)
 {
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
     GstVaapiEntrypoint entrypoint = GST_VAAPI_ENTRYPOINT_VLD;
     gboolean reset_context = FALSE;
 	
-    g_message ("ensure context...");
     if (priv->profile_changed) {
         GST_DEBUG("profile changed");
         priv->profile_changed = FALSE;
@@ -406,8 +405,7 @@ ensure_context(GstVaapiDecoderMpeg2 *decoder, GstQuery *query)
             GST_VAAPI_DECODER(decoder),
             priv->hw_profile,
             entrypoint,
-            priv->width, priv->height,
-	    query
+            priv->width, priv->height
         );
         if (!reset_context)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
@@ -635,7 +633,7 @@ parse_picture(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     GstVaapiDecoderStatus status;
     GstClockTime pts;
 
-    status = ensure_context(decoder, NULL);
+    status = ensure_context(decoder);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_ERROR("failed to reset context");
         return status;
@@ -651,7 +649,6 @@ parse_picture(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     }
     else {
         /* Create new picture */
-	g_message ("creating new pic...");
         picture = GST_VAAPI_PICTURE_NEW(MPEG2, decoder);
         if (!picture) {
             GST_ERROR("failed to allocate picture");
@@ -942,10 +939,10 @@ gst_vaapi_decoder_mpeg2_decide_allocation(
     GstVaapiDecoderMpeg2Private * priv = decoder->priv;
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
  
-    status = ensure_context(decoder, query);
+    status = ensure_context(decoder);
 
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
-        g_message("failed to create context,,failed to create the pool....");
+        GST_ERROR("failed to create context,,failed to create the pool....");
         return FALSE;
     }
     return TRUE;

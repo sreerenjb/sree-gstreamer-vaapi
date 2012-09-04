@@ -145,7 +145,7 @@ gst_vaapi_decoder_vc1_create(GstVaapiDecoderVC1 *decoder)
 }
 
 static GstVaapiDecoderStatus
-ensure_context(GstVaapiDecoderVC1 *decoder, GstQuery *query)
+ensure_context(GstVaapiDecoderVC1 *decoder)
 {
     GstVaapiDecoderVC1Private * const priv = decoder->priv;
     GstVaapiProfile profiles[2];
@@ -183,8 +183,7 @@ ensure_context(GstVaapiDecoderVC1 *decoder, GstQuery *query)
             GST_VAAPI_DECODER(decoder),
             priv->profile,
             entrypoint,
-            priv->width, priv->height,
-	    query
+            priv->width, priv->height
         );
         if (!reset_context)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
@@ -878,11 +877,11 @@ decode_frame(GstVaapiDecoderVC1 *decoder, GstVC1BDU *rbdu, GstVC1BDU *ebdu)
     VASliceParameterBufferVC1 *slice_param;
     GstClockTime pts;
 
-    /*status = ensure_context(decoder);
+    status = ensure_context(decoder);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_DEBUG("failed to reset context");
         return status;
-    }*/
+    }
 
     priv->current_picture = GST_VAAPI_PICTURE_NEW(VC1, decoder);
     if (!priv->current_picture) {
@@ -1124,6 +1123,24 @@ beach:
     return status;
 }
 
+gboolean
+gst_vaapi_decoder_vc1_decide_allocation(
+    GstVaapiDecoder *dec,
+    GstQuery *query)
+{
+    GstVaapiDecoderVC1 *decoder = GST_VAAPI_DECODER_VC1(dec);
+    GstVaapiDecoderVC1Private * priv = decoder->priv;
+    GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+
+    status = ensure_context(decoder);
+
+    if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
+        GST_ERROR("failed to create context,,failed to create the pool....");
+        return FALSE;
+    }
+    return TRUE;
+}
+
 static GstVaapiDecoderStatus
 decode_codec_data(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
 {
@@ -1300,9 +1317,10 @@ gst_vaapi_decoder_vc1_class_init(GstVaapiDecoderVC1Class *klass)
     object_class->finalize      = gst_vaapi_decoder_vc1_finalize;
     object_class->constructed   = gst_vaapi_decoder_vc1_constructed;
     
-    decoder_class->parse        = gst_vaapi_decoder_vc1_parse;
-    decoder_class->decode       = gst_vaapi_decoder_vc1_decode;
-    decoder_class->reset        = gst_vaapi_decoder_vc1_reset;
+    decoder_class->parse             = gst_vaapi_decoder_vc1_parse;
+    decoder_class->decide_allocation = gst_vaapi_decoder_vc1_decide_allocation;
+    decoder_class->decode            = gst_vaapi_decoder_vc1_decode;
+    decoder_class->reset             = gst_vaapi_decoder_vc1_reset;
 }
 
 static void

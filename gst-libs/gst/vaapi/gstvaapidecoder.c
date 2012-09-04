@@ -539,6 +539,7 @@ gst_vaapi_decoder_decide_allocation(
     result = GST_VAAPI_DECODER_GET_CLASS(decoder)->decide_allocation(decoder, query);
     if (query){
 	 pool = gst_vaapi_decoder_get_buffer_pool(decoder);
+	 /*Fixme*/
 	 gst_query_add_allocation_pool (query, (GstBufferPool *)pool, 720*576, 6, 24);
     }
     GST_DEBUG("decide_allocation status: %d ",result);
@@ -700,8 +701,7 @@ gst_vaapi_decoder_ensure_context(
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
     guint               width,
-    guint               height,
-    GstQuery		*query
+    guint               height
 )
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
@@ -717,10 +717,8 @@ gst_vaapi_decoder_ensure_context(
         profile,
         entrypoint,
         width,
-        height,
-	query
+        height
     );
-    g_message ("context created.... %p",priv->context);
     if (!priv->context)
         return FALSE;
 
@@ -739,7 +737,6 @@ gst_vaapi_decoder_push_buffer_sub(
     GstBuffer *subbuffer;
 
     /*Fixme*/
-    g_message ("create sub buff,,failed");
     return FALSE;
     /*subbuffer = gst_buffer_create_sub(buffer, offset, size);
     if (!subbuffer)

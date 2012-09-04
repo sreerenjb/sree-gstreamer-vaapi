@@ -528,7 +528,7 @@ gst_vaapi_decoder_h264_create(GstVaapiDecoderH264 *decoder)
 }
 
 static GstVaapiDecoderStatus
-ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps, GstQuery *query)
+ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
 {
     GstVaapiDecoderH264Private * const priv = decoder->priv;
     GstVaapiProfile profiles[2];
@@ -597,8 +597,7 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps, GstQuery *query)
             GST_VAAPI_DECODER(decoder),
             priv->profile,
             entrypoint,
-            priv->width, priv->height,
-	    query
+            priv->width, priv->height
         );
         if (!success)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
@@ -661,7 +660,7 @@ decode_sps(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu)
     if (result != GST_H264_PARSER_OK)
         return get_status(result);
 /*Fixme: third argument*/
-    return ensure_context(decoder, sps, NULL);
+    return ensure_context(decoder, sps);
 }
 
 static GstVaapiDecoderStatus
@@ -1877,11 +1876,11 @@ decode_picture(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu, GstH264SliceH
     GstH264PPS * const pps = slice_hdr->pps;
     GstH264SPS * const sps = pps->sequence;
 
-    /*status = ensure_context(decoder, sps);
+    status = ensure_context(decoder, sps);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_DEBUG("failed to reset context");
         return status;
-    }*/
+    }
    
     picture = gst_vaapi_picture_h264_new(decoder);
     if (!picture) {

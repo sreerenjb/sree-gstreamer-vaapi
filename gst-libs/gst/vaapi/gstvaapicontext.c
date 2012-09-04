@@ -533,8 +533,7 @@ gst_vaapi_context_new(
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
     unsigned int        width,
-    unsigned int        height,
-    GstQuery		*query
+    unsigned int        height
 )
 {
     GstVaapiContext *context;
@@ -560,9 +559,6 @@ gst_vaapi_context_new(
         return NULL;
     }
     
-    /*Fixme */
-    if (query)
-        gst_query_add_allocation_pool (query, (GstBufferPool *)context->priv->surfaces_pool, 720*576, 6, 24);
     return context;
 }
 

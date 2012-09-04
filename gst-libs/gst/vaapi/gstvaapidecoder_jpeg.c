@@ -110,7 +110,7 @@ gst_vaapi_decoder_jpeg_create(GstVaapiDecoderJpeg *decoder)
 }
 
 static GstVaapiDecoderStatus
-ensure_context(GstVaapiDecoderJpeg *decoder, GstQuery *query)
+ensure_context(GstVaapiDecoderJpeg *decoder)
 {
     GstVaapiDecoderJpegPrivate * const priv = decoder->priv;
     GstVaapiProfile profiles[2];
@@ -142,8 +142,7 @@ ensure_context(GstVaapiDecoderJpeg *decoder, GstQuery *query)
             GST_VAAPI_DECODER(decoder),
             priv->profile,
             entrypoint,
-            priv->width, priv->height,
-	    query
+            priv->width, priv->height
         );
         if (!reset_context)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
