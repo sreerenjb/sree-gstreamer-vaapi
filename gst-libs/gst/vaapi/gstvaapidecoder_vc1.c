@@ -1156,6 +1156,8 @@ decode_codec_data(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
     gint width, height;
     guint32 format;
     GstMapInfo map_info;
+    GstVideoInfo info;
+    gchar *format_string;
 
     gst_buffer_map (buffer, &map_info, GST_MAP_READ);
 
@@ -1168,23 +1170,22 @@ decode_codec_data(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
     caps      = GST_VAAPI_DECODER_CAST(decoder)->priv->caps;
     structure = gst_caps_get_structure(caps, 0);
 
-    if (!gst_structure_get_int(structure, "width", &width) ||
-        !gst_structure_get_int(structure, "height", &height)) {
+    gst_video_info_from_caps(&info, caps);
+    width = info.width;
+    height = info.height;
+
+    if(!width || !height) {
         GST_DEBUG("failed to parse size from codec-data");
         return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
     }
 
-/*Fixme*/
-    if(gst_structure_get_uint (structure, "format", &format))
-        GST_DEBUG ("format=%d",format);
-
-/*    if (!gst_structure_get_fourcc(structure, "format", &format)) {
+    format_string = gst_structure_get_string (structure, "format");
+    if (!format_string) {
         GST_DEBUG("failed to parse profile from codec-data");
         return GST_VAAPI_DECODER_STATUS_ERROR_UNSUPPORTED_CODEC;
-    }*/
-
+    }
     /* WMV3 -- expecting sequence header */
-    if (format == GST_MAKE_FOURCC('W','M','V','3')) {
+    if (!g_strcmp0(format_string, "WMV3")) {
         seq_hdr->struct_c.coded_width  = width;
         seq_hdr->struct_c.coded_height = height;
         ebdu.type      = GST_VC1_SEQUENCE;
@@ -1196,8 +1197,9 @@ decode_codec_data(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
     }
 
     /* WVC1 -- expecting bitstream data units */
-    if (format != GST_MAKE_FOURCC('W','V','C','1'))
+    if (g_strcmp0(format_string, "WVC1")) 
         return GST_VAAPI_DECODER_STATUS_ERROR_UNSUPPORTED_PROFILE;
+
     seq_hdr->advanced.max_coded_width  = width;
     seq_hdr->advanced.max_coded_height = height;
 
