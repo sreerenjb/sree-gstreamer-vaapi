@@ -279,8 +279,7 @@ gst_vaapi_bitplane_new(GstVaapiDecoder *decoder, guint8 *data, guint data_size)
 
 #if USE_JPEG_DECODER
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiHuffmanTable,
-                            gst_vaapi_huffman_table,
-                            GST_VAAPI_TYPE_CODEC_OBJECT)
+                            gst_vaapi_huffman_table)
 
 void
 gst_vaapi_huffman_table_destroy(GstVaapiHuffmanTable *huf_table)

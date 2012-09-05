@@ -337,11 +337,11 @@ decode_picture(
     priv->height = frame_hdr->height;
     priv->width  = frame_hdr->width;
 
-    /*status = ensure_context(decoder);
+    status = ensure_context(decoder);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_ERROR("failed to reset context");
         return status;
-    }*/
+    }
 
     picture = GST_VAAPI_PICTURE_NEW(JPEGBaseline, decoder);
     if (!picture) {
@@ -502,7 +502,7 @@ gst_vaapi_decoder_jpeg_parse(
     static guint init = 0;
 
     size = gst_adapter_available (adapter);
-    data = (guint8 *)gst_adapter_mamp (adapter,size);
+    data = (guint8 *)gst_adapter_map (adapter,size);
 
 
     if (!data && size == 0)
@@ -620,6 +620,24 @@ beach:
     return status;
 }
 
+gboolean
+gst_vaapi_decoder_jpeg_decide_allocation(
+    GstVaapiDecoder *dec,
+    GstQuery *query)
+{
+    GstVaapiDecoderJpeg *decoder = GST_VAAPI_DECODER_JPEG(dec);
+    GstVaapiDecoderJpegPrivate * priv = decoder->priv;
+    GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+
+    status = ensure_context(decoder);
+
+    if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
+        GST_ERROR("failed to create context,,failed to create the pool....");
+        return FALSE;
+    }
+    return TRUE;
+}
+
 GstVaapiDecoderStatus
 decode_buffer_jpeg(GstVaapiDecoderJpeg *decoder, GstBuffer *buffer, GstVideoCodecFrame *frame)
 {
@@ -703,9 +721,10 @@ gst_vaapi_decoder_jpeg_class_init(GstVaapiDecoderJpegClass *klass)
     object_class->finalize      = gst_vaapi_decoder_jpeg_finalize;
     object_class->constructed   = gst_vaapi_decoder_jpeg_constructed;
 
-    decoder_class->parse        = gst_vaapi_decoder_jpeg_parse;
-    decoder_class->decode       = gst_vaapi_decoder_jpeg_decode;
-    decoder_class->reset        = gst_vaapi_decoder_jpeg_reset;
+    decoder_class->parse             = gst_vaapi_decoder_jpeg_parse;
+    decoder_class->decide_allocation = gst_vaapi_decoder_jpeg_decide_allocation;
+    decoder_class->decode            = gst_vaapi_decoder_jpeg_decode;
+    decoder_class->reset             = gst_vaapi_decoder_jpeg_reset;
 
 }
 static void
