@@ -56,7 +56,7 @@ destroy_slice_cb(gpointer data, gpointer user_data)
     gst_mini_object_unref(object);
 }
 
-static void
+void
 gst_vaapi_picture_destroy(GstVaapiPicture *picture)
 {
     if (picture->slices) {
@@ -100,7 +100,7 @@ gst_vaapi_picture_destroy(GstVaapiPicture *picture)
     picture->param = NULL;
 }
 
-static gboolean
+gboolean
 gst_vaapi_picture_create(
     GstVaapiPicture                          *picture,
     const GstVaapiCodecObjectConstructorArgs *args
@@ -400,7 +400,7 @@ gst_vaapi_picture_output(GstVaapiPicture *picture)
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiSlice,
                             gst_vaapi_slice)
 
-static void
+void
 gst_vaapi_slice_destroy(GstVaapiSlice *slice)
 {
     VADisplay const va_display = GET_VA_DISPLAY(slice);
@@ -410,7 +410,7 @@ gst_vaapi_slice_destroy(GstVaapiSlice *slice)
     slice->param = NULL;
 }
 
-static gboolean
+gboolean
 gst_vaapi_slice_create(
     GstVaapiSlice                            *slice,
     const GstVaapiCodecObjectConstructorArgs *args

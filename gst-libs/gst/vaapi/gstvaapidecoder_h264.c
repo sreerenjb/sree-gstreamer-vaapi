@@ -69,17 +69,22 @@ struct _GstVaapiPictureH264 {
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiPictureH264,
                             gst_vaapi_picture_h264)
 
-static void
+void
 gst_vaapi_picture_h264_destroy(GstVaapiPictureH264 *decoder)
 {
+    gst_vaapi_picture_destroy(GST_VAAPI_PICTURE_CAST(decoder));
 }
 
-static gboolean
+gboolean
 gst_vaapi_picture_h264_create(
     GstVaapiPictureH264                      *picture,
     const GstVaapiCodecObjectConstructorArgs *args
 )
 {
+    if(!gst_vaapi_picture_create(GST_VAAPI_PICTURE_CAST(picture),args)) {
+	GST_ERROR("Failed to create VaapiPicture");
+	return FALSE;
+    }
     return TRUE;
 }
 
@@ -111,9 +116,9 @@ gst_vaapi_picture_h264_new(GstVaapiDecoderH264 *decoder)
     obj = g_slice_new0(GstVaapiPictureH264);
     if (!obj)
         return NULL;
-    gst_vaapi_picture_h264_init(obj);
 
     gst_vaapi_picture_h264_initialize(obj);
+    gst_vaapi_picture_h264_init(obj);
 
     object = gst_vaapi_codec_object_finish(
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
@@ -151,17 +156,22 @@ struct _GstVaapiSliceH264 {
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiSliceH264,
                             gst_vaapi_slice_h264)
 
-static void
+void
 gst_vaapi_slice_h264_destroy(GstVaapiSliceH264 *slice)
 {
+    gst_vaapi_slice_destroy(GST_VAAPI_SLICE_CAST(slice));
 }
 
-static gboolean
+gboolean
 gst_vaapi_slice_h264_create(
     GstVaapiSliceH264                        *slice,
     const GstVaapiCodecObjectConstructorArgs *args
 )
 {
+    if(!gst_vaapi_slice_create(GST_VAAPI_SLICE_CAST(slice),args)) {
+	GST_ERROR("Failed to create VaapiPicture");
+	return FALSE;
+    }
     return TRUE;
 }
 
@@ -185,9 +195,9 @@ gst_vaapi_slice_h264_new(
     obj = g_slice_new0(GstVaapiSliceH264);
     if (!obj)
         return NULL;
-    gst_vaapi_slice_h264_init(obj);
 
     gst_vaapi_slice_h264_initialize(obj);
+    gst_vaapi_slice_h264_init(obj);
 
     object = gst_vaapi_codec_object_finish(
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
@@ -2243,6 +2253,25 @@ beach:
     return status;
 }
 
+gboolean
+gst_vaapi_decoder_h264_decide_allocation(
+    GstVaapiDecoder *dec,
+    GstQuery *query)
+{
+    GstVaapiDecoderH264 *decoder = GST_VAAPI_DECODER_H264(dec);
+    GstVaapiDecoderH264Private * priv = decoder->priv;
+    GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+
+    status = ensure_context(decoder, priv->sps);
+
+    if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
+        GST_ERROR("failed to create context,,failed to create the pool....");
+        return FALSE;
+    }
+    return TRUE;
+
+}
+
 static GstVaapiDecoderStatus
 decode_codec_data(GstVaapiDecoderH264 *decoder, GstBuffer *buffer)
 {
@@ -2405,9 +2434,10 @@ gst_vaapi_decoder_h264_class_init(GstVaapiDecoderH264Class *klass)
     object_class->finalize      = gst_vaapi_decoder_h264_finalize;
     object_class->constructed   = gst_vaapi_decoder_h264_constructed;
 
-    decoder_class->parse        = gst_vaapi_decoder_h264_parse;
-    decoder_class->decode       = gst_vaapi_decoder_h264_decode;
-    decoder_class->reset        = gst_vaapi_decoder_h264_reset;
+    decoder_class->parse             = gst_vaapi_decoder_h264_parse;
+    decoder_class->decide_allocation = gst_vaapi_decoder_h264_decide_allocation;
+    decoder_class->decode            = gst_vaapi_decoder_h264_decode;
+    decoder_class->reset             = gst_vaapi_decoder_h264_reset;
 }
 
 static void

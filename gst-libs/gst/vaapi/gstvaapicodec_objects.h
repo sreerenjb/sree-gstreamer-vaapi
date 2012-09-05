@@ -218,16 +218,17 @@ gst_vaapi_huffman_table_new(
     guint            data_size
 );
 
+
 /* ------------------------------------------------------------------------- */
 /* --- Helpers to create codec-dependent objects                         --- */
 /* ------------------------------------------------------------------------- */
 #define GST_VAAPI_CODEC_DEFINE_TYPE(type, prefix)            		\
 GST_DEFINE_MINI_OBJECT_TYPE(type, prefix)                               \
                                                                         \
-static void                                                             \
+void                                                             \
 prefix##_destroy(type *);                                               \
                                                                         \
-static gboolean                                                         \
+gboolean                                                         \
 prefix##_create(                                                        \
     type *,                                                             \
     const GstVaapiCodecObjectConstructorArgs *args                      \

@@ -141,7 +141,7 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
         if (!decode->srcpad_caps)
             return FALSE;
     }
-
+   
     structure    = gst_caps_get_structure(caps, 0);
     v_width      = gst_structure_get_value(structure, "width");
     v_height     = gst_structure_get_value(structure, "height");
@@ -149,7 +149,7 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
     v_par        = gst_structure_get_value(structure, "pixel-aspect-ratio");
     v_interlaced = gst_structure_get_value(structure, "interlaced");
 
-    structure = gst_caps_get_structure(decode->srcpad_caps, 0);
+    structure = gst_caps_get_structure(decode->srcpad_caps, 0); 
     if (v_width && v_height) {
         gst_structure_set_value(structure, "width", v_width);
         gst_structure_set_value(structure, "height", v_height);

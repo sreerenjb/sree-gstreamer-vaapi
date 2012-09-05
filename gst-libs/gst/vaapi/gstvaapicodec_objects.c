@@ -137,14 +137,14 @@ gst_vaapi_codec_object_construct(
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiIqMatrix,
                             gst_vaapi_iq_matrix)
 
-static void
+void
 gst_vaapi_iq_matrix_destroy(GstVaapiIqMatrix *iq_matrix)
 {
     vaapi_destroy_buffer(GET_VA_DISPLAY(iq_matrix), &iq_matrix->param_id);
     iq_matrix->param = NULL;
 }
 
-static gboolean
+gboolean
 gst_vaapi_iq_matrix_create(
     GstVaapiIqMatrix                         *iq_matrix,
     const GstVaapiCodecObjectConstructorArgs *args
@@ -210,14 +210,14 @@ gst_vaapi_iq_matrix_new(
 GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiBitPlane,
                             gst_vaapi_bitplane)
 
-static void
+void
 gst_vaapi_bitplane_destroy(GstVaapiBitPlane *bitplane)
 {
     vaapi_destroy_buffer(GET_VA_DISPLAY(bitplane), &bitplane->data_id);
     bitplane->data = NULL;
 }
 
-static gboolean
+gboolean
 gst_vaapi_bitplane_create(
     GstVaapiBitPlane                         *bitplane,
     const GstVaapiCodecObjectConstructorArgs *args
@@ -282,14 +282,14 @@ GST_VAAPI_CODEC_DEFINE_TYPE(GstVaapiHuffmanTable,
                             gst_vaapi_huffman_table,
                             GST_VAAPI_TYPE_CODEC_OBJECT)
 
-static void
+void
 gst_vaapi_huffman_table_destroy(GstVaapiHuffmanTable *huf_table)
 {
     vaapi_destroy_buffer(GET_VA_DISPLAY(huf_table), &huf_table->param_id);
     huf_table->param = NULL;
 }
 
-static gboolean
+gboolean
 gst_vaapi_huffman_table_create(
     GstVaapiHuffmanTable                     *huf_table,
     const GstVaapiCodecObjectConstructorArgs *args

@@ -215,6 +215,22 @@ gst_vaapi_slice_new(
     guint            data_size
 );
 
+
+void
+gst_vaapi_picture_destroy(GstVaapiPicture *picture);
+gboolean
+gst_vaapi_picture_create(
+    GstVaapiPicture                          *picture,
+    const GstVaapiCodecObjectConstructorArgs *args
+);
+gboolean
+gst_vaapi_slice_create(
+    GstVaapiSlice                            *slice,
+    const GstVaapiCodecObjectConstructorArgs *args
+);
+void
+gst_vaapi_slice_destroy(GstVaapiSlice *slice);
+
 /* ------------------------------------------------------------------------- */
 /* --- Helpers to create codec-dependent objects                         --- */
 /* ------------------------------------------------------------------------- */
