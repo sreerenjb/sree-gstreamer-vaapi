@@ -495,27 +495,32 @@ static gboolean
 gst_vaapi_dec_start(GstVideoDecoder * decoder)
 {
     GstVaapiDecode *dec = GST_VAAPIDECODE (decoder);
+    gboolean ret = TRUE;
 
     GST_DEBUG_OBJECT (decoder, "start");
-  
-    return TRUE;
+    if (!gst_vaapi_decoder_start(dec->decoder)) {
+	GST_ERROR_OBJECT(decoder, "Failed to start the processing..");
+	ret = FALSE;
+    }
+
+    return ret;
 }
 
 static gboolean
 gst_vaapi_dec_stop(GstVideoDecoder * decoder)
 {
     GstVaapiDecode *dec = GST_VAAPIDECODE (decoder);
-
+    gboolean ret = TRUE; 
+    
     GST_DEBUG_OBJECT (dec, "stop");
 
-    gst_vaapidecode_destroy(dec);
-    if (dec->display) {
-        g_object_unref(dec->display);
-        dec->display = NULL;
+    if (!gst_vaapi_decoder_stop(dec->decoder)) {
+	GST_ERROR_OBJECT(decoder, "Failed to stop processing,,");
+	ret = FALSE;
     }
     dec->is_ready = FALSE;
 
-    return TRUE;
+    return ret;
 }
 
 /*To perform post-seek semantics reset*/
@@ -588,7 +593,6 @@ gst_vaapi_dec_parse(GstVideoDecoder * decoder,
     gint toadd;
     gboolean have_frame = FALSE;
 
-    /*Fixme : check at_eos*/
     dec = GST_VAAPIDECODE (decoder);
 
     if (at_eos) {

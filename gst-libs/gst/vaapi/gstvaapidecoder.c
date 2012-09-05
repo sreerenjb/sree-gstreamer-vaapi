@@ -462,7 +462,24 @@ push_surface_buffer (GstVaapiDecoder *decoder, GstBuffer *buffer)
     g_queue_push_tail(priv->surface_buffers, buffer);
 }
 
+/**
+ * gst_vaapi_decoder_start:
+ * @decoder: a #GstVaapiDecoder
+ * 
+ * Called when the element start processing
+ */
+gboolean
+gst_vaapi_decoder_start(GstVaapiDecoder *decoder)
+{
+     GstVaapiDecoderClass *dec_class = GST_VAAPI_DECODER_GET_CLASS(decoder);
+     if (dec_class->start)
+         return  dec_class->start(decoder);
+     else 
+	GST_DEBUG("start() virtual method is not implemented");
 
+    return TRUE;
+}
+   
 /**
  * gst_vaapi_decoder_parse:
  * @decoder: a #GstVaapiDecoder
@@ -589,7 +606,11 @@ gst_vaapi_decoder_get_surface2(
 
     return proxy;
 }
-
+/** gst_vaapi_decoder_reset
+ * @decoder: a $GstVaapiDecoder
+ *
+ * Allows to perform post-seek semantics reset (eg: clear the buffers queued)
+ */
 gboolean
 gst_vaapi_decoder_reset(GstVaapiDecoder * decoder)
 {
@@ -598,6 +619,25 @@ gst_vaapi_decoder_reset(GstVaapiDecoder * decoder)
     res = GST_VAAPI_DECODER_GET_CLASS(decoder)->reset(decoder);
    
     return res; 
+}
+
+/**
+ * gst_vaapi_decoder_start:
+ * @decoder: a #GstVaapiDecoder
+ * 
+ * Called when the element start processing
+ */
+gboolean
+gst_vaapi_decoder_stop(GstVaapiDecoder *decoder)
+{
+     GstVaapiDecoderClass *dec_class = GST_VAAPI_DECODER_GET_CLASS(decoder);
+     
+     if (dec_class->stop)
+         return  dec_class->start(decoder);
+     else 
+	GST_DEBUG("stop() virtual method is not implemented");
+     
+     return TRUE;
 }
 
 void

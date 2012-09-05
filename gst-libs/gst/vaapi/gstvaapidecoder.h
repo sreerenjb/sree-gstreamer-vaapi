@@ -112,10 +112,18 @@ struct _GstVaapiDecoderClass {
     /*< private >*/
     GObjectClass parent_class;
 
-    GstVaapiDecoderStatus (*parse) (GstVaapiDecoder *deccoder, GstAdapter *adapter, guint *toadd, gboolean *have_frame);
+    gboolean (*start) (GstVaapiDecoder *decoder);
+
+    GstVaapiDecoderStatus (*parse) (GstVaapiDecoder *deccoder, GstAdapter *adapter, 
+	  			    guint *toadd, gboolean *have_frame);
+
     gboolean (*decide_allocation) (GstVaapiDecoder *decoder, GstQuery *query);
+
     GstVaapiDecoderStatus (*decode) (GstVaapiDecoder *decoder, GstVideoCodecFrame *frame);
+
     gboolean (*reset) (GstVaapiDecoder *decoder);
+
+    gboolean (*stop) (GstVaapiDecoder *stop);
 };
 
 GType
@@ -136,6 +144,9 @@ gst_vaapi_decoder_get_surface(
     GstVaapiDecoderStatus *pstatus
 );
 
+gboolean
+gst_vaapi_decoder_start(GstVaapiDecoder * decoder);
+
 GstVaapiDecoderStatus 
 gst_vaapi_decoder_parse(
     GstVaapiDecoder *decoder, 
@@ -148,15 +159,15 @@ gst_vaapi_decoder_decide_allocation(
     GstVaapiDecoder *decoder,
     GstQuery *query);
 
-gboolean
-gst_vaapi_decoder_reset(GstVaapiDecoder * decoder);
-
 GstVaapiSurfaceProxy *
 gst_vaapi_decoder_get_surface2(
     GstVaapiDecoder       *decoder,
     GstVideoCodecFrame    *frame,
     GstVaapiDecoderStatus *pstatus
 );
+
+gboolean
+gst_vaapi_decoder_stop(GstVaapiDecoder * decoder);
 
 G_END_DECLS
 
