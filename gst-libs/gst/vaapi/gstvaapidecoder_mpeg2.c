@@ -275,9 +275,10 @@ static const VLCTable mpeg2_mbaddr_vlc_table[] = {
     { GST_MPEG_VIDEO_MACROBLOCK_ESCAPE, 0x08, 11 }
 };
 
-static void
-gst_vaapi_decoder_mpeg2_close(GstVaapiDecoderMpeg2 *decoder)
+static gboolean
+gst_vaapi_decoder_mpeg2_close(GstVaapiDecoder *bdec)
 {
+    GstVaapiDecoderMpeg2 *decoder = GST_VAAPI_DECODER_MPEG2(bdec);
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
 
     gst_vaapi_picture_replace(&priv->current_picture, NULL);
@@ -286,13 +287,15 @@ gst_vaapi_decoder_mpeg2_close(GstVaapiDecoderMpeg2 *decoder)
         gst_vaapi_dpb_unref(priv->dpb);
         priv->dpb = NULL;
     }
+    return TRUE;
 }
 
 static gboolean
-gst_vaapi_decoder_mpeg2_open(GstVaapiDecoderMpeg2 *decoder)
+gst_vaapi_decoder_mpeg2_open(GstVaapiDecoder *bdec)
 {
+    GstVaapiDecoderMpeg2 *decoder = GST_VAAPI_DECODER_MPEG2(bdec);
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
-    gst_vaapi_decoder_mpeg2_close(decoder);
+    gst_vaapi_decoder_mpeg2_close(bdec);
 
     priv->dpb = gst_vaapi_dpb_mpeg2_new();
     if (!priv->dpb)
@@ -305,7 +308,7 @@ gst_vaapi_decoder_mpeg2_open(GstVaapiDecoderMpeg2 *decoder)
 static void
 gst_vaapi_decoder_mpeg2_destroy(GstVaapiDecoderMpeg2 *decoder)
 {
-    gst_vaapi_decoder_mpeg2_close(decoder);
+    gst_vaapi_decoder_mpeg2_close(GST_VAAPI_DECODER_CAST(decoder));
 }
 
 static gboolean
@@ -1129,7 +1132,7 @@ gst_vaapi_decoder_mpeg2_reset(GstVaapiDecoder *bdec)
         priv->ready_to_dec = FALSE;
     priv->adapter      = NULL;
 
-    if (!gst_vaapi_decoder_mpeg2_open(decoder)) {
+    if (!gst_vaapi_decoder_mpeg2_open(bdec)) {
        GST_ERROR("Failed to re-initialize the mpeg2 decoder");
        return FALSE;
     }
@@ -1162,7 +1165,7 @@ gst_vaapi_decoder_mpeg2_constructed(GObject *object)
     g_return_if_fail(priv->is_constructed);
 
     if (!priv->is_opened) {
-        priv->is_opened = gst_vaapi_decoder_mpeg2_open(decoder);
+        priv->is_opened = gst_vaapi_decoder_mpeg2_open(GST_VAAPI_DECODER_CAST(decoder));
         g_return_if_fail(priv->is_opened);
     }
 }
@@ -1178,10 +1181,12 @@ gst_vaapi_decoder_mpeg2_class_init(GstVaapiDecoderMpeg2Class *klass)
     object_class->finalize           = gst_vaapi_decoder_mpeg2_finalize;
     object_class->constructed        = gst_vaapi_decoder_mpeg2_constructed;
 
+    decoder_class->start             = gst_vaapi_decoder_mpeg2_open;
     decoder_class->parse             = gst_vaapi_decoder_mpeg2_parse;
     decoder_class->decide_allocation = gst_vaapi_decoder_mpeg2_decide_allocation;
     decoder_class->decode            = gst_vaapi_decoder_mpeg2_decode;
     decoder_class->reset             = gst_vaapi_decoder_mpeg2_reset;
+    decoder_class->stop		     = gst_vaapi_decoder_mpeg2_close;
 }
 
 static void
