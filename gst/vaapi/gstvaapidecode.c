@@ -213,16 +213,16 @@ gst_vaapidecode_create(GstVaapiDecode *decode, GstCaps *caps)
         /*else if (version == 4)
             decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);*/
     } 
-    else if (gst_structure_has_name(structure, "video/x-wmv"))
-          decode->decoder = gst_vaapi_decoder_vc1_new(dpy, caps);
+    else if(gst_structure_has_name(structure, "video/x-wmv"))
+        decode->decoder = gst_vaapi_decoder_vc1_new(dpy, caps);
     /*else if (gst_structure_has_name(structure, "video/x-h263") ||
                  gst_structure_has_name(structure, "video/x-divx") ||
                  gst_structure_has_name(structure, "video/x-xvid"))
             decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);
     }*/
 #if USE_JPEG_DECODER
-    else if (gst_structure_has_name(structure, "image/jpeg"))
-            decode->decoder = gst_vaapi_decoder_jpeg_new(dpy, caps);
+    else if(gst_structure_has_name(structure, "image/jpeg"))
+        decode->decoder = gst_vaapi_decoder_jpeg_new(dpy, caps);
 #endif
     if (!decode->decoder)
         return FALSE;
@@ -264,7 +264,6 @@ gst_vaapidecode_reset(GstVaapiDecode *decode, GstCaps *caps)
 }
 
 /* GstVideoContext interface */
-
 static void
 gst_vaapidecode_set_video_context(GstVideoContext *context, const gchar *type,
     const GValue *value)
@@ -368,7 +367,6 @@ gst_vaapidecode_class_init(GstVaapiDecodeClass *klass)
       "Codec/Decoder/Video", GST_PLUGIN_DESC,
       "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
 
-
    /* sink pad */
    gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&gst_vaapidecode_sink_factory));
 
@@ -376,6 +374,7 @@ gst_vaapidecode_class_init(GstVaapiDecodeClass *klass)
    gst_element_class_add_pad_template(element_class, gst_static_pad_template_get(&gst_vaapidecode_src_factory));
 }
 
+/* Fixme? : No more get_caps..Is there any need to test the allowded caps(allowded by current display) ? */
 #if 0
 static gboolean
 gst_vaapidecode_ensure_allowed_caps(GstVaapiDecode *decode)
@@ -562,7 +561,6 @@ gst_vaapi_dec_set_format(GstVideoDecoder * bdec, GstVideoCodecState * state)
     GstVideoFormat fmt;
     
     dec = GST_VAAPIDECODE (bdec);
-   
     if (!state)
         return FALSE;
  
@@ -671,11 +669,6 @@ gst_vaapi_dec_decide_allocation (GstVideoDecoder * decoder, GstQuery * query)
             return FALSE;
         }
     }
-
-    if (gst_query_get_n_allocation_pools (query) > 0) {
-        gst_query_parse_nth_allocation_pool (query, 0, &pool, NULL, NULL, NULL);
-    }
-
     return  TRUE;
 }
 

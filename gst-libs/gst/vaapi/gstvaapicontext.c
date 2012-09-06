@@ -226,7 +226,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
     GstMapInfo map_info;
 
     /* Number of scratch surfaces beyond those used as reference */
-    /*Fixme: with default value's from Gwenole's repo*/
+    /*Fixme: there is a bug some where which is preventing to set SCRATCH_SURFACES_COUNT to 4*/
     const guint SCRATCH_SURFACES_COUNT = 6;
 
     if (!gst_vaapi_context_create_overlay(context))
