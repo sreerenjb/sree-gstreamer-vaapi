@@ -133,6 +133,7 @@ static gboolean
 gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
 {
     GstStructure *structure;
+    GstCaps *other_caps;
     const GValue *v_width, *v_height, *v_framerate, *v_par, *v_interlaced;
     gboolean success = TRUE;
 
@@ -141,13 +142,17 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
         if (!decode->srcpad_caps)
             return FALSE;
     }
-   
+    
     structure    = gst_caps_get_structure(caps, 0);
     v_width      = gst_structure_get_value(structure, "width");
     v_height     = gst_structure_get_value(structure, "height");
     v_framerate  = gst_structure_get_value(structure, "framerate");
     v_par        = gst_structure_get_value(structure, "pixel-aspect-ratio");
     v_interlaced = gst_structure_get_value(structure, "interlaced");
+
+    other_caps = decode->srcpad_caps;
+    decode->srcpad_caps = gst_caps_copy(decode->srcpad_caps);
+    gst_caps_unref(other_caps);
 
     structure = gst_caps_get_structure(decode->srcpad_caps, 0); 
     if (v_width && v_height) {
