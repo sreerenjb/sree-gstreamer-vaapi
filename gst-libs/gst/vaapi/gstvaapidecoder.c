@@ -471,11 +471,13 @@ push_surface_buffer (GstVaapiDecoder *decoder, GstBuffer *buffer)
 gboolean
 gst_vaapi_decoder_start(GstVaapiDecoder *decoder)
 {
-     GstVaapiDecoderClass *dec_class = GST_VAAPI_DECODER_GET_CLASS(decoder);
-     if (dec_class->start)
+     GstVaapiDecoderClass *dec_class;
+     if (decoder) 
+	dec_class = GST_VAAPI_DECODER_GET_CLASS(decoder);
+     if (decoder && dec_class->start)
          return  dec_class->start(decoder);
      else 
-	GST_DEBUG("start() virtual method is not implemented");
+	GST_DEBUG("start() virtual method is not implemented or the decoder is not yet started");
 
     return TRUE;
 }
@@ -630,10 +632,12 @@ gst_vaapi_decoder_reset(GstVaapiDecoder * decoder)
 gboolean
 gst_vaapi_decoder_stop(GstVaapiDecoder *decoder)
 {
-     GstVaapiDecoderClass *dec_class = GST_VAAPI_DECODER_GET_CLASS(decoder);
-     
-     if (dec_class->stop)
-         return  dec_class->start(decoder);
+     GstVaapiDecoderClass *dec_class;
+
+     if(decoder)
+	 dec_class = GST_VAAPI_DECODER_GET_CLASS(decoder);
+     if (decoder && dec_class->stop)
+         return  dec_class->stop(decoder);
      else 
 	GST_DEBUG("stop() virtual method is not implemented");
      
