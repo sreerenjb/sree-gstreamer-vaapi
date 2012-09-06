@@ -94,7 +94,7 @@ gst_vaapi_picture_destroy(GstVaapiPicture *picture)
     picture->surface = NULL;
 
     if (picture->surface_buffer)
-        gst_buffer_pool_release_buffer ((GstBufferPool *)picture->surface_pool, picture->surface_buffer);
+ 	gst_vaapi_context_put_surface_buffer (GET_CONTEXT(picture), picture->surface_buffer);
 
     vaapi_destroy_buffer(GET_VA_DISPLAY(picture), &picture->param_id);
     picture->param = NULL;
