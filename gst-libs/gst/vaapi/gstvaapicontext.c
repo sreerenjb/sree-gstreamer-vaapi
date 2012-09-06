@@ -709,12 +709,12 @@ gst_vaapi_context_get_size(
 }
 
 /**
- * gst_vaapi_context_get_surface:
+ * gst_vaapi_context_get_surface_buffer:
  * @context: a #GstVaapiContext
  *
- * Acquires a free surface. The returned surface but be released with
- * gst_vaapi_context_put_surface(). This function returns %NULL if
- * there is no free surface available in the pool. The surfaces are
+ * Acquires a free surface_buffer. The returned surface but be released with
+ * gst_vaapi_context_put_surface_buffer(). This function returns %NULL if
+ * there is no free surface_buffer available in the pool. The surface_buffers are
  * pre-allocated during context creation though.
  *
  * Return value: a free surface, or %NULL if none is available
@@ -722,9 +722,10 @@ gst_vaapi_context_get_size(
 GstBuffer *
 gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
 {
+    GstVaapiContextPrivate * const priv = context->priv;
     GstVaapiSurface *surface;
     GstBuffer *buffer;
-    GstVaapiContextPrivate * const priv = context->priv;
+    GstMapInfo info;
 
     g_return_val_if_fail(GST_VAAPI_IS_CONTEXT(context), NULL);
 
@@ -732,20 +733,21 @@ gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
 	GST_ERROR("Failed to acquire buffer");
 	buffer = NULL;
     }
-    //gst_vaapi_surface_set_parent_context(surface, context);
+    if (buffer) {
+	gst_buffer_map(buffer, &info, GST_MAP_READ);
+	surface = info.data;
+	if (surface)
+            gst_vaapi_surface_set_parent_context(GST_VAAPI_SURFACE(surface), context);
+	gst_buffer_unmap(buffer, &info);
+    }
     return buffer;
 }
 
 /**
- * gst_vaapi_context_get_surface:
+ * gst_vaapi_context_get_surface_pool:
  * @context: a #GstVaapiContext
  *
- * Acquires a free surface. The returned surface but be released with
- * gst_vaapi_context_put_surface(). This function returns %NULL if
- * there is no free surface available in the pool. The surfaces are
- * pre-allocated during context creation though.
- *
- * Return value: a free surface, or %NULL if none is available
+ * Return the surfacepool owned by the context
  */
 
 GstVaapiSurfacePool *
@@ -775,10 +777,17 @@ gst_vaapi_context_get_surface_count(GstVaapiContext *context)
 void
 gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffer)
 {
-    g_return_if_fail(GST_VAAPI_IS_CONTEXT(context));
     GstVaapiContextPrivate * const priv = context->priv;
-//Fixme
-//    gst_vaapi_surface_set_parent_context(surface, NULL);
+    GstVaapiSurface *surface;
+    GstMapInfo info;
+   
+    if (buffer) {
+	gst_buffer_map(buffer, &info, GST_MAP_READ);
+	surface = (GstVaapiSurface *)info.data;
+	if (surface)
+            gst_vaapi_surface_set_parent_context(GST_VAAPI_SURFACE(surface), NULL);
+	gst_buffer_unmap(buffer, &info);
+    }
     gst_buffer_pool_release_buffer ((GstBufferPool *)priv->surfaces_pool, buffer);
 }
 

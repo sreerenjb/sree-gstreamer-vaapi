@@ -113,18 +113,10 @@ gst_vaapi_picture_create(
     if (args->flags & GST_VAAPI_CREATE_PICTURE_FLAG_CLONE) {
         GstVaapiPicture * const parent_picture = GST_VAAPI_PICTURE(args->data);
 
-        //picture->surface =  g_object_ref(parent_picture->surface);
-        picture->surface_buffer = gst_buffer_ref(parent_picture->surface_buffer);
-
-	gst_buffer_map (picture->surface_buffer, &map_info, GST_MAP_READ);
-        surface = (GstVaapiSurface *)map_info.data;
-        if (!surface) {
-            GST_DEBUG ("Mapping failed...");
-            return FALSE;
-        }
-
-        picture->proxy   = g_object_ref(parent_picture->proxy);
-        picture->surface = surface;
+        picture->proxy          = g_object_ref(parent_picture->proxy);
+	picture->surface_buffer = gst_vaapi_surface_proxy_get_surface_buffer(picture->proxy);
+        picture->surface 	= gst_vaapi_surface_proxy_get_surface(picture->proxy); 
+	
         picture->type    = parent_picture->type;
         picture->pts     = parent_picture->pts;
         picture->poc     = parent_picture->poc;
@@ -166,7 +158,6 @@ gst_vaapi_picture_create(
 
 	picture->surface = surface;
 
-        gst_vaapi_surface_set_parent_context(surface, GET_CONTEXT(picture));
         picture->proxy =
             gst_vaapi_surface_proxy_new(GET_CONTEXT(picture), picture->surface, picture->surface_buffer);
         if (!picture->proxy)
