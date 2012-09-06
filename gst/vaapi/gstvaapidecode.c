@@ -112,12 +112,21 @@ static void
 gst_vaapi_decoder_notify_caps(GObject *obj, GParamSpec *pspec, void *user_data)
 {
     GstVaapiDecode * const decode = GST_VAAPIDECODE(user_data);
+    GstVideoInfo info;
     GstCaps *caps;
 
     g_assert(decode->decoder == GST_VAAPI_DECODER(obj));
 
     caps = gst_vaapi_decoder_get_caps(decode->decoder);
+
+    /*negotiate with downstream once the caps property of GstVideoDecoder has changed*/
+    gst_video_info_from_caps(&info, caps);
     gst_vaapidecode_update_src_caps(decode, caps);
+    /*Fixme: ? : VideoFormat belongs to YUV420 for now(eg: NV12, I420 etc)*/
+    decode->output_state =
+        gst_video_decoder_set_output_state (GST_VIDEO_DECODER (decode), GST_VIDEO_FORMAT_YV12,
+        info.width, info.height, decode->input_state);
+    g_assert(gst_video_decoder_negotiate (GST_VIDEO_DECODER (decode)));
 }
 
 static inline gboolean
@@ -212,7 +221,7 @@ gst_vaapidecode_create(GstVaapiDecode *decode, GstCaps *caps)
             decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);
     }*/
 #if USE_JPEG_DECODER
-        else if (gst_structure_has_name(structure, "image/jpeg"))
+    else if (gst_structure_has_name(structure, "image/jpeg"))
             decode->decoder = gst_vaapi_decoder_jpeg_new(dpy, caps);
 #endif
     if (!decode->decoder)
@@ -233,16 +242,13 @@ static void
 gst_vaapidecode_destroy(GstVaapiDecode *decode)
 {
     if (decode->decoder) {
-        gst_vaapi_decoder_put_buffer(decode->decoder, NULL);
         g_object_unref(decode->decoder);
         decode->decoder = NULL;
     }
-
     if (decode->decoder_caps) {
         gst_caps_unref(decode->decoder_caps);
         decode->decoder_caps = NULL;
     }
-
 }
 
 static gboolean
@@ -252,7 +258,7 @@ gst_vaapidecode_reset(GstVaapiDecode *decode, GstCaps *caps)
         decode->decoder_caps &&
         gst_caps_is_always_compatible(caps, decode->decoder_caps))
         return TRUE;
-
+    
     gst_vaapidecode_destroy(decode);
     return gst_vaapidecode_create(decode, caps);
 }
@@ -556,7 +562,7 @@ gst_vaapi_dec_set_format(GstVideoDecoder * bdec, GstVideoCodecState * state)
     GstVideoFormat fmt;
     
     dec = GST_VAAPIDECODE (bdec);
-
+   
     if (!state)
         return FALSE;
  
@@ -579,6 +585,7 @@ gst_vaapi_dec_set_format(GstVideoDecoder * bdec, GstVideoCodecState * state)
 
     if (!gst_vaapidecode_reset(dec, dec->sinkpad_caps))
         return FALSE;
+    
     /*Fixme: add codec_dat hadling from state->codec_data*/
     /*Fixme: set output state after getting the values from header(eg: mpeg2, after seq_hdr parsing) ??*/
     dec->output_state =
@@ -599,7 +606,6 @@ gst_vaapi_dec_parse(GstVideoDecoder * decoder,
     gboolean have_frame = FALSE;
 
     dec = GST_VAAPIDECODE (decoder);
-
     if (at_eos) {
         GST_DEBUG_OBJECT (dec, "Stop parsing and render the pending frames");
         gst_video_decoder_add_to_frame(decoder, gst_adapter_available (adapter));
@@ -639,7 +645,7 @@ gst_vaapi_dec_parse(GstVideoDecoder * decoder,
              break;
          }
     }   
-beach:
+beach: 
     return ret;
 }
 
