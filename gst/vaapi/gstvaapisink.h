@@ -59,7 +59,9 @@ G_BEGIN_DECLS
 
 typedef struct _GstVaapiSink                    GstVaapiSink;
 typedef struct _GstVaapiSinkClass               GstVaapiSinkClass;
+#if !USE_GLX
 typedef struct _GstVaapiTexture                 GstVaapiTexture;
+#endif
 
 struct _GstVaapiSink {
     /*< private >*/
@@ -72,15 +74,20 @@ struct _GstVaapiSink {
     guint               window_width;
     guint               window_height;
     GstVaapiTexture    *texture;
+    GstBuffer          *video_buffer;
     guint               video_width;
     guint               video_height;
     gint                video_par_n;
     gint                video_par_d;
     GstVaapiRectangle   display_rect;
+    GstVaapiRotation    rotation;
+    GstVaapiRotation    rotation_req;
     guint               foreign_window  : 1;
     guint               fullscreen      : 1;
     guint               synchronous     : 1;
     guint               use_reflection  : 1;
+    guint               use_overlay     : 1;
+    guint               use_rotation    : 1;
 };
 
 struct _GstVaapiSinkClass {

@@ -33,8 +33,8 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 #include <gst/video/videocontext.h>
+#include <gst/vaapi/gstvaapivalue.h>
 #include <gst/vaapi/gstvaapivideobuffer.h>
-#include <gst/vaapi/gstvaapivideosink.h>
 #if USE_DRM
 # include <gst/vaapi/gstvaapidisplay_drm.h>
 #endif
@@ -105,10 +105,12 @@ enum {
     PROP_DISPLAY_TYPE,
     PROP_FULLSCREEN,
     PROP_SYNCHRONOUS,
-    PROP_USE_REFLECTION
+    PROP_USE_REFLECTION,
+    PROP_ROTATION,
 };
 
 #define DEFAULT_DISPLAY_TYPE            GST_VAAPI_DISPLAY_TYPE_ANY
+#define DEFAULT_ROTATION                GST_VAAPI_ROTATION_0
 
 /* GstImplementsInterface interface */
 
@@ -128,7 +130,7 @@ gst_vaapisink_implements_iface_init(GstImplementsInterfaceClass *iface)
     iface->supported = gst_vaapisink_implements_interface_supported;
 }
 
-/* GstVaapiVideoSink interface */
+/* GstVideoContext interface */
 
 static void
 gst_vaapisink_set_video_context(GstVideoContext *context, const gchar *type,
@@ -223,6 +225,7 @@ gst_vaapisink_xoverlay_iface_init(GstXOverlayClass *iface)
 static void
 gst_vaapisink_destroy(GstVaapiSink *sink)
 {
+    gst_buffer_replace(&sink->video_buffer, NULL);
     g_clear_object(&sink->texture);
     g_clear_object(&sink->display);
 
@@ -297,6 +300,7 @@ static inline gboolean
 gst_vaapisink_ensure_display(GstVaapiSink *sink)
 {
     GstVaapiDisplayType display_type;
+    GstVaapiRenderMode render_mode;
 
     if (!gst_vaapi_ensure_display(sink, sink->display_type, &sink->display))
         return FALSE;
@@ -306,6 +310,14 @@ gst_vaapisink_ensure_display(GstVaapiSink *sink)
         GST_INFO("created %s %p", get_display_type_name(display_type),
             sink->display);
         sink->display_type = display_type;
+
+        sink->use_overlay =
+            gst_vaapi_display_get_render_mode(sink->display, &render_mode) &&
+            render_mode == GST_VAAPI_RENDER_MODE_OVERLAY;
+        GST_DEBUG("use %s rendering mode", sink->use_overlay ? "overlay" : "texture");
+
+        sink->use_rotation = gst_vaapi_display_has_property(
+            sink->display, GST_VAAPI_DISPLAY_PROP_ROTATION);
     }
     return TRUE;
 }
@@ -364,6 +376,56 @@ gst_vaapisink_ensure_render_rect(GstVaapiSink *sink, guint width, guint height)
               display_rect->x, display_rect->y,
               display_rect->width, display_rect->height);
     return TRUE;
+}
+
+static void
+gst_vaapisink_ensure_window_size(GstVaapiSink *sink, guint *pwidth, guint *pheight)
+{
+    GstVideoRectangle src_rect, dst_rect, out_rect;
+    guint num, den, display_width, display_height, display_par_n, display_par_d;
+    gboolean success, scale;
+
+    if (sink->foreign_window) {
+        *pwidth  = sink->window_width;
+        *pheight = sink->window_height;
+        return;
+    }
+
+    gst_vaapi_display_get_size(sink->display, &display_width, &display_height);
+    if (sink->fullscreen) {
+        *pwidth  = display_width;
+        *pheight = display_height;
+        return;
+    }
+
+    gst_vaapi_display_get_pixel_aspect_ratio(
+        sink->display,
+        &display_par_n, &display_par_d
+    );
+
+    success = gst_video_calculate_display_ratio(
+        &num, &den,
+        sink->video_width, sink->video_height,
+        sink->video_par_n, sink->video_par_d,
+        display_par_n, display_par_d
+    );
+    if (!success) {
+        num = sink->video_par_n;
+        den = sink->video_par_d;
+    }
+
+    src_rect.x = 0;
+    src_rect.y = 0;
+    src_rect.w = gst_util_uint64_scale_int(sink->video_height, num, den);
+    src_rect.h = sink->video_height;
+    dst_rect.x = 0;
+    dst_rect.y = 0;
+    dst_rect.w = display_width;
+    dst_rect.h = display_height;
+    scale      = (src_rect.w > dst_rect.w || src_rect.h > dst_rect.h);
+    gst_video_sink_center_rect(src_rect, dst_rect, &out_rect, scale);
+    *pwidth    = out_rect.w;
+    *pheight   = out_rect.h;
 }
 
 static inline gboolean
@@ -456,6 +518,45 @@ gst_vaapisink_ensure_window_xid(GstVaapiSink *sink, guintptr window_id)
 #endif
 
 static gboolean
+gst_vaapisink_ensure_rotation(GstVaapiSink *sink, gboolean recalc_display_rect)
+{
+    gboolean success = FALSE;
+
+    g_return_val_if_fail(sink->display, FALSE);
+
+    if (sink->rotation == sink->rotation_req)
+        return TRUE;
+
+    if (!sink->use_rotation) {
+        GST_WARNING("VA display does not support rotation");
+        goto end;
+    }
+
+    gst_vaapi_display_lock(sink->display);
+    success = gst_vaapi_display_set_rotation(sink->display, sink->rotation_req);
+    gst_vaapi_display_unlock(sink->display);
+    if (!success) {
+        GST_ERROR("failed to change VA display rotation mode");
+        goto end;
+    }
+
+    if (((sink->rotation + sink->rotation_req) % 180) == 90) {
+        /* Orientation changed */
+        G_PRIMITIVE_SWAP(guint, sink->video_width, sink->video_height);
+        G_PRIMITIVE_SWAP(gint, sink->video_par_n, sink->video_par_d);
+    }
+
+    if (recalc_display_rect && !sink->foreign_window)
+        gst_vaapisink_ensure_render_rect(sink, sink->window_width,
+            sink->window_height);
+    success = TRUE;
+
+end:
+    sink->rotation = sink->rotation_req;
+    return success;
+}
+
+static gboolean
 gst_vaapisink_start(GstBaseSink *base_sink)
 {
     GstVaapiSink * const sink = GST_VAAPISINK(base_sink);
@@ -468,6 +569,7 @@ gst_vaapisink_stop(GstBaseSink *base_sink)
 {
     GstVaapiSink * const sink = GST_VAAPISINK(base_sink);
 
+    gst_buffer_replace(&sink->video_buffer, NULL);
     g_clear_object(&sink->window);
     g_clear_object(&sink->display);
 
@@ -479,7 +581,7 @@ gst_vaapisink_set_caps(GstBaseSink *base_sink, GstCaps *caps)
 {
     GstVaapiSink * const sink = GST_VAAPISINK(base_sink);
     GstStructure * const structure = gst_caps_get_structure(caps, 0);
-    guint win_width, win_height, display_width, display_height;
+    guint win_width, win_height;
     gint video_width, video_height, video_par_n = 1, video_par_d = 1;
 
 #if USE_DRM
@@ -506,21 +608,9 @@ gst_vaapisink_set_caps(GstBaseSink *base_sink, GstCaps *caps)
     if (!gst_vaapisink_ensure_display(sink))
         return FALSE;
 
-    gst_vaapi_display_get_size(sink->display, &display_width, &display_height);
-    if (sink->foreign_window) {
-        win_width  = sink->window_width;
-        win_height = sink->window_height;
-    }
-    else if (sink->fullscreen ||
-             video_width > display_width || video_height > display_height) {
-        win_width  = display_width;
-        win_height = display_height;
-    }
-    else {
-        win_width  = video_width;
-        win_height = video_height;
-    }
+    gst_vaapisink_ensure_rotation(sink, FALSE);
 
+    gst_vaapisink_ensure_window_size(sink, &win_width, &win_height);
     if (sink->window) {
         if (!sink->foreign_window || sink->fullscreen)
             gst_vaapi_window_set_size(sink->window, win_width, win_height);
@@ -733,6 +823,8 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buffer)
     if (!sink->window)
         return GST_FLOW_UNEXPECTED;
 
+    gst_vaapisink_ensure_rotation(sink, TRUE);
+
     surface = gst_vaapi_video_buffer_get_surface(vbuffer);
     if (!surface)
         return GST_FLOW_UNEXPECTED;
@@ -772,7 +864,13 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buffer)
         success = FALSE;
         break;
     }
-    return success ? GST_FLOW_OK : GST_FLOW_UNEXPECTED;
+    if (!success)
+        return GST_FLOW_UNEXPECTED;
+
+    /* Retain VA surface until the next one is displayed */
+    if (sink->use_overlay)
+        gst_buffer_replace(&sink->video_buffer, buffer);
+    return GST_FLOW_OK;
 }
 
 static gboolean
@@ -814,6 +912,9 @@ gst_vaapisink_set_property(
     case PROP_USE_REFLECTION:
         sink->use_reflection = g_value_get_boolean(value);
         break;
+    case PROP_ROTATION:
+        sink->rotation_req = g_value_get_enum(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -842,6 +943,9 @@ gst_vaapisink_get_property(
         break;
     case PROP_USE_REFLECTION:
         g_value_set_boolean(value, sink->use_reflection);
+        break;
+    case PROP_ROTATION:
+        g_value_set_enum(value, sink->rotation);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -927,6 +1031,21 @@ gst_vaapisink_class_init(GstVaapiSinkClass *klass)
                               "Toggles X display synchronous mode",
                               FALSE,
                               G_PARAM_READWRITE));
+
+    /**
+     * GstVaapiSink:rotation:
+     *
+     * The VA display rotation mode, expressed as a #GstVaapiRotation.
+     */
+    g_object_class_install_property
+        (object_class,
+         PROP_ROTATION,
+         g_param_spec_enum(GST_VAAPI_DISPLAY_PROP_ROTATION,
+                           "rotation",
+                           "The display rotation mode",
+                           GST_VAAPI_TYPE_ROTATION,
+                           DEFAULT_ROTATION,
+                           G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 static void
@@ -938,6 +1057,7 @@ gst_vaapisink_init(GstVaapiSink *sink)
     sink->window_width   = 0;
     sink->window_height  = 0;
     sink->texture        = NULL;
+    sink->video_buffer   = NULL;
     sink->video_width    = 0;
     sink->video_height   = 0;
     sink->video_par_n    = 1;
@@ -946,5 +1066,9 @@ gst_vaapisink_init(GstVaapiSink *sink)
     sink->fullscreen     = FALSE;
     sink->synchronous    = FALSE;
     sink->display_type   = DEFAULT_DISPLAY_TYPE;
+    sink->rotation       = DEFAULT_ROTATION;
+    sink->rotation_req   = DEFAULT_ROTATION;
     sink->use_reflection = FALSE;
+    sink->use_overlay    = FALSE;
+    sink->use_rotation   = FALSE;
 }
