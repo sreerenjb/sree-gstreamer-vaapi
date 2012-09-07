@@ -514,6 +514,7 @@ gst_vaapi_decoder_parse(
 	}
 	else
 	    break;
+	
     }
 
     if (tries==100)
@@ -530,16 +531,6 @@ error_decode_timeout:
                   "got available within one second");
         return GST_FLOW_EOS;
     }
-}
-
-GstBufferPool *
-gst_vaapi_decoder_get_buffer_pool(GstVaapiDecoder *decoder)
-{
-    GstBufferPool *pool;
-    
-    pool = (GstBufferPool *)gst_vaapi_context_get_surface_pool (GST_VAAPI_DECODER_CONTEXT(decoder));
-
-    return pool;   
 }
 
 /**
@@ -563,14 +554,14 @@ gst_vaapi_decoder_decide_allocation(
 
     result = GST_VAAPI_DECODER_GET_CLASS(decoder)->decide_allocation(decoder, query);
     if (query){
-         pool = gst_vaapi_decoder_get_buffer_pool(decoder);
+    	 pool = gst_vaapi_context_get_surface_pool (GST_VAAPI_DECODER_CONTEXT(decoder));
+         if (pool) {
+             config = gst_buffer_pool_get_config(pool);
+             gst_buffer_pool_config_get_params(config, &caps, &size, &min_buffers, &max_buffers);
 
-         config = gst_buffer_pool_get_config(pool);
-         gst_buffer_pool_config_get_params(config, &caps, &size, &min_buffers, &max_buffers);
-
-         gst_query_add_allocation_pool (query, (GstBufferPool *)pool, size, min_buffers, max_buffers);
-
-         gst_structure_free(config);
+             gst_query_add_allocation_pool (query, (GstBufferPool *)pool, size, min_buffers, max_buffers);
+             gst_structure_free(config);
+	 }
     }
     GST_DEBUG("decide_allocation status: %d ",result);
     return result;
@@ -814,9 +805,30 @@ GstVaapiDecoderStatus
 gst_vaapi_decoder_check_status(GstVaapiDecoder *decoder)
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
+    GstVaapiSurfacePool *pool;
+    GstBuffer *buffer;
+    GstBufferPoolAcquireParams params = {0, };
+    GstFlowReturn ret;
+    GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+/*Fixme: This might be  bit expensive operation ..? */
+#if 0    
+    if (priv->context) {
+       pool = gst_vaapi_context_get_surface_pool(priv->context);
 
-    /*Fixme*/
-    /*if (priv->context && gst_vaapi_context_get_surface_count(priv->context) < 1)
-        return GST_VAAPI_DECODER_STATUS_ERROR_NO_SURFACE;*/
-    return GST_VAAPI_DECODER_STATUS_SUCCESS;
+       if (pool && !GST_BUFFER_POOL_IS_FLUSHING((GST_BUFFER_POOL(pool)))) {
+           params.flags = GST_BUFFER_POOL_ACQUIRE_FLAG_DONTWAIT;
+           ret = gst_buffer_pool_acquire_buffer((GstBufferPool *)pool, &buffer,&params);
+           
+           if (ret != GST_FLOW_OK) 
+               status = GST_VAAPI_DECODER_STATUS_ERROR_NO_SURFACE;
+           else if (ret == GST_FLOW_OK) {
+	       status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+               gst_buffer_pool_release_buffer((GstBufferPool *)pool, buffer);
+	   }
+       }
+       if(pool)
+           gst_object_unref(GST_OBJECT(pool));	
+    }
+#endif
+    return status;
 }

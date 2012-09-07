@@ -93,8 +93,11 @@ gst_vaapi_picture_destroy(GstVaapiPicture *picture)
     picture->surface_id = VA_INVALID_ID;
     picture->surface = NULL;
 
-    if (picture->surface_buffer)
+    if(picture->surface_buffer)
  	gst_vaapi_context_put_surface_buffer (GET_CONTEXT(picture), picture->surface_buffer);
+
+    if(picture->surface_pool) 
+	gst_object_unref(GST_OBJECT(picture->surface_pool));
 
     vaapi_destroy_buffer(GET_VA_DISPLAY(picture), &picture->param_id);
     picture->param = NULL;

@@ -227,6 +227,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
 
     /* Number of scratch surfaces beyond those used as reference */
     /*Fixme: there is a bug some where which is preventing to set SCRATCH_SURFACES_COUNT to 4*/
+    /*Fixme: bug is with the mpeg2 decoder, which is the only decoder causing tearing issue with SCRATCH_SURFACE_COUNT=4:*/
     const guint SCRATCH_SURFACES_COUNT = 6;
 
     if (!gst_vaapi_context_create_overlay(context))
@@ -747,14 +748,18 @@ gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
  * gst_vaapi_context_get_surface_pool:
  * @context: a #GstVaapiContext
  *
- * Return the surfacepool owned by the context
+ * Return the surfacepool owned by the context.returning NUll if there is no surface_pool.
+ * caller of this API is responsible for unreffing it after the usage.
  */
 
 GstVaapiSurfacePool *
 gst_vaapi_context_get_surface_pool (GstVaapiContext *context)
 {
     GstVaapiContextPrivate * const priv = context->priv;
-    return (GstVaapiSurfacePool *)priv->surfaces_pool;
+    if (priv->surfaces_pool)
+        return gst_object_ref (GST_OBJECT(priv->surfaces_pool));
+    else
+	return NULL;
 }
 
 /**
