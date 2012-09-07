@@ -554,12 +554,23 @@ gst_vaapi_decoder_decide_allocation(
 )
 {  
     GstBufferPool *pool;
+    GstCaps *caps;
+    GstStructure *config;
+    guint size;
+    guint min_buffers;
+    guint max_buffers;
     gboolean result;
+
     result = GST_VAAPI_DECODER_GET_CLASS(decoder)->decide_allocation(decoder, query);
     if (query){
-	 pool = gst_vaapi_decoder_get_buffer_pool(decoder);
-	 /*Fixme*/
-	 gst_query_add_allocation_pool (query, (GstBufferPool *)pool, 720*576, 6, 24);
+         pool = gst_vaapi_decoder_get_buffer_pool(decoder);
+
+         config = gst_buffer_pool_get_config(pool);
+         gst_buffer_pool_config_get_params(config, &caps, &size, &min_buffers, &max_buffers);
+
+         gst_query_add_allocation_pool (query, (GstBufferPool *)pool, size, min_buffers, max_buffers);
+
+         gst_structure_free(config);
     }
     GST_DEBUG("decide_allocation status: %d ",result);
     return result;
