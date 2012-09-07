@@ -180,7 +180,7 @@ gst_vaapi_image_format_from_caps(GstCaps *caps)
     const gchar *format;
     GstVideoFormat fmt;
     const GstVideoFormatInfo *vinfo;
-
+    GstVideoInfo info;
 
     if (!caps)
         return 0;
@@ -189,6 +189,12 @@ gst_vaapi_image_format_from_caps(GstCaps *caps)
     if (!structure)
         return 0;
 
+    gst_video_info_from_caps(&info, caps);
+    fourcc = gst_video_format_to_fourcc (GST_VIDEO_INFO_FORMAT(&info));
+    if (fourcc)    
+        return gst_vaapi_image_format_from_fourcc(fourcc);
+
+#if 0
     format = gst_structure_get_string (structure, "format");
     fmt = gst_video_format_from_string (format);
     vinfo = gst_video_format_get_info (fmt);
@@ -198,7 +204,6 @@ gst_vaapi_image_format_from_caps(GstCaps *caps)
         return gst_vaapi_image_format_from_fourcc(fourcc);*/
     if (fmt)
         return gst_vaapi_image_format_from_fourcc(gst_video_format_to_fourcc(fmt));
-
 
     /* Check for RGB format */
     gst_structure_get_int(structure, "endianness", &endian);
@@ -226,6 +231,7 @@ gst_vaapi_image_format_from_caps(GstCaps *caps)
             match_va_format_rgb(&m->va_format, &va_formats[1]))
             return m->format;
 
+#endif
     return 0;
 }
 
