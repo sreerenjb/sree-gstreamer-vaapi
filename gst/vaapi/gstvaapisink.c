@@ -698,13 +698,11 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     GstVaapiSurface *surface;
     guint flags;
     gboolean success;
-    GstVideoOverlayComposition *composition;
+    GstVideoOverlayComposition *composition = NULL;
+    GstVideoOverlayCompositionMeta *c_meta = NULL;
     GstMapInfo map_info;
     GstVaapiSurfaceMeta *meta;
 
-    /*vbuffer = GST_VAAPI_VIDEO_BUFFER(buffer);
-    composition = gst_video_buffer_get_overlay_composition(buffer);
-     */
     if (!sink->window)
         return GST_FLOW_EOS;
 
@@ -724,13 +722,18 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
         GST_DEBUG_OBJECT (sink, "Failed to map the memory(GstVaapiSurface)");
         return GST_FLOW_EOS;
     }
-    
+
     GST_DEBUG("render surface %" GST_VAAPI_ID_FORMAT,
                  GST_VAAPI_ID_ARGS(gst_vaapi_surface_get_id(surface)));
 
-    if (!gst_vaapi_surface_set_subpictures_from_composition(surface,
-           composition, TRUE))
-        GST_WARNING("could not update subtitles");
+    c_meta = gst_buffer_get_video_overlay_composition_meta (buf);
+    if (c_meta)
+        composition  = c_meta->overlay;
+    
+    if(composition)
+        if (!gst_vaapi_surface_set_subpictures_from_composition(surface,
+            composition, TRUE))
+            GST_WARNING("could not update subtitles");
 
     switch (sink->display_type) {
 #if USE_GLX
