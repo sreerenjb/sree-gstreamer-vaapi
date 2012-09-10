@@ -50,6 +50,8 @@
 # include <gst/vaapi/gstvaapiwindow_wayland.h>
 #endif
 
+#include <gst/vaapi/gstvaapisurfacepool.h>
+
 /* Supported interfaces */
 #include <gst/video/videooverlay.h>
 
@@ -698,47 +700,36 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     gboolean success;
     GstVideoOverlayComposition *composition;
     GstMapInfo map_info;
+    GstVaapiSurfaceMeta *meta;
 
-    /*Fixme: to handle the sub_buffer creation in GstVideoDecoder*/
-    /*if (GST_VAAPI_IS_VIDEO_BUFFER(buf))
-	buffer = buf;
-    else if (GST_VAAPI_IS_VIDEO_BUFFER(buf->parent))
-	buffer = buf->parent;
-    else {
-	GST_ERROR_OBJECT(sink, "Failed to get the vaapi-videobuffer to render");
-	return  GST_FLOW_UNEXPECTED;
-    }
-    
-    vbuffer = GST_VAAPI_VIDEO_BUFFER(buffer);
+    /*vbuffer = GST_VAAPI_VIDEO_BUFFER(buffer);
     composition = gst_video_buffer_get_overlay_composition(buffer);
      */
-   /* if (sink->display != gst_vaapi_video_buffer_get_display (vbuffer)) {
-      g_clear_object(&sink->display);
-      sink->display = g_object_ref (gst_vaapi_video_buffer_get_display (vbuffer));
-    }
-
     if (!sink->window)
-        return GST_FLOW_UNEXPECTED;
+        return GST_FLOW_EOS;
 
-    surface = gst_vaapi_video_buffer_get_surface(vbuffer);
-    if (!surface)
-        return GST_FLOW_UNEXPECTED;
+    meta =  gst_buffer_get_meta((buf),GST_VAAPI_SURFACE_META_API_TYPE);
 
-    GST_DEBUG("render surface %" GST_VAAPI_ID_FORMAT,
-              GST_VAAPI_ID_ARGS(gst_vaapi_surface_get_id(surface)));
-
-    flags = gst_vaapi_video_buffer_get_render_flags(vbuffer);*/
-
-    flags = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
+    if (meta) {
+        if (sink->display != meta->display) {
+            g_clear_object(&sink->display);
+            sink->display = g_object_ref (meta->display);
+        }
+        flags = meta->render_flags;
+    }
+    
     gst_buffer_map (buf, &map_info, GST_MAP_READ);
     surface = map_info.data;
     if (!surface){
         GST_DEBUG_OBJECT (sink, "Failed to map the memory(GstVaapiSurface)");
         return GST_FLOW_EOS;
     }
+    
+    GST_DEBUG("render surface %" GST_VAAPI_ID_FORMAT,
+                 GST_VAAPI_ID_ARGS(gst_vaapi_surface_get_id(surface)));
 
     if (!gst_vaapi_surface_set_subpictures_from_composition(surface,
-             composition, TRUE))
+           composition, TRUE))
         GST_WARNING("could not update subtitles");
 
     switch (sink->display_type) {

@@ -28,12 +28,22 @@
 #include <gst/vaapi/gstvaapisurfacememory.h>
 G_BEGIN_DECLS
 
-/*#define GST_VAAPI_TYPE_SURFACE_MEMORY \
-	(gst_vaapi_surface_memory_get_type())
-#define GST_IS_VAAPI_SURFACE_MEMORY(obj)        (GST_IS_MINI_OBJECT_TYPE(obj, GST_VAAPI_TYPE_SURFACE_MEMORY))
-#define GST_VAAPI_SURFACE_MEMORY_CAST(obj)      ((GstVaapiSurfaceMemory *)(obj))
-#define GST_VAAPI_SURFACE_MEMORY(obj)           (GST_VAAPI_SURFACE_MEMORY_CAST(obj))
-*/
+typedef struct _GstVaapiSurfaceMeta GstVaapiSurfaceMeta;
+
+GType gst_vaapi_surface_meta_api_get_type (void);
+#define GST_VAAPI_SURFACE_META_API_TYPE  (gst_vaapi_surface_meta_api_get_type())
+const GstMetaInfo * gst_vaapi_surface_meta_get_info (void);
+#define GST_VAAPI_SURFACE_META_INFO  (gst_vaapi_surface_meta_get_info())
+
+#define gst_buffer_get_vaapi_surface_meta(b) ((GstVaapiSurfaceMeta*)gst_buffer_get_meta((b),GST_VAAPI_SURFACE_META_API_TYPE))
+
+struct _GstVaapiSurfaceMeta {
+   GstMeta meta;
+
+   GstVaapiDisplay *display;
+   gint width, height;
+   guint render_flags;
+};
 
 #define GST_VAAPI_TYPE_SURFACE_POOL \
     (gst_vaapi_surface_pool_get_type())

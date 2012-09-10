@@ -682,6 +682,7 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
     GstBuffer *buffer;
     GstFlowReturn ret = GST_FLOW_OK;
     GstVaapiDecoderStatus status;
+    GstVaapiSurfaceMeta *meta;
 
     dec = GST_VAAPIDECODE(bdec);
     proxy = gst_vaapi_decoder_get_surface2(dec->decoder, frame,  &status); /*will merge with gvd_get_surface later*/
@@ -693,10 +694,16 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
                 goto error_create_buffer;
 
             GST_BUFFER_TIMESTAMP(buffer) = GST_VAAPI_SURFACE_PROXY_TIMESTAMP(proxy);
+ 
+  	    meta =  gst_buffer_get_meta((buffer),GST_VAAPI_SURFACE_META_API_TYPE);
 
-	   /*Fixme: use meta*/
-           /* if (GST_VAAPI_SURFACE_PROXY_TFF(proxy))
-                GST_BUFFER_FLAG_SET(buffer, GST_VIDEO_BUFFER_TFF);*/
+	    /*Fixme: add to videometa? */	    
+	    if (GST_VAAPI_SURFACE_PROXY_INTERLACED(proxy)) {
+	        if (GST_VAAPI_SURFACE_PROXY_TFF(proxy))
+	  	    meta->render_flags = 0x00000001;
+	        else
+		    meta->render_flags = 0x00000002;
+	    } 
 
             frame_id  = gst_vaapi_surface_proxy_get_frame_id(proxy);
             frame_out = gst_video_decoder_get_frame(bdec, frame_id);

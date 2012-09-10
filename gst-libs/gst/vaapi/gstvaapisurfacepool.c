@@ -30,6 +30,83 @@
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
+struct _GstVaapiSurfacePoolPrivate {
+    GstAllocator 	*allocator;
+    GstVaapiChromaType  chroma_type;
+    guint               width;
+    guint               height; 
+};
+
+static void gst_vaapi_surface_meta_free (GstVaapiSurfaceMeta * meta, GstBuffer * buffer);
+
+/* vaapi_surface metadata */
+GType
+gst_vaapi_surface_meta_api_get_type (void)
+{
+  static volatile GType type;
+  static const gchar *tags[] =
+      { "memory", "size", "colorspace", "orientation", NULL };
+
+  if (g_once_init_enter (&type)) {
+    GType _type = gst_meta_api_type_register ("GstVaapiSurfaceMetaAPI", tags);
+    g_once_init_leave (&type, _type);
+  }
+  return type;
+}
+
+const GstMetaInfo *
+gst_vaapi_surface_meta_get_info (void)
+{
+  static const GstMetaInfo *vaapi_surface_meta_info = NULL;
+
+  if (vaapi_surface_meta_info == NULL) {
+    vaapi_surface_meta_info =
+        gst_meta_register (GST_VAAPI_SURFACE_META_API_TYPE, "GstVaapiSurfaceMeta",
+        sizeof (GstVaapiSurfaceMeta), (GstMetaInitFunction) NULL,
+        (GstMetaFreeFunction) gst_vaapi_surface_meta_free,
+        (GstMetaTransformFunction) NULL);
+  }
+  return vaapi_surface_meta_info;
+}
+
+static GstVaapiSurfaceMeta*
+gst_buffer_add_vaapi_surface_meta (GstBuffer *buffer, GstVaapiSurfacePool *pool)
+{
+    GstVaapiSurfaceMeta *meta;
+    GstVaapiSurfacePoolPrivate *priv;
+    GstVaapiDisplay *display;
+    gint width, height; 
+   
+    priv = pool->priv;
+    /*Fixme: implement stride, padding support*/
+    width  = priv->width;
+    height = priv->height;
+
+    meta = (GstVaapiSurfaceMeta *)gst_buffer_add_meta (buffer, GST_VAAPI_SURFACE_META_INFO, NULL);
+    
+    meta->width  = width;
+    meta->height = height;
+    meta->render_flags = 0x00000000; 
+
+    display = gst_vaapi_video_pool_get_display(GST_VAAPI_VIDEO_POOL(pool));
+    if (display)
+	meta->display = g_object_ref(G_OBJECT(display));
+
+    return meta;
+}
+
+static void
+gst_vaapi_surface_meta_free (GstVaapiSurfaceMeta * meta, GstBuffer * buffer)
+{
+    GstVaapiDisplay *display;
+
+    display = meta->display;
+ 
+    GST_DEBUG_OBJECT (display, "free meta on buffer %p", buffer);   
+    if (display)
+	g_object_unref(G_OBJECT(display)); 
+}
+
 G_DEFINE_TYPE(
     GstVaapiSurfacePool,
     gst_vaapi_surface_pool,
@@ -39,14 +116,6 @@ G_DEFINE_TYPE(
     (G_TYPE_INSTANCE_GET_PRIVATE((obj),                         \
                                  GST_VAAPI_TYPE_SURFACE_POOL,	\
                                  GstVaapiSurfacePoolPrivate))
-
-struct _GstVaapiSurfacePoolPrivate {
-    GstAllocator *allocator;
-    
-    GstVaapiChromaType  chroma_type;
-    guint               width;
-    guint               height; 
-};
 
 static void
 gst_vaapi_surface_pool_set_caps(GstVaapiVideoPool *pool, GstCaps *caps)
@@ -140,6 +209,7 @@ gst_vaapi_surface_pool_alloc (GstBufferPool * pool, GstBuffer ** buffer,
    GstVaapiDisplay *display;
    GstMemory *surface_mem;
    GstAllocationParams params;
+   GstVaapiSurfaceMeta *meta;
 
    GstVaapiVideoPool *video_pool = GST_VAAPI_VIDEO_POOL (pool);
    GstVaapiSurfacePool *surface_pool = GST_VAAPI_SURFACE_POOL (pool);
@@ -154,9 +224,22 @@ gst_vaapi_surface_pool_alloc (GstBufferPool * pool, GstBuffer ** buffer,
    gst_buffer_insert_memory (surface_buffer, -1, (GstMemory *)surface_mem);
    GST_BUFFER_OFFSET(surface_buffer) = 0;
    GST_BUFFER_TIMESTAMP(surface_buffer) = 0;
+   
+   meta = gst_buffer_add_vaapi_surface_meta (surface_buffer, surface_pool);
+   if (!meta) {
+       gst_buffer_unref(surface_buffer);
+       goto no_buffer;
+   }
 
    *buffer = surface_buffer;
    return GST_FLOW_OK;
+
+/* ERROR */
+no_buffer:
+   {
+       GST_WARNING_OBJECT (pool, "can't create image");
+       return GST_FLOW_ERROR;
+   }
 }
 
 static void
