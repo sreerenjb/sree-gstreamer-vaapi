@@ -34,8 +34,8 @@
 #include <gst/video/video.h>
 #include <gst/video/videocontext.h>
 #include <gst/vaapi/gstvaapivalue.h>
-#include <gst/vaapi/gstvaapivideobuffer.h>
-# include <gst/vaapi/gstvaapidisplay_drm.h>
+#if USE_DRM
+#include <gst/vaapi/gstvaapidisplay_drm.h>
 #endif
 #if USE_X11
 # include <gst/vaapi/gstvaapidisplay_x11.h>
@@ -531,7 +531,7 @@ static gboolean
 gst_vaapisink_start(GstBaseSink *base_sink)
 {
     GstVaapiSink * const sink = GST_VAAPISINK(base_sink);
-
+    
     return gst_vaapisink_ensure_display(sink);
 }
 

@@ -519,7 +519,7 @@ gst_vaapi_decoder_parse(
 
     if (tries==100)
 	goto error_decode_timeout;
-
+    
     status = GST_VAAPI_DECODER_GET_CLASS(decoder)->parse(decoder, adapter, toadd, have_frame);
     GST_DEBUG("decode frame (status = %d)", status);
  
