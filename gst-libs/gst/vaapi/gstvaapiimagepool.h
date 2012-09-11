@@ -27,6 +27,23 @@
 
 G_BEGIN_DECLS
 
+typedef struct _GstVaapiImageMeta GstVaapiImageMeta;
+
+GType gst_vaapi_image_meta_api_get_type (void);
+#define GST_VAAPI_IMAGE_META_API_TYPE  (gst_vaapi_image_meta_api_get_type())
+const GstMetaInfo * gst_vaapi_image_meta_get_info (void);
+#define GST_VAAPI_IMAGE_META_INFO  (gst_vaapi_image_meta_get_info())
+
+#define gst_buffer_get_vaapi_image_meta(b) ((GstVaapiImageMeta*)gst_buffer_get_meta((b),GST_VAAPI_IMAGE_META_API_TYPE))
+
+struct _GstVaapiImageMeta {
+   GstMeta meta;
+
+   GstVaapiDisplay *display;
+   gint width, height;
+   guint render_flags;
+};
+
 #define GST_VAAPI_TYPE_IMAGE_POOL \
     (gst_vaapi_image_pool_get_type())
 
