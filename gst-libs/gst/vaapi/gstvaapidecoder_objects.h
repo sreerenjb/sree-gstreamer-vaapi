@@ -27,7 +27,6 @@
 
 G_BEGIN_DECLS
 
-typedef enum _GstVaapiPictureType       GstVaapiPictureType;
 typedef struct _GstVaapiPicture         GstVaapiPicture;
 typedef struct _GstVaapiSlice           GstVaapiSlice;
 
@@ -41,7 +40,7 @@ typedef struct _GstVaapiSlice           GstVaapiSlice;
 #define GST_VAAPI_PICTURE(obj)          (GST_VAAPI_PICTURE_CAST (obj))  
 
 
-enum _GstVaapiPictureType {
+typedef enum {
     GST_VAAPI_PICTURE_TYPE_NONE = 0,        // Undefined
     GST_VAAPI_PICTURE_TYPE_I,               // Intra
     GST_VAAPI_PICTURE_TYPE_P,               // Predicted
@@ -50,7 +49,7 @@ enum _GstVaapiPictureType {
     GST_VAAPI_PICTURE_TYPE_SI,              // Switching Intra
     GST_VAAPI_PICTURE_TYPE_SP,              // Switching Predicted
     GST_VAAPI_PICTURE_TYPE_BI,              // BI type (VC-1)
-};
+} GstVaapiPictureType;
 
 /**
  * Picture flags:

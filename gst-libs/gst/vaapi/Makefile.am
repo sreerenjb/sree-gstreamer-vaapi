@@ -63,7 +63,6 @@ libgstvaapi_source_c =				\
 	gstvaapivalue.c				\
 	gstvaapivideopool.c			\
         gstvaapisurfacememory.c			\
-	gstvaapivideosink.c			\
 	gstvaapiwindow.c			\
 	$(NULL)
 
@@ -87,7 +86,6 @@ libgstvaapi_source_h =				\
 	gstvaapitypes.h				\
 	gstvaapivalue.h				\
 	gstvaapivideopool.h			\
-	gstvaapivideosink.h			\
 	gstvaapisurfacememory.h			\
 	gstvaapiwindow.h			\
 	$(NULL)
@@ -273,6 +271,7 @@ libgstvaapi_x11_@GST_MAJORMINOR@_la_CFLAGS =	\
         $(GST_BASEVIDEO_CFLAGS)                 \
 	$(GST_VIDEO_CFLAGS)                     \
 	$(X11_CFLAGS)				\
+	$(XRANDR_CFLAGS)			\
 	$(LIBVA_X11_CFLAGS)			\
 	$(NULL)
 
@@ -281,6 +280,7 @@ libgstvaapi_x11_@GST_MAJORMINOR@_la_LIBADD =	\
 	$(X11_LIBS)				\
         $(GST_BASEVIDEO_LIBS)                   \
         $(GST_VIDEO_LIBS)                       \
+	$(XRANDR_LIBS)				\
 	$(LIBVA_X11_LIBS)			\
 	libgstvaapi-@GST_MAJORMINOR@.la		\
 	$(NULL)

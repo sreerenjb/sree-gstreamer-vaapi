@@ -110,7 +110,7 @@ gst_vaapi_surface_meta_free (GstVaapiSurfaceMeta * meta, GstBuffer * buffer)
 G_DEFINE_TYPE(
     GstVaapiSurfacePool,
     gst_vaapi_surface_pool,
-    GST_VAAPI_TYPE_VIDEO_POOL);
+    GST_VAAPI_TYPE_VIDEO_POOL)
 
 #define GST_VAAPI_SURFACE_POOL_GET_PRIVATE(obj)                 \
     (G_TYPE_INSTANCE_GET_PRIVATE((obj),                         \

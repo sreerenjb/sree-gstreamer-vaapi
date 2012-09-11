@@ -40,7 +40,7 @@
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
-G_DEFINE_TYPE(GstVaapiContext, gst_vaapi_context, GST_VAAPI_TYPE_OBJECT);
+G_DEFINE_TYPE(GstVaapiContext, gst_vaapi_context, GST_VAAPI_TYPE_OBJECT)
 
 #define GST_VAAPI_CONTEXT_GET_PRIVATE(obj)                      \
     (G_TYPE_INSTANCE_GET_PRIVATE((obj),                         \
@@ -65,6 +65,7 @@ struct _GstVaapiContextPrivate {
     GstVaapiEntrypoint  entrypoint;
     guint               width;
     guint               height;
+    guint               ref_frames;
     guint               is_constructed  : 1;
 };
 
@@ -74,8 +75,22 @@ enum {
     PROP_PROFILE,
     PROP_ENTRYPOINT,
     PROP_WIDTH,
-    PROP_HEIGHT
+    PROP_HEIGHT,
+    PROP_REF_FRAMES
 };
+
+static guint
+get_max_ref_frames(GstVaapiProfile profile)
+{
+    guint ref_frames;
+
+    switch (gst_vaapi_profile_get_codec(profile)) {
+    case GST_VAAPI_CODEC_H264:  ref_frames = 16; break;
+    case GST_VAAPI_CODEC_JPEG:  ref_frames =  0; break;
+    default:                    ref_frames =  2; break;
+    }
+    return ref_frames;
+}
 
 static GstVaapiOverlayRectangle *
 overlay_rectangle_new(GstVaapiContext *context)
@@ -415,6 +430,9 @@ gst_vaapi_context_set_property(
     case PROP_HEIGHT:
         priv->height = g_value_get_uint(value);
         break;
+    case PROP_REF_FRAMES:
+        priv->ref_frames = g_value_get_uint(value);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -444,6 +462,9 @@ gst_vaapi_context_get_property(
         break;
     case PROP_HEIGHT:
         g_value_set_uint(value, priv->height);
+        break;
+    case PROP_REF_FRAMES:
+        g_value_set_uint(value, priv->ref_frames);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -497,6 +518,15 @@ gst_vaapi_context_class_init(GstVaapiContextClass *klass)
                            "The height of the decoded surfaces",
                            0, G_MAXINT32, 0,
                            G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY));
+
+    g_object_class_install_property
+        (object_class,
+         PROP_REF_FRAMES,
+         g_param_spec_uint("ref-frames",
+                           "Reference Frames",
+                           "The number of reference frames",
+                           0, G_MAXINT32, 0,
+                           G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY));
 }
 
 static void
@@ -513,6 +543,7 @@ gst_vaapi_context_init(GstVaapiContext *context)
     priv->entrypoint    = 0;
     priv->width         = 0;
     priv->height        = 0;
+    priv->ref_frames    = 0;
 }
 
 /**
@@ -533,26 +564,51 @@ gst_vaapi_context_new(
     GstVaapiDisplay    *display,
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
-    unsigned int        width,
-    unsigned int        height
+    guint               width,
+    guint               height
 )
+{
+    GstVaapiContextInfo info;
+
+    info.profile    = profile;
+    info.entrypoint = entrypoint;
+    info.width      = width;
+    info.height     = height;
+    info.ref_frames = get_max_ref_frames(profile);
+    return gst_vaapi_context_new_full(display, &info);
+}
+
+/**
+ * gst_vaapi_context_new_full:
+ * @display: a #GstVaapiDisplay
+ * @cip: a pointer to the #GstVaapiContextInfo
+ *
+ * Creates a new #GstVaapiContext with the configuration specified by
+ * @cip, thus including profile, entry-point, encoded size and maximum
+ * number of reference frames reported by the bitstream.
+ *
+ * Return value: the newly allocated #GstVaapiContext object
+ */
+GstVaapiContext *
+gst_vaapi_context_new_full(GstVaapiDisplay *display, GstVaapiContextInfo *cip)
 {
     GstVaapiContext *context;
 
     g_return_val_if_fail(GST_VAAPI_IS_DISPLAY(display), NULL);
-    g_return_val_if_fail(profile, NULL);
-    g_return_val_if_fail(entrypoint, NULL);
-    g_return_val_if_fail(width > 0, NULL);
-    g_return_val_if_fail(height > 0, NULL);
+    g_return_val_if_fail(cip->profile, NULL);
+    g_return_val_if_fail(cip->entrypoint, NULL);
+    g_return_val_if_fail(cip->width > 0, NULL);
+    g_return_val_if_fail(cip->height > 0, NULL);
 
     context = g_object_new(
         GST_VAAPI_TYPE_CONTEXT,
         "display",      display,
         "id",           GST_VAAPI_ID(VA_INVALID_ID),
-        "profile",      profile,
-        "entrypoint",   entrypoint,
-        "width",        width,
-        "height",       height,
+        "profile",      cip->profile,
+        "entrypoint",   cip->entrypoint,
+        "width",        cip->width,
+        "height",       cip->height,
+        "ref-frames",   cip->ref_frames,
         NULL
     );
     if (!context->priv->is_constructed) {
@@ -586,20 +642,46 @@ gst_vaapi_context_reset(
 )
 {
     GstVaapiContextPrivate * const priv = context->priv;
+    GstVaapiContextInfo info;
+
+    info.profile    = profile;
+    info.entrypoint = entrypoint;
+    info.width      = width;
+    info.height     = height;
+    info.ref_frames = priv->ref_frames;
+
+    return gst_vaapi_context_reset_full(context, &info);
+}
+
+/**
+ * gst_vaapi_context_reset_full:
+ * @context: a #GstVaapiContext
+ * @cip: a pointer to the new #GstVaapiContextInfo details
+ *
+ * Resets @context to the configuration specified by @cip, thus
+ * including profile, entry-point, encoded size and maximum number of
+ * reference frames reported by the bitstream.
+ *
+ * Return value: %TRUE on success
+ */
+gboolean
+gst_vaapi_context_reset_full(GstVaapiContext *context, GstVaapiContextInfo *cip)
+{
+    GstVaapiContextPrivate * const priv = context->priv;
     gboolean size_changed, codec_changed;
 
-    size_changed = priv->width != width || priv->height != height;
+    size_changed = priv->width != cip->width || priv->height != cip->height;
     if (size_changed) {
         gst_vaapi_context_destroy_surfaces(context);
-        priv->width  = width;
-        priv->height = height;
+        priv->width  = cip->width;
+        priv->height = cip->height;
     }
 
-    codec_changed = priv->profile != profile || priv->entrypoint != entrypoint;
+    codec_changed = priv->profile != cip->profile || priv->entrypoint != cip->entrypoint;
     if (codec_changed) {
         gst_vaapi_context_destroy(context);
-        priv->profile    = profile;
-        priv->entrypoint = entrypoint;
+        priv->profile    = cip->profile;
+        priv->entrypoint = cip->entrypoint;
     }
 
     if (size_changed && !gst_vaapi_context_create_surfaces(context))

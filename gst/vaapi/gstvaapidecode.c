@@ -31,7 +31,6 @@
 #include "config.h"
 
 #include <gst/vaapi/gstvaapidisplay.h>
-#include <gst/vaapi/gstvaapivideosink.h>
 #include <gst/video/videocontext.h>
 
 #include "gstvaapidecode.h"
@@ -90,7 +89,7 @@ G_DEFINE_TYPE_WITH_CODE(
     gst_vaapidecode,
     GST_TYPE_VIDEO_DECODER,
     G_IMPLEMENT_INTERFACE(GST_TYPE_VIDEO_CONTEXT,
-                          gst_video_context_interface_init));
+                          gst_video_context_interface_init))
 
 static gboolean gst_vaapi_dec_open (GstVideoDecoder * decoder);
 static gboolean gst_vaapi_dec_start (GstVideoDecoder * decoder);

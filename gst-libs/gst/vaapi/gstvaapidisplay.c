@@ -38,7 +38,7 @@
 
 GST_DEBUG_CATEGORY(gst_debug_vaapi);
 
-G_DEFINE_TYPE(GstVaapiDisplay, gst_vaapi_display, G_TYPE_OBJECT);
+G_DEFINE_TYPE(GstVaapiDisplay, gst_vaapi_display, G_TYPE_OBJECT)
 
 typedef struct _GstVaapiConfig GstVaapiConfig;
 struct _GstVaapiConfig {
@@ -382,7 +382,7 @@ gst_vaapi_display_calculate_pixel_aspect_ratio(GstVaapiDisplay *display)
 {
     GstVaapiDisplayPrivate * const priv = display->priv;
     gdouble ratio, delta;
-    gint i, index;
+    gint i, j, index, windex;
 
     static const gint par[][2] = {
         {1, 1},         /* regular screen            */
@@ -405,21 +405,25 @@ gst_vaapi_display_calculate_pixel_aspect_ratio(GstVaapiDisplay *display)
     GST_DEBUG("calculated pixel aspect ratio: %f", ratio);
 
     /* Now, find the one from par[][2] with the lowest delta to the real one */
-#define DELTA(idx) (ABS(ratio - ((gdouble)par[idx][0] / par[idx][1])))
-    delta = DELTA(0);
-    index = 0;
+#define DELTA(idx, w) (ABS(ratio - ((gdouble)par[idx][w] / par[idx][!(w)])))
+    delta  = DELTA(0, 0);
+    index  = 0;
+    windex = 0;
 
     for (i = 1; i < G_N_ELEMENTS(par); i++) {
-        const gdouble this_delta = DELTA(i);
-        if (this_delta < delta) {
-            index = i;
-            delta = this_delta;
+        for (j = 0; j < 2; j++) {
+            const gdouble this_delta = DELTA(i, j);
+            if (this_delta < delta) {
+                index  = i;
+                windex = j;
+                delta  = this_delta;
+            }
         }
     }
 #undef DELTA
 
-    priv->par_n = par[index][0];
-    priv->par_d = par[index][1];
+    priv->par_n = par[index][windex];
+    priv->par_d = par[index][windex ^ 1];
 }
 
 static void
@@ -650,16 +654,9 @@ gst_vaapi_display_create(GstVaapiDisplay *display)
             continue;
 
         /* Some drivers (e.g. EMGD) have completely random initial
-         * values. So try to reset sensible ones */
-        if (value < attr->min_value || value > attr->max_value) {
-            gint v;
-            if (!(attr->flags & VA_DISPLAY_ATTRIB_SETTABLE))
-                continue;
-            if (!set_attribute(display, attr->type, attr->value))
-                continue;
-            if (!get_attribute(display, attr->type, &v) || v != value)
-                continue;
-        }
+         * values */
+        if (value < attr->min_value || value > attr->max_value)
+            continue;
 
         prop.attribute = *attr;
         prop.old_value = value;
