@@ -35,7 +35,7 @@
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
-G_DEFINE_TYPE(GstVaapiImage, gst_vaapi_image, GST_VAAPI_TYPE_OBJECT);
+G_DEFINE_TYPE(GstVaapiImage, gst_vaapi_image, GST_VAAPI_TYPE_OBJECT)
 
 #define GST_VAAPI_IMAGE_GET_PRIVATE(obj)                \
     (G_TYPE_INSTANCE_GET_PRIVATE((obj),                 \
@@ -783,7 +783,7 @@ _gst_vaapi_image_map(GstVaapiImage *image, GstVaapiImageRaw *raw_image)
         raw_image->height     = va_image->height;
         raw_image->num_planes = va_image->num_planes;
         for (i = 0; i < raw_image->num_planes; i++) {
-            raw_image->pixels[i] = image_data + va_image->offsets[i];
+            raw_image->pixels[i] = (guchar *)image_data + va_image->offsets[i];
             raw_image->stride[i] = va_image->pitches[i];
         }
     }

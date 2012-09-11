@@ -39,7 +39,7 @@
 
 G_DEFINE_TYPE(GstVaapiDecoderVC1,
               gst_vaapi_decoder_vc1,
-              GST_VAAPI_TYPE_DECODER);
+              GST_VAAPI_TYPE_DECODER)
 
 #define GST_VAAPI_DECODER_VC1_GET_PRIVATE(obj)                  \
     (G_TYPE_INSTANCE_GET_PRIVATE((obj),                         \
@@ -203,11 +203,16 @@ ensure_context(GstVaapiDecoderVC1 *decoder)
     }
 
     if (reset_context) {
-        reset_context = gst_vaapi_decoder_ensure_context(
+        GstVaapiContextInfo info;
+
+        info.profile    = priv->profile;
+        info.entrypoint = entrypoint;
+        info.width      = priv->width;
+        info.height     = priv->height;
+        info.ref_frames = 2;
+        reset_context   = gst_vaapi_decoder_ensure_context(
             GST_VAAPI_DECODER(decoder),
-            priv->profile,
-            entrypoint,
-            priv->width, priv->height
+            &info
         );
         if (!reset_context)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;

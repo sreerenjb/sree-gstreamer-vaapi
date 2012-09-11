@@ -39,7 +39,7 @@
 
 G_DEFINE_TYPE(GstVaapiDecoderJpeg,
               gst_vaapi_decoder_jpeg,
-              GST_VAAPI_TYPE_DECODER);
+              GST_VAAPI_TYPE_DECODER)
 
 #define GST_VAAPI_DECODER_JPEG_GET_PRIVATE(obj)                 \
     (G_TYPE_INSTANCE_GET_PRIVATE((obj),                         \
@@ -137,11 +137,16 @@ ensure_context(GstVaapiDecoderJpeg *decoder)
     }
 
     if (reset_context) {
-        reset_context = gst_vaapi_decoder_ensure_context(
+        GstVaapiContextInfo info;
+
+        info.profile    = priv->profile;
+        info.entrypoint = entrypoint;
+        info.width      = priv->width;
+        info.height     = priv->height;
+        info.ref_frames = 2;
+        reset_context   = gst_vaapi_decoder_ensure_context(
             GST_VAAPI_DECODER(decoder),
-            priv->profile,
-            entrypoint,
-            priv->width, priv->height
+            &info
         );
         if (!reset_context)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;

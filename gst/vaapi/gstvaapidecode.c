@@ -103,7 +103,7 @@ G_DEFINE_TYPE_WITH_CODE(
     G_IMPLEMENT_INTERFACE(GST_TYPE_IMPLEMENTS_INTERFACE,
                           gst_vaapidecode_implements_iface_init);
     G_IMPLEMENT_INTERFACE(GST_TYPE_VIDEO_CONTEXT,
-                          gst_video_context_interface_init));
+                          gst_video_context_interface_init))
 
 static gboolean
 gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps);
@@ -174,6 +174,9 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
 static void
 gst_vaapidecode_release(GstVaapiDecode *decode, GObject *dead_object)
 {
+    if (!decode->decoder_mutex || !decode->decoder_ready)
+        return;
+
     g_mutex_lock(decode->decoder_mutex);
     g_cond_signal(decode->decoder_ready);
     g_mutex_unlock(decode->decoder_mutex);

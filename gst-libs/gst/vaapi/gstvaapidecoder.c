@@ -35,7 +35,7 @@
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
-G_DEFINE_TYPE(GstVaapiDecoder, gst_vaapi_decoder, G_TYPE_OBJECT);
+G_DEFINE_TYPE(GstVaapiDecoder, gst_vaapi_decoder, G_TYPE_OBJECT)
 
 enum {
     PROP_0,
@@ -542,31 +542,23 @@ gst_vaapi_decoder_set_interlaced(GstVaapiDecoder *decoder, gboolean interlaced)
 
 gboolean
 gst_vaapi_decoder_ensure_context(
-    GstVaapiDecoder    *decoder,
-    GstVaapiProfile     profile,
-    GstVaapiEntrypoint  entrypoint,
-    guint               width,
-    guint               height
+    GstVaapiDecoder     *decoder,
+    GstVaapiContextInfo *cip
 )
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
 
-    gst_vaapi_decoder_set_picture_size(decoder, width, height);
+    gst_vaapi_decoder_set_picture_size(decoder, cip->width, cip->height);
 
-    if (priv->context)
-        return gst_vaapi_context_reset(priv->context,
-                                       profile, entrypoint, width, height);
-
-    priv->context = gst_vaapi_context_new(
-        priv->display,
-        profile,
-        entrypoint,
-        width,
-        height
-    );
-    if (!priv->context)
-        return FALSE;
-
+    if (priv->context) {
+        if (!gst_vaapi_context_reset_full(priv->context, cip))
+            return FALSE;
+    }
+    else {
+        priv->context = gst_vaapi_context_new_full(priv->display, cip);
+        if (!priv->context)
+            return FALSE;
+    }
     priv->va_context = gst_vaapi_context_get_id(priv->context);
     return TRUE;
 }
@@ -595,7 +587,7 @@ gst_vaapi_decoder_push_surface_proxy(
     GstVaapiSurfaceProxy *proxy
 )
 {
-    return push_surface(decoder, proxy);
+    push_surface(decoder, proxy);
 }
 
 GstVaapiDecoderStatus
