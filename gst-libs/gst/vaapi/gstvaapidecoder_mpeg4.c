@@ -39,7 +39,7 @@
 
 G_DEFINE_TYPE(GstVaapiDecoderMpeg4,
               gst_vaapi_decoder_mpeg4,
-              GST_VAAPI_TYPE_DECODER);
+              GST_VAAPI_TYPE_DECODER)
 
 #define GST_VAAPI_DECODER_MPEG4_GET_PRIVATE(obj)                \
     (G_TYPE_INSTANCE_GET_PRIVATE((obj),                         \
@@ -205,11 +205,16 @@ ensure_context(GstVaapiDecoderMpeg4 *decoder)
     }
 
     if (reset_context) {
-        reset_context = gst_vaapi_decoder_ensure_context(
+        GstVaapiContextInfo info;
+
+        info.profile    = priv->profile;
+        info.entrypoint = entrypoint;
+        info.width      = priv->width;
+        info.height     = priv->height;
+        info.ref_frames = 2;
+        reset_context   = gst_vaapi_decoder_ensure_context(
             GST_VAAPI_DECODER(decoder),
-            priv->profile,
-            entrypoint,
-            priv->width, priv->height
+            &info
         );
         if (!reset_context)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
@@ -308,7 +313,7 @@ decode_sequence(GstVaapiDecoderMpeg4 *decoder, const guint8 *buf, guint buf_size
         profile = GST_VAAPI_PROFILE_MPEG4_ADVANCED_SIMPLE;
         break;
     default:
-        GST_DEBUG("unsupported profile %d", profile);
+        GST_DEBUG("unsupported profile %d", vos_hdr->profile);
         return GST_VAAPI_DECODER_STATUS_ERROR_UNSUPPORTED_PROFILE;
     }
     if (priv->profile != profile) {
