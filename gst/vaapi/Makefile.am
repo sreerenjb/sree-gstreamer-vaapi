@@ -32,12 +32,14 @@ endif
 libgstvaapi_la_SOURCES =	\
 	gstvaapi.c		\
 	gstvaapidecode.c	\
+        gstvaapidownload.c	\
 	gstvaapipluginutil.c	\
 	gstvaapisink.c		\
 	$(NULL)
 
 noinst_HEADERS =		\
 	gstvaapidecode.h	\
+ 	gstvaapidownload.h	\
 	gstvaapipluginutil.h	\
 	gstvaapisink.h		\
 	$(NULL)

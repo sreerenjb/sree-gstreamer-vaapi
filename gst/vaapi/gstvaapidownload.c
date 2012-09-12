@@ -32,11 +32,9 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 #include <gst/video/videocontext.h>
-#include <gst/vaapi/gstvaapivideobuffer.h>
 
 #include "gstvaapidownload.h"
 #include "gstvaapipluginutil.h"
-#include "gstvaapipluginbuffer.h"
 
 #define GST_PLUGIN_NAME "vaapidownload"
 #define GST_PLUGIN_DESC "A VA to video flow filter"
@@ -44,22 +42,17 @@
 GST_DEBUG_CATEGORY_STATIC(gst_debug_vaapidownload);
 #define GST_CAT_DEFAULT gst_debug_vaapidownload
 
-/* ElementFactory information */
-static const GstElementDetails gst_vaapidownload_details =
-    GST_ELEMENT_DETAILS(
-        "VA-API colorspace converter",
-        "Filter/Converter/Video",
-        GST_PLUGIN_DESC,
-        "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
+/*Fixme: format is not only NV12 ?*/
 
 /* Default templates */
 static const char gst_vaapidownload_yuv_caps_str[] =
-    "video/x-raw-yuv, "
+    "video/x-raw, "
+    "format=(string)NV12, "
     "width  = (int) [ 1, MAX ], "
     "height = (int) [ 1, MAX ]; ";
 
 static const char gst_vaapidownload_vaapi_caps_str[] =
-    GST_VAAPI_SURFACE_CAPS;
+    "video/x-raw";
 
 static GstStaticPadTemplate gst_vaapidownload_sink_factory =
     GST_STATIC_PAD_TEMPLATE(
@@ -101,9 +94,6 @@ struct _GstVaapiDownloadClass {
 };
 
 static void
-gst_vaapidownload_implements_iface_init(GstImplementsInterfaceClass *iface);
-
-static void
 gst_video_context_interface_init(GstVideoContextInterface *iface);
 
 #define GstVideoContextClass GstVideoContextInterface
@@ -111,8 +101,6 @@ G_DEFINE_TYPE_WITH_CODE(
     GstVaapiDownload,
     gst_vaapidownload,
     GST_TYPE_BASE_TRANSFORM,
-    G_IMPLEMENT_INTERFACE(GST_TYPE_IMPLEMENTS_INTERFACE,
-                          gst_vaapidownload_implements_iface_init);
     G_IMPLEMENT_INTERFACE(GST_TYPE_VIDEO_CONTEXT,
                           gst_video_context_interface_init))
 
@@ -122,8 +110,10 @@ gst_vaapidownload_start(GstBaseTransform *trans);
 static gboolean
 gst_vaapidownload_stop(GstBaseTransform *trans);
 
+#if 0
 static void
 gst_vaapidownload_before_transform(GstBaseTransform *trans, GstBuffer *buffer);
+#endif
 
 static GstFlowReturn
 gst_vaapidownload_transform(
@@ -136,7 +126,8 @@ static GstCaps *
 gst_vaapidownload_transform_caps(
     GstBaseTransform *trans,
     GstPadDirection   direction,
-    GstCaps          *caps
+    GstCaps          *caps,
+    GstCaps	     *filter
 );
 
 static gboolean
@@ -144,9 +135,9 @@ gst_vaapidownload_transform_size(
     GstBaseTransform *trans,
     GstPadDirection   direction,
     GstCaps          *caps,
-    guint             size,
+    gsize             size,
     GstCaps          *othercaps,
-    guint            *othersize
+    gsize            *othersize
 );
 
 static gboolean
@@ -159,25 +150,9 @@ gst_vaapidownload_set_caps(
 static gboolean
 gst_vaapidownload_query(
     GstPad   *pad,
+    GstObject *parent,
     GstQuery *query
 );
-
-/* GstImplementsInterface interface */
-
-static gboolean
-gst_vaapidownload_implements_interface_supported(
-    GstImplementsInterface *iface,
-    GType                   type
-)
-{
-    return (type == GST_TYPE_VIDEO_CONTEXT);
-}
-
-static void
-gst_vaapidownload_implements_iface_init(GstImplementsInterfaceClass *iface)
-{
-    iface->supported = gst_vaapidownload_implements_interface_supported;
-}
 
 /* GstVideoContext interface */
 
@@ -240,29 +215,27 @@ gst_vaapidownload_class_init(GstVaapiDownloadClass *klass)
     object_class->finalize        = gst_vaapidownload_finalize;
     trans_class->start            = gst_vaapidownload_start;
     trans_class->stop             = gst_vaapidownload_stop;
+#if 0
     trans_class->before_transform = gst_vaapidownload_before_transform;
+#endif
     trans_class->transform        = gst_vaapidownload_transform;
     trans_class->transform_caps   = gst_vaapidownload_transform_caps;
     trans_class->transform_size   = gst_vaapidownload_transform_size;
     trans_class->set_caps         = gst_vaapidownload_set_caps;
 
-    gst_element_class_set_details_simple(
-        element_class,
-        gst_vaapidownload_details.longname,
-        gst_vaapidownload_details.klass,
-        gst_vaapidownload_details.description,
-        gst_vaapidownload_details.author
-    );
+    gst_element_class_set_static_metadata (element_class,
+        "VA-API colorspace converter",
+        "Filter/Converter/Video",
+        GST_PLUGIN_DESC,
+        "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
 
     /* sink pad */
     pad_template = gst_static_pad_template_get(&gst_vaapidownload_sink_factory);
     gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
 
     /* src pad */
     pad_template = gst_static_pad_template_get(&gst_vaapidownload_src_factory);
     gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
 }
 
 static void
@@ -331,19 +304,20 @@ get_surface_format(GstVaapiSurface *surface)
     return format;
 }
 
+#if 0
 static gboolean
 gst_vaapidownload_update_src_caps(GstVaapiDownload *download, GstBuffer *buffer)
 {
-    GstVaapiVideoBuffer *vbuffer;
     GstVaapiSurface *surface;
     GstVaapiImageFormat format;
     GstPad *srcpad;
     GstCaps *in_caps, *out_caps;
-
-    vbuffer = GST_VAAPI_VIDEO_BUFFER(buffer);
-    surface = gst_vaapi_video_buffer_get_surface(vbuffer);
-    if (!surface) {
-        GST_WARNING("failed to retrieve VA surface from buffer");
+    GstMapInfo info;
+  
+    gst_buffer_map (buf, &map_info, GST_MAP_READ);
+    surface = map_info.data;
+    if (!surface){
+        GST_DEBUG_OBJECT (sink, "Failed to retrieve the VA surface from buffer");
         return FALSE;
     }
 
@@ -387,7 +361,7 @@ gst_vaapidownload_before_transform(GstBaseTransform *trans, GstBuffer *buffer)
 
     gst_vaapidownload_update_src_caps(download, buffer);
 }
-
+#endif
 static GstFlowReturn
 gst_vaapidownload_transform(
     GstBaseTransform *trans,
@@ -396,24 +370,39 @@ gst_vaapidownload_transform(
 )
 {
     GstVaapiDownload * const download = GST_VAAPIDOWNLOAD(trans);
-    GstVaapiVideoBuffer *vbuffer;
     GstVaapiSurface *surface;
     GstVaapiImage *image = NULL;
     gboolean success;
+    GstBuffer *buf;
+    GstMapInfo in_info;
+    GstMapInfo out_info;
+    GstMapInfo info;
+  
+    gst_buffer_map (inbuf, &in_info, GST_MAP_READ);
+    surface = (GstVaapiSurface *)in_info.data;
+    if (!surface){
+        GST_DEBUG_OBJECT (download, "Failed to retrieve the VA surface from buffer");
+        return GST_FLOW_EOS;
+    }
 
-    vbuffer = GST_VAAPI_VIDEO_BUFFER(inbuf);
-    surface = gst_vaapi_video_buffer_get_surface(vbuffer);
-    if (!surface)
-        return GST_FLOW_UNEXPECTED;
+    if (gst_buffer_pool_acquire_buffer((GstBufferPool *)download->images, &buf, NULL) != GST_FLOW_OK){
+        GST_ERROR("Failed to acquire buffer");
+        buf = NULL;
+    }
+    if (buf) {
+        gst_buffer_map(buf, &info, GST_MAP_WRITE);
+        image = (GstVaapiImage *)info.data;
+    }
+    if (!image) { 
+        GST_DEBUG_OBJECT (download, "Failed to retrieve the VA image from buffer");
+        return GST_FLOW_EOS;
+    }
 
-    image = gst_vaapi_video_pool_get_object(download->images);
-    if (!image)
-        return GST_FLOW_UNEXPECTED;
     if (!gst_vaapi_surface_get_image(surface, image))
         goto error_get_image;
 
     success = gst_vaapi_image_get_buffer(image, outbuf, NULL);
-    gst_vaapi_video_pool_put_object(download->images, image);
+    gst_buffer_pool_release_buffer((GstBufferPool *)download->images, buf);
     if (!success)
         goto error_get_buffer;
     return GST_FLOW_OK;
@@ -424,14 +413,14 @@ error_get_image:
                     "from surface 0x%08x",
                     GST_FOURCC_ARGS(gst_vaapi_image_get_format(image)),
                     gst_vaapi_surface_get_id(surface));
-        gst_vaapi_video_pool_put_object(download->images, image);
-        return GST_FLOW_UNEXPECTED;
+        gst_buffer_pool_release_buffer((GstBufferPool *)download->images, buf);
+        return GST_FLOW_EOS;
     }
 
 error_get_buffer:
     {
         GST_WARNING("failed to transfer image to output video buffer");
-        return GST_FLOW_UNEXPECTED;
+        return GST_FLOW_EOS;
     }
 }
 
@@ -439,7 +428,8 @@ static GstCaps *
 gst_vaapidownload_transform_caps(
     GstBaseTransform *trans,
     GstPadDirection   direction,
-    GstCaps          *caps
+    GstCaps          *caps,
+    GstCaps	     *filter
 )
 {
     GstVaapiDownload * const download = GST_VAAPIDOWNLOAD(trans);
@@ -452,7 +442,7 @@ gst_vaapidownload_transform_caps(
     structure = gst_caps_get_structure(caps, 0);
 
     if (direction == GST_PAD_SINK) {
-        if (!gst_structure_has_name(structure, GST_VAAPI_SURFACE_CAPS_NAME))
+        if (!gst_structure_has_name(structure, "video/x-raw"))
             return NULL;
         if (!gst_vaapidownload_ensure_display(download))
             return NULL;
@@ -475,7 +465,7 @@ gst_vaapidownload_transform_caps(
 
         /* Intersect with allowed caps from the peer, if any */
         srcpad = gst_element_get_static_pad(GST_ELEMENT(download), "src");
-        allowed_caps = gst_pad_peer_get_caps(srcpad);
+        allowed_caps = gst_pad_peer_query_caps(srcpad, NULL);
         if (allowed_caps) {
             inter_caps = gst_caps_intersect(out_caps, allowed_caps);
             gst_caps_unref(allowed_caps);
@@ -484,7 +474,7 @@ gst_vaapidownload_transform_caps(
         }
     }
     else {
-        if (!gst_structure_has_name(structure, "video/x-raw-yuv"))
+        if (!gst_structure_has_name(structure, "video/x-raw"))
             return NULL;
         out_caps = gst_caps_from_string(gst_vaapidownload_vaapi_caps_str);
 
@@ -510,6 +500,7 @@ gst_vaapidownload_ensure_image_pool(GstVaapiDownload *download, GstCaps *caps)
     GstStructure * const structure = gst_caps_get_structure(caps, 0);
     GstVaapiImageFormat format;
     gint width, height;
+    GstStructure *config;
 
     format = gst_vaapi_image_format_from_caps(caps);
     gst_structure_get_int(structure, "width",  &width);
@@ -525,6 +516,13 @@ gst_vaapidownload_ensure_image_pool(GstVaapiDownload *download, GstCaps *caps)
         download->images = gst_vaapi_image_pool_new(download->display, caps);
         if (!download->images)
             return FALSE;
+	/*Fixme: remove hard-coded min and max values*/	
+	config = gst_buffer_pool_get_config ((GstBufferPool *)download->images);
+        gst_buffer_pool_config_set_params (config, caps, width*height, 6, 24);
+
+    	gst_buffer_pool_set_config ((GstBufferPool *)download->images, config);
+	gst_buffer_pool_set_active ((GstBufferPool *)download->images, TRUE);
+
         download->images_reset = TRUE;
     }
     return TRUE;
@@ -569,6 +567,7 @@ gst_vaapidownload_transform_size(
     GstVaapiDownload * const download = GST_VAAPIDOWNLOAD(trans);
     GstStructure * const structure = gst_caps_get_structure(othercaps, 0);
     GstVideoFormat format;
+    GstVideoInfo info;
     gint width, height;
     guint i;
 
@@ -582,12 +581,19 @@ gst_vaapidownload_transform_size(
     }
 
     /* Compute requested buffer size */
-    if (gst_structure_has_name(structure, GST_VAAPI_SURFACE_CAPS_NAME))
+    if (gst_structure_has_name(structure, "video/x-raw"))
         *othersize = 0;
     else {
-        if (!gst_video_format_parse_caps(othercaps, &format, &width, &height))
+        if (!gst_video_info_from_caps(&info, othercaps))
+	    return FALSE;
+
+ 	width      = info.width;
+	height     = info.height; 
+	*othersize = info.size;
+
+        /*if (!gst_video_format_parse_caps(othercaps, &format, &width, &height))
             return FALSE;
-        *othersize = gst_video_format_get_size(format, width, height);
+        *othersize = gst_video_format_get_size(format, width, height);*/
     }
 
     /* Update cache */
@@ -602,9 +608,9 @@ gst_vaapidownload_transform_size(
 }
 
 static gboolean
-gst_vaapidownload_query(GstPad *pad, GstQuery *query)
+gst_vaapidownload_query(GstPad *pad, GstObject *parent, GstQuery *query)
 {
-    GstVaapiDownload * const download = GST_VAAPIDOWNLOAD(gst_pad_get_parent_element(pad));
+    GstVaapiDownload * const download = GST_VAAPIDOWNLOAD(parent);
     gboolean res;
 
     GST_DEBUG("sharing display %p", download->display);
@@ -612,9 +618,7 @@ gst_vaapidownload_query(GstPad *pad, GstQuery *query)
     if (gst_vaapi_reply_to_query(query, download->display))
         res = TRUE;
     else
-        res = gst_pad_query_default(pad, query);
+        res = gst_pad_query_default(pad, parent, query);
 
-    g_object_unref(download);
     return res;
-
 }

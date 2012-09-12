@@ -935,7 +935,7 @@ init_image_from_buffer(GstVaapiImageRaw *raw_image, GstBuffer *buffer, GstVaapiI
     data      = map_info.data;
     data_size = map_info.size;
 
-/* Fixme
+/* Fixme :format handling
     data      = GST_BUFFER_DATA(buffer);
     data_size = GST_BUFFER_SIZE(buffer);
     caps      = GST_BUFFER_CAPS(buffer);
@@ -950,7 +950,8 @@ init_image_from_buffer(GstVaapiImageRaw *raw_image, GstBuffer *buffer, GstVaapiI
     gst_structure_get_int(structure, "height", &height);
 */
     /* XXX: copied from gst_video_format_get_row_stride() -- no NV12? */
-    raw_image->format = format;
+    /*Fixme*/
+    raw_image->format = priv->format;
     width =  raw_image->width  = priv->width;
     height = raw_image->height = priv->height;
    /* raw_image->width  = width;
@@ -958,7 +959,7 @@ init_image_from_buffer(GstVaapiImageRaw *raw_image, GstBuffer *buffer, GstVaapiI
     width2  = (width + 1) / 2;
     height2 = (height + 1) / 2;
     size2   = 0;
-    switch (format) {
+    switch (priv->format) {
     case GST_VAAPI_IMAGE_NV12:
         raw_image->num_planes = 2;
         raw_image->pixels[0]  = data;
