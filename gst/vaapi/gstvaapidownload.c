@@ -559,9 +559,9 @@ gst_vaapidownload_transform_size(
     GstBaseTransform *trans,
     GstPadDirection   direction,
     GstCaps          *caps,
-    guint             size,
+    gsize             size,
     GstCaps          *othercaps,
-    guint            *othersize
+    gsize            *othersize
 )
 {
     GstVaapiDownload * const download = GST_VAAPIDOWNLOAD(trans);
