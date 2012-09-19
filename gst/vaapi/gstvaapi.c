@@ -26,9 +26,8 @@
 #endif
 
 #include <gst/gst.h>
-/*
+
 #include "gstvaapipostproc.h"
-*/
 #include "gstvaapiupload.h"
 #include "gstvaapidownload.h"
 #include "gstvaapidecode.h"
@@ -43,9 +42,9 @@ plugin_init (GstPlugin *plugin)
     gst_element_register(plugin, "vaapiupload",
                          GST_RANK_PRIMARY,
                          GST_TYPE_VAAPIUPLOAD);
-    /*gst_element_register(plugin, "vaapipostproc",
+    gst_element_register(plugin, "vaapipostproc",
                          GST_RANK_PRIMARY,
-                         GST_TYPE_VAAPIPOSTPROC);*/
+                         GST_TYPE_VAAPIPOSTPROC);
     gst_element_register(plugin, "vaapidecode",
                          GST_RANK_PRIMARY,
                          GST_TYPE_VAAPIDECODE);

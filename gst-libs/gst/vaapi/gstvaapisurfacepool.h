@@ -42,6 +42,8 @@ struct _GstVaapiSurfaceMeta {
 
    GstVaapiDisplay *display;
    gint width, height;
+   gboolean interlaced;
+   gboolean tff;
    guint render_flags;
 };
 

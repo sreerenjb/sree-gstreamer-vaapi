@@ -697,10 +697,11 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 
 	    /*Fixme: add to videometa? */	    
 	    if (GST_VAAPI_SURFACE_PROXY_INTERLACED(proxy)) {
+		meta->interlaced = TRUE;
 	        if (GST_VAAPI_SURFACE_PROXY_TFF(proxy))
-	  	    meta->render_flags = 0x00000001;
+	  	    meta->tff = TRUE;
 	        else
-		    meta->render_flags = 0x00000002;
+		    meta->tff = FALSE;
 	    } 
 
             frame_id  = gst_vaapi_surface_proxy_get_frame_id(proxy);

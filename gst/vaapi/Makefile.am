@@ -32,6 +32,7 @@ endif
 libgstvaapi_la_SOURCES =	\
 	gstvaapi.c		\
 	gstvaapidecode.c	\
+	gstvaapipostproc.c	\
         gstvaapidownload.c	\
         gstvaapiupload.c	\
 	gstvaapipluginutil.c	\
@@ -40,6 +41,7 @@ libgstvaapi_la_SOURCES =	\
 
 noinst_HEADERS =		\
 	gstvaapidecode.h	\
+	gstvaapipostproc.h	\
  	gstvaapidownload.h	\
         gstvaapiupload.h	\
 	gstvaapipluginutil.h	\
