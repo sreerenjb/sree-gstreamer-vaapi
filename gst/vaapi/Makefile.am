@@ -33,6 +33,7 @@ libgstvaapi_la_SOURCES =	\
 	gstvaapi.c		\
 	gstvaapidecode.c	\
         gstvaapidownload.c	\
+        gstvaapiupload.c	\
 	gstvaapipluginutil.c	\
 	gstvaapisink.c		\
 	$(NULL)
@@ -40,6 +41,7 @@ libgstvaapi_la_SOURCES =	\
 noinst_HEADERS =		\
 	gstvaapidecode.h	\
  	gstvaapidownload.h	\
+        gstvaapiupload.h	\
 	gstvaapipluginutil.h	\
 	gstvaapisink.h		\
 	$(NULL)

@@ -27,40 +27,35 @@
  * vaapiupload converts from raw YUV pixels to VA surfaces suitable
  * for the vaapisink element, for example.
  */
-
+/*Fixme:Not yet ported the direct rendering mode
+ * it can implement with buffer meta */
 #include "config.h"
 
 #include <gst/gst.h>
 #include <gst/video/video.h>
 #include <gst/video/videocontext.h>
-#include <gst/vaapi/gstvaapivideobuffer.h>
 
 #include "gstvaapiupload.h"
 #include "gstvaapipluginutil.h"
-#include "gstvaapipluginbuffer.h"
 
 #define GST_PLUGIN_NAME "vaapiupload"
 #define GST_PLUGIN_DESC "A video to VA flow filter"
 
 GST_DEBUG_CATEGORY_STATIC(gst_debug_vaapiupload);
 #define GST_CAT_DEFAULT gst_debug_vaapiupload
-
-/* ElementFactory information */
-static const GstElementDetails gst_vaapiupload_details =
-    GST_ELEMENT_DETAILS(
-        "VA-API colorspace converter",
-        "Filter/Converter/Video",
-        GST_PLUGIN_DESC,
-        "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
-
+/*Fixme: avoid format hard-coding */
 /* Default templates */
 static const char gst_vaapiupload_yuv_caps_str[] =
-    "video/x-raw-yuv, "
+    "video/x-raw, "
+    "format = (string)NV12, "
     "width  = (int) [ 1, MAX ], "
     "height = (int) [ 1, MAX ]; ";
 
 static const char gst_vaapiupload_vaapi_caps_str[] =
-    GST_VAAPI_SURFACE_CAPS;
+    "video/x-raw, "
+    "format = (string)NV12, "
+    "width  = (int) [ 1, MAX ], "
+    "height = (int) [ 1, MAX ]; ";
 
 static GstStaticPadTemplate gst_vaapiupload_sink_factory =
     GST_STATIC_PAD_TEMPLATE(
@@ -77,9 +72,6 @@ static GstStaticPadTemplate gst_vaapiupload_src_factory =
         GST_STATIC_CAPS(gst_vaapiupload_vaapi_caps_str));
 
 static void
-gst_vaapiupload_implements_iface_init(GstImplementsInterfaceClass *iface);
-
-static void
 gst_video_context_interface_init(GstVideoContextInterface *iface);
 
 #define GstVideoContextClass GstVideoContextInterface
@@ -87,8 +79,6 @@ G_DEFINE_TYPE_WITH_CODE(
     GstVaapiUpload,
     gst_vaapiupload,
     GST_TYPE_BASE_TRANSFORM,
-    G_IMPLEMENT_INTERFACE(GST_TYPE_IMPLEMENTS_INTERFACE,
-                          gst_vaapiupload_implements_iface_init);
     G_IMPLEMENT_INTERFACE(GST_TYPE_VIDEO_CONTEXT,
                           gst_video_context_interface_init))
 
@@ -123,7 +113,8 @@ static GstCaps *
 gst_vaapiupload_transform_caps(
     GstBaseTransform *trans,
     GstPadDirection   direction,
-    GstCaps          *caps
+    GstCaps          *caps,
+    GstCaps	     *filter
 );
 
 static gboolean
@@ -137,49 +128,35 @@ static gboolean
 gst_vaapiupload_get_unit_size(
     GstBaseTransform *trans,
     GstCaps          *caps,
-    guint            *size
+    gsize            *size
 );
 
-static GstFlowReturn
-gst_vaapiupload_sinkpad_buffer_alloc(
-    GstPad           *pad,
-    guint64           offset,
-    guint             size,
-    GstCaps          *caps,
-    GstBuffer       **pbuf
+static gboolean
+gst_vaapiupload_decide_allocation(
+    GstBaseTransform *trans,
+    GstQuery *query
+);
+
+static gboolean
+gst_vaapiupload_propose_allocation(
+    GstBaseTransform *trans,
+    GstQuery   *decide_query,
+    GstQuery 	     *query
 );
 
 static GstFlowReturn
 gst_vaapiupload_prepare_output_buffer(
     GstBaseTransform *trans,
     GstBuffer        *inbuf,
-    gint              size,
-    GstCaps          *caps,
     GstBuffer       **poutbuf
 );
 
 static gboolean
 gst_vaapiupload_query(
     GstPad   *pad,
+    GstObject *parent,
     GstQuery *query
 );
-
-/* GstImplementsInterface interface */
-
-static gboolean
-gst_vaapiupload_implements_interface_supported(
-    GstImplementsInterface *iface,
-    GType                   type
-)
-{
-    return (type == GST_TYPE_VIDEO_CONTEXT);
-}
-
-static void
-gst_vaapiupload_implements_iface_init(GstImplementsInterfaceClass *iface)
-{
-    iface->supported = gst_vaapiupload_implements_interface_supported;
-}
 
 /* GstVideoContext interface */
 
@@ -276,26 +253,26 @@ gst_vaapiupload_class_init(GstVaapiUploadClass *klass)
     trans_class->transform      = gst_vaapiupload_transform;
     trans_class->transform_caps = gst_vaapiupload_transform_caps;
     trans_class->set_caps       = gst_vaapiupload_set_caps;
+    trans_class->decide_allocation  = gst_vaapiupload_decide_allocation;
     trans_class->get_unit_size  = gst_vaapiupload_get_unit_size;
+#if 0
     trans_class->prepare_output_buffer = gst_vaapiupload_prepare_output_buffer;
+    trans_class->propose_allocation = gst_vaapiupload_propose_allocation;
+#endif
 
-    gst_element_class_set_details_simple(
-        element_class,
-        gst_vaapiupload_details.longname,
-        gst_vaapiupload_details.klass,
-        gst_vaapiupload_details.description,
-        gst_vaapiupload_details.author
-    );
+    gst_element_class_set_static_metadata (element_class,
+        "VA-API colorspace converter",
+        "Filter/Converter/Video",
+        GST_PLUGIN_DESC,
+        "Gwenole Beauchesne <gwenole.beauchesne@intel.com>");
 
     /* sink pad */
     pad_template = gst_static_pad_template_get(&gst_vaapiupload_sink_factory);
     gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
 
     /* src pad */
     pad_template = gst_static_pad_template_get(&gst_vaapiupload_src_factory);
     gst_element_class_add_pad_template(element_class, pad_template);
-    gst_object_unref(pad_template);
 
     /**
      * GstVaapiUpload:direct-rendering:
@@ -346,10 +323,6 @@ gst_vaapiupload_init(GstVaapiUpload *upload)
 
     /* Override buffer allocator on sink pad */
     sinkpad = gst_element_get_static_pad(GST_ELEMENT(upload), "sink");
-    gst_pad_set_bufferalloc_function(
-        sinkpad,
-        gst_vaapiupload_sinkpad_buffer_alloc
-    );
     gst_pad_set_query_function(sinkpad, gst_vaapiupload_query);
     g_object_unref(sinkpad);
 
@@ -357,6 +330,9 @@ gst_vaapiupload_init(GstVaapiUpload *upload)
     srcpad = gst_element_get_static_pad(GST_ELEMENT(upload), "src");
     gst_pad_set_query_function(srcpad, gst_vaapiupload_query);
     g_object_unref(srcpad);
+
+    gst_base_transform_set_passthrough(GST_BASE_TRANSFORM(upload), FALSE);
+    gst_base_transform_set_in_place (GST_BASE_TRANSFORM(upload), FALSE);
 }
 
 static inline gboolean
@@ -394,16 +370,23 @@ gst_vaapiupload_transform(
 )
 {
     GstVaapiUpload * const upload = GST_VAAPIUPLOAD(trans);
-    GstVaapiVideoBuffer *vbuffer;
     GstVaapiSurface *surface;
     GstVaapiImage *image;
     gboolean success;
+    GstBuffer *buf;
+    GstMapInfo surface_info;
+    GstMapInfo image_info;
 
-    vbuffer = GST_VAAPI_VIDEO_BUFFER(outbuf);
-    surface = gst_vaapi_video_buffer_get_surface(vbuffer);
+    if (outbuf) {
+        gst_buffer_map(outbuf, &surface_info, GST_MAP_READ);
+        surface = (GstVaapiSurface *)surface_info.data;
+    }
+
     if (!surface)
-        return GST_FLOW_UNEXPECTED;
+        return GST_FLOW_EOS;
 
+/*Fixme: disalbed the direct rendering for now*/
+#if 0
     if (upload->direct_rendering) {
         if (!GST_VAAPI_IS_VIDEO_BUFFER(inbuf)) {
             GST_DEBUG("GstVaapiVideoBuffer was expected");
@@ -423,16 +406,24 @@ gst_vaapiupload_transform(
         }
         return GST_FLOW_OK;
     }
+#endif
 
-    image = gst_vaapi_video_pool_get_object(upload->images);
+    if (gst_buffer_pool_acquire_buffer((GstBufferPool *)upload->images, &buf, NULL) != GST_FLOW_OK){
+        GST_ERROR("Failed to acquire buffer");
+        buf = NULL;
+    }
+    if (buf) {
+        gst_buffer_map(buf, &image_info, GST_MAP_WRITE);
+        image = (GstVaapiImage *)image_info.data;
+    }
     if (!image)
-        return GST_FLOW_UNEXPECTED;
+        return GST_FLOW_EOS;
 
     gst_vaapi_image_update_from_buffer(image, inbuf, NULL);
-    success = gst_vaapi_surface_put_image(surface, image);
-    gst_vaapi_video_pool_put_object(upload->images, image);
+    success = gst_vaapi_surface_put_image((GstVaapiSurface *)surface, image);
     if (!success)
         goto error_put_image;
+    gst_buffer_pool_release_buffer ((GstBufferPool *)upload->images, buf);  
     return GST_FLOW_OK;
 
 error_put_image:
@@ -449,7 +440,8 @@ static GstCaps *
 gst_vaapiupload_transform_caps(
     GstBaseTransform *trans,
     GstPadDirection   direction,
-    GstCaps          *caps
+    GstCaps          *caps,
+    GstCaps	     *filter
 )
 {
     GstVaapiUpload * const upload = GST_VAAPIUPLOAD(trans);
@@ -461,7 +453,7 @@ gst_vaapiupload_transform_caps(
     structure = gst_caps_get_structure(caps, 0);
 
     if (direction == GST_PAD_SINK) {
-        if (!gst_structure_has_name(structure, "video/x-raw-yuv"))
+        if (!gst_structure_has_name(structure, "video/x-raw"))
             return NULL;
         out_caps = gst_caps_from_string(gst_vaapiupload_vaapi_caps_str);
 
@@ -474,7 +466,7 @@ gst_vaapiupload_transform_caps(
         );
     }
     else {
-        if (!gst_structure_has_name(structure, GST_VAAPI_SURFACE_CAPS_NAME))
+        if (!gst_structure_has_name(structure, "video/x-raw"))
             return NULL;
         out_caps = gst_caps_from_string(gst_vaapiupload_yuv_caps_str);
         if (upload->display) {
@@ -501,6 +493,10 @@ gst_vaapiupload_ensure_image_pool(GstVaapiUpload *upload, GstCaps *caps)
 {
     GstStructure * const structure = gst_caps_get_structure(caps, 0);
     gint width, height;
+    GstStructure *config;
+    GstVideoInfo info;
+
+    gst_video_info_from_caps(&info, caps);
 
     gst_structure_get_int(structure, "width",  &width);
     gst_structure_get_int(structure, "height", &height);
@@ -510,10 +506,16 @@ gst_vaapiupload_ensure_image_pool(GstVaapiUpload *upload, GstCaps *caps)
         upload->image_height = height;
         g_clear_object(&upload->images);
         upload->images = gst_vaapi_image_pool_new(upload->display, caps);
+        config = gst_buffer_pool_get_config ((GstBufferPool *)upload->images);
+        gst_buffer_pool_config_set_params (config, caps, info.size, 6, 24);
+
+        gst_buffer_pool_set_config ((GstBufferPool *)upload->images, config);
+        gst_buffer_pool_set_active ((GstBufferPool *)upload->images, TRUE);
         if (!upload->images)
             return FALSE;
         upload->images_reset = TRUE;
     }
+
     return TRUE;
 }
 
@@ -522,19 +524,27 @@ gst_vaapiupload_ensure_surface_pool(GstVaapiUpload *upload, GstCaps *caps)
 {
     GstStructure * const structure = gst_caps_get_structure(caps, 0);
     gint width, height;
+    GstStructure *config;
+    GstVideoInfo info;
 
+    gst_video_info_from_caps(&info, caps);
     gst_structure_get_int(structure, "width",  &width);
     gst_structure_get_int(structure, "height", &height);
-
     if (width != upload->surface_width || height != upload->surface_height) {
         upload->surface_width  = width;
         upload->surface_height = height;
         g_clear_object(&upload->surfaces);
         upload->surfaces = gst_vaapi_surface_pool_new(upload->display, caps);
+        config = gst_buffer_pool_get_config ((GstBufferPool *)upload->surfaces);
+        gst_buffer_pool_config_set_params (config, caps, info.size, 6, 24);
+
+        gst_buffer_pool_set_config ((GstBufferPool *)upload->surfaces, config);
+        //gst_buffer_pool_set_active ((GstBufferPool *)upload->surfaces, TRUE);
         if (!upload->surfaces)
             return FALSE;
         upload->surfaces_reset = TRUE;
-    }
+    } 
+
     return TRUE;
 }
 
@@ -548,8 +558,12 @@ gst_vaapiupload_ensure_direct_rendering_caps(
     GstVaapiImage *image;
     GstVaapiImageFormat vaformat;
     GstVideoFormat vformat;
+    GstVideoInfo info;
     GstStructure *structure;
+    GstMapInfo image_map, surface_map;
+    GstBuffer *buf;
     gint width, height;
+
 
     if (!upload->images_reset && !upload->surfaces_reset)
         return;
@@ -558,6 +572,8 @@ gst_vaapiupload_ensure_direct_rendering_caps(
     upload->surfaces_reset        = FALSE;
     upload->direct_rendering_caps = 0;
 
+    gst_video_info_from_caps (&info, caps);
+
     structure = gst_caps_get_structure(caps, 0);
     if (!structure)
         return;
@@ -565,28 +581,43 @@ gst_vaapiupload_ensure_direct_rendering_caps(
     gst_structure_get_int(structure, "height", &height);
 
     /* Translate from Gst video format to VA image format */
-    if (!gst_video_format_parse_caps(caps, &vformat, NULL, NULL))
+    vformat = GST_VIDEO_INFO_FORMAT(&info);
+    if (!vformat)
         return;
-    if (!gst_video_format_is_yuv(vformat))
+    if(!GST_VIDEO_INFO_IS_YUV(&info))
         return;
     vaformat = gst_vaapi_image_format_from_video(vformat);
     if (!vaformat)
         return;
 
     /* Check if we can alias sink & output buffers (same data_size) */
-    image = gst_vaapi_video_pool_get_object(upload->images);
+    if (gst_buffer_pool_acquire_buffer((GstBufferPool *)upload->images, &buf, NULL) != GST_FLOW_OK){
+        GST_ERROR("Failed to acquire buffer");
+        buf = NULL;
+    }
+    if (buf) {
+        gst_buffer_map(buf, &image_map, GST_MAP_WRITE);
+        image = (GstVaapiImage *)image_map.data;
+    }
     if (image) {
         if (upload->direct_rendering_caps == 0 &&
             (gst_vaapi_image_get_format(image) == vaformat &&
              gst_vaapi_image_is_linear(image) &&
              (gst_vaapi_image_get_data_size(image) ==
-              gst_video_format_get_size(vformat, width, height))))
+	      GST_VIDEO_INFO_SIZE(&info))))
             upload->direct_rendering_caps = 1;
-        gst_vaapi_video_pool_put_object(upload->images, image);
+	gst_buffer_pool_release_buffer((GstBufferPool *)upload->images, buf);
     }
 
     /* Check if we can access to the surface pixels directly */
-    surface = gst_vaapi_video_pool_get_object(upload->surfaces);
+    if (gst_buffer_pool_acquire_buffer((GstBufferPool *)upload->surfaces, &buf, NULL) != GST_FLOW_OK){
+        GST_ERROR("Failed to acquire buffer");
+        buf = NULL;
+    }
+    if (buf) {
+        gst_buffer_map(buf, &surface_map, GST_MAP_WRITE);
+        surface = (GstVaapiSurface *)surface_map.data;
+    }
     if (surface) {
         image = gst_vaapi_surface_derive_image(surface);
         if (image) {
@@ -595,13 +626,13 @@ gst_vaapiupload_ensure_direct_rendering_caps(
                     (gst_vaapi_image_get_format(image) == vaformat &&
                      gst_vaapi_image_is_linear(image) &&
                      (gst_vaapi_image_get_data_size(image) ==
-                      gst_video_format_get_size(vformat, width, height))))
+	      	      GST_VIDEO_INFO_SIZE(&info))))
                     upload->direct_rendering_caps = 2;
                 gst_vaapi_image_unmap(image);
             }
             g_object_unref(image);
         }
-        gst_vaapi_video_pool_put_object(upload->surfaces, surface);
+	gst_buffer_pool_release_buffer((GstBufferPool *)upload->surfaces, buf);
     }
 }
 
@@ -616,16 +647,19 @@ gst_vaapiupload_negotiate_buffers(
 
     if (!gst_vaapiupload_ensure_image_pool(upload, incaps))
         return FALSE;
-
     if (!gst_vaapiupload_ensure_surface_pool(upload, outcaps))
         return FALSE;
 
+/*Fixme: Enable direct rendering*/
+#if 0
     gst_vaapiupload_ensure_direct_rendering_caps(upload, incaps);
     dr = MIN(upload->direct_rendering, upload->direct_rendering_caps);
     if (upload->direct_rendering != dr) {
         upload->direct_rendering = dr;
         GST_DEBUG("direct-rendering level: %d", dr);
     }
+#endif
+    upload->direct_rendering = 0;
     return TRUE;
 }
 
@@ -648,29 +682,31 @@ static gboolean
 gst_vaapiupload_get_unit_size(
     GstBaseTransform *trans,
     GstCaps          *caps,
-    guint            *size
+    gsize            *size
 )
 {
     GstStructure * const structure = gst_caps_get_structure(caps, 0);
     GstVideoFormat format;
+    GstVideoInfo info;
     gint width, height;
-
-    if (gst_structure_has_name(structure, GST_VAAPI_SURFACE_CAPS_NAME))
-        *size = 0;
-    else {
-        if (!gst_video_format_parse_caps(caps, &format, &width, &height))
+    
+    /*Fixme: have to differentiate the surface caps ? */
+   // if (gst_structure_has_name(structure, "video/x-raw"))
+     //   *size = 0;
+    //else {
+	if (!gst_video_info_from_caps(&info, caps))
             return FALSE;
-        *size = gst_video_format_get_size(format, width, height);
-    }
+        *size = GST_VIDEO_INFO_SIZE(&info);
+    //}
+    *size = 0; 
     return TRUE;
 }
 
+#if 0
 static GstFlowReturn
 gst_vaapiupload_buffer_alloc(
     GstBaseTransform *trans,
-    guint             size,
-    GstCaps          *caps,
-    GstBuffer       **pbuf
+    GstQuery	     *query
 )
 {
     GstVaapiUpload * const upload = GST_VAAPIUPLOAD(trans);
@@ -678,7 +714,6 @@ gst_vaapiupload_buffer_alloc(
     GstVaapiImage *image = NULL;
     GstVaapiSurface *surface = NULL;
     GstVaapiVideoBuffer *vbuffer;
-
     /* Check if we can use direct-rendering */
     if (!gst_vaapiupload_negotiate_buffers(upload, caps, caps))
         goto error;
@@ -687,12 +722,14 @@ gst_vaapiupload_buffer_alloc(
 
     switch (upload->direct_rendering) {
     case 2:
-        buffer  = gst_vaapi_video_buffer_new_from_pool(upload->surfaces);
+        if (gst_buffer_pool_acquire_buffer((GstBufferPool *)upload->surfaces, &buffer, NULL) != GST_FLOW_OK){
+            GST_ERROR("Failed to acquire buffer");
+            buf = NULL;
+        }
         if (!buffer)
             goto error;
-        vbuffer = GST_VAAPI_VIDEO_BUFFER(buffer);
-
-        surface = gst_vaapi_video_buffer_get_surface(vbuffer);
+        
+	surface = gst_vaapi_video_buffer_get_surface(vbuffer);
         image   = gst_vaapi_surface_derive_image(surface);
         if (image && gst_vaapi_image_get_data_size(image) == size) {
             gst_vaapi_video_buffer_set_image(vbuffer, image);
@@ -735,40 +772,62 @@ error:
     upload->direct_rendering = 0;
     return GST_FLOW_OK;
 }
+#endif
 
-static GstFlowReturn
-gst_vaapiupload_sinkpad_buffer_alloc(
-    GstPad           *pad,
-    guint64           offset,
-    guint             size,
-    GstCaps          *caps,
-    GstBuffer       **pbuf
+static gboolean
+gst_vaapiupload_decide_allocation(
+    GstBaseTransform *trans,
+    GstQuery	     *query
 )
-{
-    GstBaseTransform *trans;
+{  
+    GstVaapiUpload *upload;
+    GstBufferPool *pool;
+    GstCaps *caps;
+    GstStructure *config;
+    gsize size;
+    guint min_buffers, max_buffers;
+    gboolean need_pool;
     GstFlowReturn ret;
 
-    trans = GST_BASE_TRANSFORM(gst_pad_get_parent_element(pad));
-    if (!trans)
-        return GST_FLOW_UNEXPECTED;
+    upload = GST_VAAPIUPLOAD(trans);
+    pool = GST_BUFFER_POOL(upload->surfaces);
+    
+    if (query){
+	  if (gst_query_get_n_allocation_pools (query) > 0) {
+	   /* gst_query_parse_nth_allocation_pool (query, 0, &pool, &size, &min, &max);*/
+	   } 
+        if (pool) {
+            config = gst_buffer_pool_get_config(pool);
+            gst_buffer_pool_config_get_params(config, &caps, &size, &min_buffers, &max_buffers);
+            gst_query_add_allocation_pool (query, (GstBufferPool *)pool, size, min_buffers, max_buffers);
+            gst_structure_free(config);
+        }
+    }
 
-    ret = gst_vaapiupload_buffer_alloc(trans, size, caps, pbuf);
-    g_object_unref(trans);
-    return ret;
+    return  TRUE;
+}
+
+static gboolean
+gst_vaapiupload_propose_allocation(
+    GstBaseTransform  *trans,
+    GstQuery   *decide_query,
+    GstQuery	     *query
+)
+{
 }
 
 static GstFlowReturn
 gst_vaapiupload_prepare_output_buffer(
     GstBaseTransform *trans,
     GstBuffer        *inbuf,
-    gint              size,
-    GstCaps          *caps,
     GstBuffer       **poutbuf
 )
 {
     GstVaapiUpload * const upload = GST_VAAPIUPLOAD(trans);
     GstBuffer *buffer = NULL;
 
+/*Fixme: enable direct rendering*/
+#if 0
     if (upload->direct_rendering == 2) {
         if (GST_VAAPI_IS_VIDEO_BUFFER(inbuf)) {
             buffer = gst_vaapi_video_buffer_new_from_buffer(inbuf);
@@ -779,22 +838,25 @@ gst_vaapiupload_prepare_output_buffer(
             upload->direct_rendering = 1;
         }
     }
-
+#endif
     if (!buffer) {
-        buffer = gst_vaapi_video_buffer_new_from_pool(upload->surfaces);
+        if (gst_buffer_pool_acquire_buffer((GstBufferPool *)upload->surfaces, &buffer, NULL) != GST_FLOW_OK){
+            GST_ERROR("Failed to acquire buffer");
+            buffer = NULL;
+        }
         if (!buffer)
-            return GST_FLOW_UNEXPECTED;
-        gst_buffer_set_caps(buffer, caps);
+            return GST_FLOW_EOS;
     }
 
     *poutbuf = buffer;
+    gst_buffer_pool_release_buffer((GstBufferPool *)upload->surfaces, buffer);
     return GST_FLOW_OK;
 }
 
 static gboolean
-gst_vaapiupload_query(GstPad *pad, GstQuery *query)
+gst_vaapiupload_query(GstPad *pad, GstObject *parent, GstQuery *query)
 {
-  GstVaapiUpload *upload = GST_VAAPIUPLOAD (gst_pad_get_parent_element (pad));
+  GstVaapiUpload *upload = GST_VAAPIUPLOAD (parent);
   gboolean res;
 
   GST_DEBUG ("sharing display %p", upload->display);
@@ -802,8 +864,7 @@ gst_vaapiupload_query(GstPad *pad, GstQuery *query)
   if (gst_vaapi_reply_to_query (query, upload->display))
     res = TRUE;
   else
-    res = gst_pad_query_default (pad, query);
+    res = gst_pad_query_default (pad, parent, query);
 
-  g_object_unref (upload);
   return res;
 }
