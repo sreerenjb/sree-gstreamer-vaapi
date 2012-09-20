@@ -82,7 +82,8 @@ static void
 _gst_vaapi_surface_mem_free (GstAllocator *allocator, GstMemory *mem)
 {
     GstVaapiSurfaceMemory *surface_mem = (GstVaapiSurfaceMemory *)mem; 
-    
+    if (!surface_mem)
+	return;
     if (surface_mem->surface) {
 	g_object_unref(G_OBJECT(surface_mem->surface));
         surface_mem->surface = NULL;
@@ -91,7 +92,7 @@ _gst_vaapi_surface_mem_free (GstAllocator *allocator, GstMemory *mem)
     if (surface_mem->notify)
        surface_mem->notify (surface_mem->user_data);
 
-    g_slice_free1 (surface_mem->slice_size, surface_mem);
+    g_slice_free (GstVaapiSurfaceMemory, surface_mem);
     GST_DEBUG ("%p: freed", surface_mem);
 }
 
