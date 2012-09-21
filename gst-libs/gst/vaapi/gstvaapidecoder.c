@@ -129,10 +129,16 @@ static inline void
 push_surface(GstVaapiDecoder *decoder, GstVaapiSurfaceProxy *proxy)
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
+    GstClockTime duration;
 
     GST_DEBUG("queue decoded surface %" GST_VAAPI_ID_FORMAT,
               GST_VAAPI_ID_ARGS(gst_vaapi_surface_proxy_get_surface_id(proxy)));
 
+    if (priv->fps_n && priv->fps_d) {
+        /* Actual field duration is computed in vaapipostproc */
+        duration = gst_util_uint64_scale(GST_SECOND, priv->fps_d, priv->fps_n);
+        gst_vaapi_surface_proxy_set_duration(proxy, duration);
+    }
     g_queue_push_tail(priv->surfaces, proxy);
 }
 
@@ -353,6 +359,22 @@ gst_vaapi_decoder_init(GstVaapiDecoder *decoder)
     priv->buffers               = g_queue_new();
     priv->surfaces              = g_queue_new();
     priv->is_interlaced         = FALSE;
+}
+
+/**
+ * gst_vaapi_decoder_get_codec:
+ * @decoder: a #GstVaapiDecoder
+ *
+ * Retrieves the @decoder codec type.
+ *
+ * Return value: the #GstVaapiCodec type for @decoder
+ */
+GstVaapiCodec
+gst_vaapi_decoder_get_codec(GstVaapiDecoder *decoder)
+{
+    g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), (GstVaapiCodec)0);
+
+    return decoder->priv->codec;
 }
 
 /**

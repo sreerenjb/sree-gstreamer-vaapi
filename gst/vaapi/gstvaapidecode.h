@@ -76,6 +76,8 @@ struct _GstVaapiDecode {
     GstPadQueryFunction sinkpad_qfunc;
     GstPadQueryFunction srcpad_qfunc;
 
+    gint64              render_time_base;
+    GstClockTime        last_buffer_time;
     unsigned int        is_ready        : 1;
 };
 
