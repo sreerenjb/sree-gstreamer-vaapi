@@ -854,9 +854,9 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     }
     return success ? GST_FLOW_OK : GST_FLOW_EOS;
 
-    /*Fixme */
-    /*if (sink->use_overlay)
-        gst_buffer_replace(&sink->video_buffer, buffer);*/
+    /* Retain VA surface until the next one is displayed */
+    if (sink->use_overlay)
+        gst_buffer_replace(&sink->video_buffer, buffer);
 }
 
 static gboolean
