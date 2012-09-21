@@ -28,8 +28,7 @@
  * the vaapisink element.
  */
 
-#include "config.h"
-
+#include "gst/vaapi/sysdeps.h"
 #include <gst/vaapi/gstvaapidisplay.h>
 #include <gst/video/videocontext.h>
 
@@ -187,41 +186,47 @@ gst_vaapidecode_ensure_display(GstVaapiDecode *decode)
         &decode->display);
 }
 
+static inline guint
+gst_vaapi_codec_from_caps(GstCaps *caps)
+{
+    return gst_vaapi_profile_get_codec(gst_vaapi_profile_from_caps(caps));
+}
+
 static gboolean
 gst_vaapidecode_create(GstVaapiDecode *decode, GstCaps *caps)
 {
     GstVaapiDisplay *dpy;
-    GstStructure *structure;
-    int version;
 
     if (!gst_vaapidecode_ensure_display(decode))
         return FALSE;
     dpy = decode->display;
 
-    structure = gst_caps_get_structure(caps, 0);
-    if (!structure)
-        return FALSE;
-    if (gst_structure_has_name(structure, "video/x-h264"))
-        decode->decoder = gst_vaapi_decoder_h264_new(dpy, caps);
-    else if (gst_structure_has_name(structure, "video/mpeg")) {
-        if (!gst_structure_get_int(structure, "mpegversion", &version))
-            return FALSE;
-    if (version == 2)
+    switch (gst_vaapi_codec_from_caps(caps)) {
+    case GST_VAAPI_CODEC_MPEG2:
         decode->decoder = gst_vaapi_decoder_mpeg2_new(dpy, caps);
-        /*else if (version == 4)
-            decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);*/
-    } 
-    else if(gst_structure_has_name(structure, "video/x-wmv"))
-        decode->decoder = gst_vaapi_decoder_vc1_new(dpy, caps);
-    /*else if (gst_structure_has_name(structure, "video/x-h263") ||
-                 gst_structure_has_name(structure, "video/x-divx") ||
-                 gst_structure_has_name(structure, "video/x-xvid"))
-            decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);
-    }*/
-#if USE_JPEG_DECODER
-    else if(gst_structure_has_name(structure, "image/jpeg"))
-        decode->decoder = gst_vaapi_decoder_jpeg_new(dpy, caps);
+        break;
+#if 0
+    case GST_VAAPI_CODEC_MPEG4:
+    case GST_VAAPI_CODEC_H263:
+        decode->decoder = gst_vaapi_decoder_mpeg4_new(dpy, caps);
+        break;
 #endif
+    case GST_VAAPI_CODEC_H264:
+        decode->decoder = gst_vaapi_decoder_h264_new(dpy, caps);
+        break;
+    case GST_VAAPI_CODEC_WMV3:
+    case GST_VAAPI_CODEC_VC1:
+        decode->decoder = gst_vaapi_decoder_vc1_new(dpy, caps);
+        break;
+#if USE_JPEG_DECODER
+    case GST_VAAPI_CODEC_JPEG:
+        decode->decoder = gst_vaapi_decoder_jpeg_new(dpy, caps);
+        break;
+#endif
+    default:
+        decode->decoder = NULL;
+        break;
+    }
     if (!decode->decoder)
         return FALSE;
 
@@ -252,11 +257,17 @@ gst_vaapidecode_destroy(GstVaapiDecode *decode)
 static gboolean
 gst_vaapidecode_reset(GstVaapiDecode *decode, GstCaps *caps)
 {
-    if (decode->decoder &&
-        decode->decoder_caps &&
-        gst_caps_is_always_compatible(caps, decode->decoder_caps))
-        return TRUE;
-    
+    GstVaapiCodec codec;
+
+    /* Only reset decoder if codec type changed */
+    if (decode->decoder && decode->decoder_caps) {
+        if (gst_caps_is_always_compatible(caps, decode->decoder_caps))
+            return TRUE;
+        codec = gst_vaapi_codec_from_caps(caps);
+        if (codec == gst_vaapi_decoder_get_codec(decode->decoder))
+            return TRUE;
+    }
+
     gst_vaapidecode_destroy(decode);
     return gst_vaapidecode_create(decode, caps);
 }

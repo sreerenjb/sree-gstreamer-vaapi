@@ -82,6 +82,16 @@ G_BEGIN_DECLS
     gst_vaapi_surface_proxy_get_timestamp(surface)
 
 /**
+ * GST_VAAPI_SURFACE_PROXY_DURATION:
+ * @surface: a #GstVaapiSurfaceProxy
+ *
+ * Macro that evaluates to the amount of time the @surface should be
+ * displayed, or %GST_CLOCK_TIME_NONE if none was set.
+ */
+#define GST_VAAPI_SURFACE_PROXY_DURATION(surface) \
+    gst_vaapi_surface_proxy_get_duration(surface)
+
+/**
  * GST_VAAPI_SURFACE_PROXY_INTERLACED:
  * @surface: a #GstVaapiSurfaceProxy
  *
@@ -169,6 +179,15 @@ void
 gst_vaapi_surface_proxy_set_timestamp(
     GstVaapiSurfaceProxy *proxy,
     GstClockTime          timestamp
+);
+
+GstClockTime
+gst_vaapi_surface_proxy_get_duration(GstVaapiSurfaceProxy *proxy);
+
+void
+gst_vaapi_surface_proxy_set_duration(
+    GstVaapiSurfaceProxy *proxy,
+    GstClockTime          duration
 );
 
 gboolean

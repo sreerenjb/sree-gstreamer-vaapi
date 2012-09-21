@@ -27,10 +27,11 @@
  * vaapiupload converts from raw YUV pixels to VA surfaces suitable
  * for the vaapisink element, for example.
  */
+
 /*Fixme:Not yet ported the direct rendering mode
  * it can implement with buffer meta */
-#include "config.h"
 
+#include "gst/vaapi/sysdeps.h"
 #include <gst/gst.h>
 #include <gst/video/video.h>
 #include <gst/video/videocontext.h>
