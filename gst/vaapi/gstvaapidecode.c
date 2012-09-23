@@ -123,7 +123,6 @@ gst_vaapi_decoder_notify_caps(GObject *obj, GParamSpec *pspec, void *user_data)
     decode->output_state =
         gst_video_decoder_set_output_state (GST_VIDEO_DECODER (decode), GST_VIDEO_FORMAT_YV12,
         info.width, info.height, decode->input_state);
-    g_assert(gst_video_decoder_negotiate (GST_VIDEO_DECODER (decode)));
 }
 
 static inline gboolean
