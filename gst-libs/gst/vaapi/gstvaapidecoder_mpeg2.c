@@ -386,7 +386,7 @@ ensure_context(GstVaapiDecoderMpeg2 *decoder)
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
     GstVaapiEntrypoint entrypoint = GST_VAAPI_ENTRYPOINT_VLD;
     gboolean reset_context = FALSE;
-	
+
     if (priv->profile_changed) {
         GST_DEBUG("profile changed");
         priv->profile_changed = FALSE;
@@ -641,11 +641,11 @@ parse_picture(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     GstVaapiDecoderStatus status;
     GstClockTime pts;
 
-    status = ensure_context(decoder);
+    /*status = ensure_context(decoder);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_ERROR("failed to reset context");
         return status;
-    }
+    }*/
 
     if (priv->current_picture) {
         /* Re-use current picture where the first field was decoded */
@@ -946,7 +946,7 @@ gst_vaapi_decoder_mpeg2_decide_allocation(
     GstVaapiDecoderMpeg2 *decoder = GST_VAAPI_DECODER_MPEG2(dec);
     GstVaapiDecoderMpeg2Private * priv = decoder->priv;
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
- 
+  
     status = ensure_context(decoder);
 
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
@@ -1103,12 +1103,18 @@ GstVaapiDecoderStatus
 decode_buffer(GstVaapiDecoderMpeg2 *decoder, GstBuffer *buffer, GstVideoCodecFrame *frame)
 {
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
-    GstVaapiPicture * const picture = priv->current_picture;
+    GstVaapiPicture *picture = priv->current_picture;
 
     if (picture) {
-        picture->frame_id       = frame->system_frame_number;
-        /*decode pic*/
-        if (!decode_current_picture(decoder))
+        if (!gst_vaapi_picture_allocate_surface(picture)) {
+	    GST_ERROR("failed to allocate surface for current pic");
+	    return FALSE;
+	}
+        
+	picture->frame_id       = frame->system_frame_number;
+        
+	/*decode pic*/
+    	if (!decode_current_picture(decoder))
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
     }
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
@@ -1119,7 +1125,6 @@ gst_vaapi_decoder_mpeg2_decode(GstVaapiDecoder *base, GstVideoCodecFrame *frame)
 {
     GstVaapiDecoderMpeg2 * const decoder = GST_VAAPI_DECODER_MPEG2(base);
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
-
     g_return_val_if_fail(priv->is_constructed,
                          GST_VAAPI_DECODER_STATUS_ERROR_INIT_FAILED);
 

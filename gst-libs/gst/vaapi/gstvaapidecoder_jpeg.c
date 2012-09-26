@@ -647,10 +647,16 @@ GstVaapiDecoderStatus
 decode_buffer_jpeg(GstVaapiDecoderJpeg *decoder, GstBuffer *buffer, GstVideoCodecFrame *frame)
 {
     GstVaapiDecoderJpegPrivate * const priv = decoder->priv;
-    GstVaapiPicture * const picture = priv->current_picture;
+    GstVaapiPicture *picture = priv->current_picture;
 
     if (picture) {
+	if (!gst_vaapi_picture_allocate_surface(picture)) {
+            GST_ERROR("failed to allocate surface for current pic");
+            return FALSE;
+        }
+
         picture->frame_id       = frame->system_frame_number;
+	
         /*decode pic*/
         if (!decode_current_picture(decoder))
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;

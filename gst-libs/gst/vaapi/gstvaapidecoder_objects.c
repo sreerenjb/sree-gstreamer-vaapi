@@ -104,6 +104,34 @@ gst_vaapi_picture_destroy(GstVaapiPicture *picture)
 }
 
 gboolean
+gst_vaapi_picture_allocate_surface(
+    GstVaapiPicture    *picture
+)
+{
+    GstVaapiSurface *surface;
+    GstMapInfo map_info;
+    gboolean success;
+
+    picture->surface_buffer = gst_vaapi_context_get_surface_buffer(GET_CONTEXT(picture));
+    gst_buffer_map (picture->surface_buffer, &map_info, GST_MAP_READ);
+    surface = (GstVaapiSurface *)map_info.data;
+    if (!surface) {
+        GST_DEBUG ("Mapping failed...");
+        return FALSE;
+    }
+    picture->surface = surface;
+    picture->proxy =
+        gst_vaapi_surface_proxy_new(GET_CONTEXT(picture), picture->surface, picture->surface_buffer);
+    if (!picture->proxy)
+        return FALSE;
+    picture->surface_id = gst_vaapi_surface_get_id(picture->surface);
+
+    picture->surface_pool = gst_vaapi_context_get_surface_pool(GET_CONTEXT(picture));
+
+    return TRUE;
+}
+
+gboolean
 gst_vaapi_picture_create(
     GstVaapiPicture                          *picture,
     const GstVaapiCodecObjectConstructorArgs *args
@@ -119,6 +147,9 @@ gst_vaapi_picture_create(
         picture->proxy          = g_object_ref(parent_picture->proxy);
 	picture->surface_buffer = gst_vaapi_surface_proxy_get_surface_buffer(picture->proxy);
         picture->surface 	= gst_vaapi_surface_proxy_get_surface(picture->proxy); 
+    
+	picture->surface_id   = parent_picture->surface_id;
+    	picture->surface_pool = parent_picture->surface_pool;
 	
         picture->type    = parent_picture->type;
         picture->pts     = parent_picture->pts;
@@ -151,6 +182,7 @@ gst_vaapi_picture_create(
     }
     else {
 	/*Fixme*/
+#if 0
   	picture->surface_buffer = gst_vaapi_context_get_surface_buffer(GET_CONTEXT(picture));
         gst_buffer_map (picture->surface_buffer, &map_info, GST_MAP_READ);
         surface = (GstVaapiSurface *)map_info.data;
@@ -165,13 +197,15 @@ gst_vaapi_picture_create(
             gst_vaapi_surface_proxy_new(GET_CONTEXT(picture), picture->surface, picture->surface_buffer);
         if (!picture->proxy)
             return FALSE;
-
+#endif
         picture->structure = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
         GST_VAAPI_PICTURE_FLAG_SET(picture, GST_VAAPI_PICTURE_FLAG_FF);
     }
+#if 0
     picture->surface_id = gst_vaapi_surface_get_id(picture->surface);
 
     picture->surface_pool = gst_vaapi_context_get_surface_pool(GET_CONTEXT(picture));
+#endif
     success = vaapi_create_buffer(
         GET_VA_DISPLAY(picture),
         GET_VA_CONTEXT(picture),
@@ -310,6 +344,7 @@ gst_vaapi_picture_decode(GstVaapiPicture *picture)
     VAContextID va_context;
     VAStatus status;
     guint i;
+    static int k = 0;
 
 //    g_return_val_if_fail(GST_VAAPI_IS_PICTURE(picture), FALSE);
 

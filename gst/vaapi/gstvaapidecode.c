@@ -119,10 +119,6 @@ gst_vaapi_decoder_notify_caps(GObject *obj, GParamSpec *pspec, void *user_data)
     /*negotiate with downstream once the caps property of GstVideoDecoder has changed*/
     gst_video_info_from_caps(&info, caps);
     gst_vaapidecode_update_src_caps(decode, caps);
-    /*Fixme: ? : VideoFormat belongs to YUV420 for now(eg: NV12, I420 etc)*/
-    decode->output_state =
-        gst_video_decoder_set_output_state (GST_VIDEO_DECODER (decode), GST_VIDEO_FORMAT_YV12,
-        info.width, info.height, decode->input_state);
 }
 
 static inline gboolean
@@ -593,12 +589,6 @@ gst_vaapi_dec_set_format(GstVideoDecoder * bdec, GstVideoCodecState * state)
         return FALSE;
     
     /*Fixme: add codec_dat hadling from state->codec_data*/
-    /*Fixme: set output state after getting the values from header(eg: mpeg2, after seq_hdr parsing) ??*/
-    dec->output_state =
-        gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec), fmt,
-        info.width, info.height, dec->input_state);
-
-    dec->output_state->caps = dec->srcpad_caps;
 }
 
 static GstFlowReturn
@@ -680,6 +670,42 @@ gst_vaapi_dec_decide_allocation (GstVideoDecoder * decoder, GstQuery * query)
     return  TRUE;
 }
 
+static void
+gst_vaapi_dec_negotiate(GstVideoDecoder *dec)
+{ 
+    GstVaapiDecode *vaapi_dec;
+    GstVideoCodecState *outstate;
+    GstVideoInfo srcpad_info, outstate_info;
+    GstVideoFormat format;
+    GstCaps *caps;
+
+    vaapi_dec = GST_VAAPIDECODE(dec);
+    
+    if(vaapi_dec->srcpad_caps)   
+        gst_video_info_from_caps(&srcpad_info, vaapi_dec->srcpad_caps);
+
+    outstate = gst_video_decoder_get_output_state (GST_VIDEO_DECODER (dec));
+    if (outstate) {
+        gst_video_info_from_caps(&outstate_info, outstate->caps);
+        if (srcpad_info.width  		        == outstate_info.width &&
+            srcpad_info.height 		        == outstate_info.height &&
+            GST_VIDEO_INFO_FORMAT(&srcpad_info) == GST_VIDEO_INFO_FORMAT (&outstate_info)) {
+
+	    gst_video_codec_state_unref (outstate);
+            return;
+        } 
+        gst_video_codec_state_unref (outstate);
+    }
+
+    vaapi_dec->output_state =
+        gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec), GST_VIDEO_FORMAT_YV12,
+        srcpad_info.width, srcpad_info.height, vaapi_dec->input_state);
+
+    vaapi_dec->output_state->caps = vaapi_dec->srcpad_caps;
+    /*gst_video_codec_state_unref (outstate);*/
+    gst_video_decoder_negotiate (dec); 
+}
+
 static GstFlowReturn
 gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 {
@@ -693,6 +719,9 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
     GstVaapiSurfaceMeta *meta;
 
     dec = GST_VAAPIDECODE(bdec);
+
+    gst_vaapi_dec_negotiate (bdec);
+    
     proxy = gst_vaapi_decoder_get_surface2(dec->decoder, frame,  &status); /*will merge with gvd_get_surface later*/
 
     do {

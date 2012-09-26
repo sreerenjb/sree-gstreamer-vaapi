@@ -279,6 +279,7 @@ struct _GstVaapiDecoderH264Private {
     guint                       is_avc                  : 1;
     guint                       has_context             : 1;
     guint			ready_to_dec		: 1;
+    guint			test;
 };
 
 static gboolean
@@ -356,7 +357,6 @@ dpb_remove_index(GstVaapiDecoderH264 *decoder, guint index)
 {
     GstVaapiDecoderH264Private * const priv = decoder->priv;
     guint num_pictures = --priv->dpb_count;
-
     if (index != num_pictures)
         gst_vaapi_picture_replace(&priv->dpb[index], priv->dpb[num_pictures]);
     gst_vaapi_picture_replace(&priv->dpb[num_pictures], NULL);
@@ -390,7 +390,6 @@ dpb_bump(GstVaapiDecoderH264 *decoder)
         if (picture->output_needed && picture->poc < priv->dpb[lowest_poc_index]->poc)
             lowest_poc_index = i;
     }
-
     success = dpb_output(decoder, priv->dpb[lowest_poc_index]);
     if (!GST_VAAPI_PICTURE_IS_REFERENCE(priv->dpb[lowest_poc_index]))
         dpb_remove_index(decoder, lowest_poc_index);
@@ -412,7 +411,6 @@ dpb_add(GstVaapiDecoderH264 *decoder, GstVaapiPictureH264 *picture)
 {
     GstVaapiDecoderH264Private * const priv = decoder->priv;
     guint i;
-
     // Remove all unused pictures
     if (picture->is_idr)
         dpb_flush(decoder);
@@ -464,7 +462,6 @@ static inline void
 dpb_reset(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
 {
     GstVaapiDecoderH264Private * const priv = decoder->priv;
-
     priv->dpb_size = get_max_dec_frame_buffering(sps);
     GST_DEBUG("DPB size %u", priv->dpb_size);
 }
@@ -602,7 +599,6 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
         priv->sps->height != sps->height) {
         GST_DEBUG("size changed");
         reset_context      = TRUE;
-
         priv->width      = sps->width;
         priv->height     = sps->height;
         priv->mb_width   = sps->pic_width_in_mbs_minus1 + 1;
@@ -610,7 +606,7 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
         priv->mb_height *= 2 - sps->frame_mbs_only_flag;
     }
 
-    if (reset_context) {
+    if (reset_context && priv->test) {
         GstVaapiContextInfo info;
 
         info.profile    = priv->profile;
@@ -618,14 +614,13 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
         info.width      = priv->width;
         info.height     = priv->height;
         info.ref_frames = get_max_dec_frame_buffering(sps);
-
+	priv->test = 0;
         if (!gst_vaapi_decoder_ensure_context(GST_VAAPI_DECODER(decoder), &info))
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
         priv->has_context = TRUE;
-
         /* Reset DPB */
-        dpb_reset(decoder, sps);
-    }
+ 	dpb_reset(decoder, sps);	
+    } 
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
 }
 
@@ -652,7 +647,6 @@ decode_current_picture(GstVaapiDecoderH264 *decoder)
 
     if (!picture)
         return TRUE;
-
     if (!decode_picture_end(decoder, picture))
         goto end;
     if (!gst_vaapi_picture_decode(GST_VAAPI_PICTURE_CAST(picture)))
@@ -671,7 +665,7 @@ decode_sps(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu)
     GstH264ParserResult result;
 
     GST_DEBUG("decode SPS");
-
+    
     if (priv->current_picture && !decode_current_picture(decoder))
         return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
 
@@ -691,7 +685,7 @@ decode_pps(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu)
     GstH264ParserResult result;
 
     GST_DEBUG("decode PPS");
-
+    if (priv->current_picture)
     if (priv->current_picture && !decode_current_picture(decoder))
         return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
 
@@ -1715,8 +1709,8 @@ exec_ref_pic_marking(GstVaapiDecoderH264 *decoder, GstVaapiPictureH264 *picture)
 
     if (!GST_VAAPI_PICTURE_IS_REFERENCE(picture))
         return TRUE;
-
     if (!picture->is_idr) {
+	
         GstH264DecRefPicMarking * const dec_ref_pic_marking =
             get_dec_ref_pic_marking(picture);
         if (dec_ref_pic_marking->adaptive_ref_pic_marking_mode_flag) {
@@ -1780,6 +1774,7 @@ exit_picture(GstVaapiDecoderH264 *decoder, GstVaapiPictureH264 *picture)
     /* Decoded reference picture marking process */
     if (!exec_ref_pic_marking(decoder, picture))
         return FALSE;
+    
     return TRUE;
 }
 
@@ -1896,12 +1891,12 @@ decode_picture(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu, GstH264SliceH
     GstH264PPS * const pps = slice_hdr->pps;
     GstH264SPS * const sps = pps->sequence;
 
-    status = ensure_context(decoder, sps);
+  /*  status = ensure_context(decoder, sps);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_DEBUG("failed to reset context");
         return status;
-    }
-   
+    }*/
+    
     picture = gst_vaapi_picture_h264_new(decoder);
     if (!picture) {
         GST_DEBUG("failed to allocate picture");
@@ -2124,7 +2119,6 @@ decode_slice(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu)
     GstH264ParserResult result;
 
     GST_DEBUG("slice (%u bytes)", nalu->size);
-
     slice = gst_vaapi_slice_h264_new(
         decoder,
         nalu->data + nalu->offset,
@@ -2148,7 +2142,7 @@ decode_slice(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu)
         status = decode_picture(decoder, nalu, slice_hdr);
         if (status != GST_VAAPI_DECODER_STATUS_SUCCESS)
             goto error;
-    }
+    } 
     picture = priv->current_picture;
 
     priv->mb_x = slice_hdr->first_mb_in_slice % priv->mb_width;
@@ -2271,8 +2265,10 @@ gst_vaapi_decoder_h264_decide_allocation(
     GstVaapiDecoderH264 *decoder = GST_VAAPI_DECODER_H264(dec);
     GstVaapiDecoderH264Private * priv = decoder->priv;
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+    GstH264SPS * const sps = &priv->last_sps;
 
-    status = ensure_context(decoder, priv->sps);
+    priv->test = 1;
+    status = ensure_context(decoder, sps);
 
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_ERROR("failed to create context,,failed to create the pool....");
@@ -2351,13 +2347,37 @@ decode_codec_data(GstVaapiDecoderH264 *decoder, GstBuffer *buffer)
     return status;
 }
 
+static gboolean
+gst_vaapi_picture_h264_allocate_surface(GstVaapiDecoderH264 *decoder)
+{
+    GstVaapiDecoderH264Private *priv = decoder->priv;
+    GstVaapiPictureH264 *picture = priv->current_picture;
+    GstVaapiPicture *base_picture = &picture->base;
+    VAPictureParameterBufferH264 * const pic_param = base_picture->param;
+    VAPictureH264 *pic;
+
+    if (!gst_vaapi_picture_allocate_surface(GST_VAAPI_PICTURE_CAST(base_picture))) {
+            GST_ERROR("failed to allocate surface for current pic");
+            return FALSE;
+    }
+    
+    pic = &picture->info;
+    pic->picture_id = picture->base.surface_id;
+    pic_param->CurrPic = picture->info;
+
+    return TRUE;   
+}
 GstVaapiDecoderStatus
 decode_buffer_h264(GstVaapiDecoderH264 *decoder, GstBuffer *buffer, GstVideoCodecFrame *frame)
 {
-    GstVaapiDecoderH264Private * const priv = decoder->priv;
-    GstVaapiPicture *picture = GST_VAAPI_PICTURE(priv->current_picture);
+    GstVaapiDecoderH264Private *priv = decoder->priv;
+    GstVaapiPicture *picture = GST_VAAPI_PICTURE_CAST(priv->current_picture);
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
-    if (picture) {
+    if (priv->current_picture) {
+	if (!gst_vaapi_picture_h264_allocate_surface(decoder)) {
+            GST_ERROR("failed to allocate surface for current pic");
+            return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+        }
         picture->frame_id       = frame->system_frame_number;
         /*decode pic*/
         if(!decode_current_picture(decoder))
@@ -2421,7 +2441,6 @@ gst_vaapi_decoder_h264_constructed(GObject *object)
         parent_class->constructed(object);
 
     priv->is_constructed = gst_vaapi_decoder_h264_create(decoder);
-
     if (!priv->is_opened) {
         priv->is_opened = gst_vaapi_decoder_h264_open(decoder);
         g_return_if_fail(priv->is_opened);
@@ -2491,6 +2510,7 @@ gst_vaapi_decoder_h264_init(GstVaapiDecoderH264 *decoder)
     priv->is_avc                = FALSE;
     priv->has_context           = FALSE;
     priv->ready_to_dec          = FALSE;
+    priv->test			= 0;
 
     memset(priv->dpb, 0, sizeof(priv->dpb));
     memset(priv->short_ref, 0, sizeof(priv->short_ref));

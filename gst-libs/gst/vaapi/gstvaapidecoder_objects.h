@@ -160,6 +160,11 @@ G_GNUC_INTERNAL
 gboolean
 gst_vaapi_picture_output(GstVaapiPicture *picture);
 
+gboolean
+gst_vaapi_picture_allocate_surface(
+    GstVaapiPicture    *picture
+);
+
 static inline gpointer
 gst_vaapi_picture_ref(gpointer ptr)
 {

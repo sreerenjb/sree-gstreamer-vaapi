@@ -882,11 +882,11 @@ decode_frame(GstVaapiDecoderVC1 *decoder, GstVC1BDU *rbdu, GstVC1BDU *ebdu)
     VASliceParameterBufferVC1 *slice_param;
     GstClockTime pts;
 
-    status = ensure_context(decoder);
+    /*status = ensure_context(decoder);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_DEBUG("failed to reset context");
         return status;
-    }
+    }*/
 
     priv->current_picture = GST_VAAPI_PICTURE_NEW(VC1, decoder);
     if (!priv->current_picture) {
@@ -1241,6 +1241,11 @@ decode_buffer_vc1(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer, GstVideoCodecF
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
 
     if (picture) {
+	if (!gst_vaapi_picture_allocate_surface(picture)) {
+            GST_ERROR("failed to allocate surface for current pic");
+            return FALSE;
+        }
+
         picture->frame_id       = frame->system_frame_number;
 	/*decode pic*/
 	status = decode_current_picture(decoder);
