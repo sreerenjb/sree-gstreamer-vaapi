@@ -233,7 +233,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
     GstVaapiContextPrivate * const priv = context->priv;
     GstCaps *caps;
     GstVaapiSurface *surface;
-    guint i, num_surfaces;
+    guint i, num_ref_frames, num_surfaces;
     guint size, min, max;
     GstStructure *config;
     GstFlowReturn result;
@@ -274,7 +274,10 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
             return FALSE;
     }
 
-    num_surfaces = priv->ref_frames + SCRATCH_SURFACES_COUNT;
+    num_ref_frames = 2;
+    if (gst_vaapi_profile_get_codec(priv->profile) == GST_VAAPI_CODEC_H264)
+        num_ref_frames = 16;
+    num_surfaces = num_ref_frames + SCRATCH_SURFACES_COUNT;
 
     min = num_surfaces;
     max = 24;
