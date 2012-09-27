@@ -274,12 +274,13 @@ struct _GstVaapiDecoderH264Private {
     gint32                      prev_frame_num_offset;  // prevFrameNumOffset
     gint32                      frame_num;              // frame_num (from slice_header())
     gint32                      prev_frame_num;         // prevFrameNum
+    GstVaapiEntrypoint          entrypoint;
     guint                       is_constructed          : 1;
     guint                       is_opened               : 1;
     guint                       is_avc                  : 1;
     guint                       has_context             : 1;
     guint			ready_to_dec		: 1;
-    guint			test;
+    guint			reset_context		: 1;
 };
 
 static gboolean
@@ -542,6 +543,7 @@ gst_vaapi_decoder_h264_create(GstVaapiDecoderH264 *decoder)
     return TRUE;
 }
 
+/* context is only creating from decide_allocation*/
 static GstVaapiDecoderStatus
 ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
 {
@@ -553,7 +555,7 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
 
     if (!priv->has_context || priv->sps->profile_idc != sps->profile_idc) {
         GST_DEBUG("profile changed");
-        reset_context = TRUE;
+        priv->reset_context = TRUE;
 
         switch (sps->profile_idc) {
         case 66:
@@ -587,7 +589,7 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
     if (!priv->has_context ||
         priv->sps->chroma_format_idc != sps->chroma_format_idc) {
         GST_DEBUG("chroma format changed");
-        reset_context = TRUE;
+        priv->reset_context = TRUE;
 
         /* XXX: theoritically, we could handle 4:2:2 format */
         if (sps->chroma_format_idc != 1)
@@ -598,29 +600,22 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
         priv->sps->width  != sps->width ||
         priv->sps->height != sps->height) {
         GST_DEBUG("size changed");
-        reset_context      = TRUE;
-        priv->width      = sps->width;
-        priv->height     = sps->height;
-        priv->mb_width   = sps->pic_width_in_mbs_minus1 + 1;
-        priv->mb_height  = sps->pic_height_in_map_units_minus1 + 1;
-        priv->mb_height *= 2 - sps->frame_mbs_only_flag;
+/*Fixme: have to merge has_context and reset_context */
+	priv->has_context	 = TRUE;
+        priv->reset_context      = TRUE;
+        priv->width      	 = sps->width;
+        priv->height     	 = sps->height;
+        priv->mb_width   	 = sps->pic_width_in_mbs_minus1 + 1;
+        priv->mb_height  	 = sps->pic_height_in_map_units_minus1 + 1;
+        priv->mb_height 	*= 2 - sps->frame_mbs_only_flag;
     }
 
-    if (reset_context && priv->test) {
-        GstVaapiContextInfo info;
-
-        info.profile    = priv->profile;
-        info.entrypoint = entrypoint;
-        info.width      = priv->width;
-        info.height     = priv->height;
-        info.ref_frames = get_max_dec_frame_buffering(sps);
-	priv->test = 0;
-        if (!gst_vaapi_decoder_ensure_context(GST_VAAPI_DECODER(decoder), &info))
-            return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
-        priv->has_context = TRUE;
-        /* Reset DPB */
+    priv->entrypoint = entrypoint;
+        
+    /* Reset DPB */
+    if (priv->reset_context)
  	dpb_reset(decoder, sps);	
-    } 
+    
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
 }
 
@@ -1891,11 +1886,11 @@ decode_picture(GstVaapiDecoderH264 *decoder, GstH264NalUnit *nalu, GstH264SliceH
     GstH264PPS * const pps = slice_hdr->pps;
     GstH264SPS * const sps = pps->sequence;
 
-  /*  status = ensure_context(decoder, sps);
+    status = ensure_context(decoder, sps);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_DEBUG("failed to reset context");
         return status;
-    }*/
+    }
     
     picture = gst_vaapi_picture_h264_new(decoder);
     if (!picture) {
@@ -2257,6 +2252,38 @@ beach:
     return status;
 }
 
+static gboolean 
+reset_context(GstVaapiDecoderH264 *decoder)
+{
+    GstVaapiDecoderH264Private * priv = decoder->priv;
+    GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+
+    /*Fixme: Do we actually need to check the sps parameters here?*/
+    status = ensure_context(decoder, priv->sps);
+    if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
+        GST_DEBUG("failed to reset context");
+        return FALSE;
+    }
+        
+    if (priv->reset_context) {
+        GstVaapiContextInfo info;
+
+        info.profile    = priv->profile;
+        info.entrypoint = priv->entrypoint;
+        info.width      = priv->width;
+        info.height     = priv->height;
+        info.ref_frames = get_max_dec_frame_buffering(priv->sps);
+        
+	if (!gst_vaapi_decoder_ensure_context(GST_VAAPI_DECODER(decoder), &info))
+            return FALSE;
+        priv->has_context = TRUE;
+	priv->reset_context = FALSE;
+        /* Reset DPB */
+ 	dpb_reset(decoder, priv->sps);	
+    }
+    return TRUE;
+}
+ 
 gboolean
 gst_vaapi_decoder_h264_decide_allocation(
     GstVaapiDecoder *dec,
@@ -2264,14 +2291,12 @@ gst_vaapi_decoder_h264_decide_allocation(
 {
     GstVaapiDecoderH264 *decoder = GST_VAAPI_DECODER_H264(dec);
     GstVaapiDecoderH264Private * priv = decoder->priv;
-    GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
-    GstH264SPS * const sps = &priv->last_sps;
+    gboolean res;
 
-    priv->test = 1;
-    status = ensure_context(decoder, sps);
+    res = reset_context(decoder);
 
-    if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
-        GST_ERROR("failed to create context,,failed to create the pool....");
+    if (!res) {
+        GST_ERROR("failed to reset context,,failed to create the pool....");
         return FALSE;
     }
     return TRUE;
@@ -2505,12 +2530,13 @@ gst_vaapi_decoder_h264_init(GstVaapiDecoderH264 *decoder)
     priv->prev_frame_num_offset = 0;
     priv->frame_num             = 0;
     priv->prev_frame_num        = 0;
+    priv->entrypoint	  	= GST_VAAPI_ENTRYPOINT_VLD;	
     priv->is_constructed        = FALSE;
     priv->is_opened             = FALSE;
     priv->is_avc                = FALSE;
     priv->has_context           = FALSE;
     priv->ready_to_dec          = FALSE;
-    priv->test			= 0;
+    priv->reset_context		= FALSE;
 
     memset(priv->dpb, 0, sizeof(priv->dpb));
     memset(priv->short_ref, 0, sizeof(priv->short_ref));
