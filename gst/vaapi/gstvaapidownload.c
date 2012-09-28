@@ -377,7 +377,7 @@ gst_vaapidownload_transform(
     GstMapInfo out_info;
     GstMapInfo info;
   
-    gst_buffer_map (inbuf, &in_info, GST_MAP_READ);
+    gst_buffer_map(inbuf, &in_info, GST_MAP_READ); 
     surface = (GstVaapiSurface *)in_info.data;
     if (!surface){
         GST_DEBUG_OBJECT (download, "Failed to retrieve the VA surface from buffer");

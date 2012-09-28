@@ -24,19 +24,33 @@
 #define GST_VAAPI_SURFACE_MEMORY_H
 
 #include <gst/vaapi/gstvaapisurface.h>
-#include <gst/vaapi/gstvaapivideopool.h>
+#include <gst/video/video.h>
 #include <gst/video/gstvideometa.h>
 
 G_BEGIN_DECLS
 
-/** For internal use **/
-typedef struct _SurfaceAllocatorParams SurfaceAllocatorParams;
+typedef struct _GstVaapiSurfaceMemory GstVaapiSurfaceMemory;
 
-struct _SurfaceAllocatorParams {
-  GstVaapiDisplay *display;
-  GstCaps *caps;
-  guint width;
-  guint height;
+struct _GstVaapiSurfaceMemory {
+    GstMemory memory;
+
+    GstVaapiSurface *surface;
+    GstVaapiDisplay *display;
+    gsize slice_size;
+    gpointer user_data;
+    GDestroyNotify notify;
+
+    GstVideoInfo        *info;
+
+    GstVaapiChromaType  chroma_type;
+    GstVaapiImageFormat ycbcr_format;
+
+    /* Cached data for mapping, copied from gstvdpvideomemory */
+    GstMapFlags        map_flags;
+    guint              n_planes;
+    guint8            *cache;
+    void *             cached_data[4];
+    gint               destination_pitches[4];
 };
 
 #define  GST_VAAPI_SURFACE_MEMORY_NAME  "GstVaapiSurfaceMemory"
@@ -55,7 +69,6 @@ typedef struct _GstVaapiSurfaceAllocatorClass GstVaapiSurfaceAllocatorClass;
 
 struct _GstVaapiSurfaceAllocator {
     GstAllocator parent;
-    SurfaceAllocatorParams allocator_params;
 };
 
 struct _GstVaapiSurfaceAllocatorClass
@@ -64,7 +77,7 @@ struct _GstVaapiSurfaceAllocatorClass
 };
 
 gboolean
-gst_vaapi_surface_memory_init(GstVaapiDisplay *display, GstCaps *caps);
+gst_vaapi_surface_memory_new (GstVaapiDisplay *display, GstVideoInfo *info);
 
 GType
 gst_vaapi_surface_allocator_get_type (void);

@@ -798,22 +798,20 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     gst_vaapisink_ensure_rotation(sink, TRUE);
     
     meta =  gst_buffer_get_meta((buf),GST_VAAPI_SURFACE_META_API_TYPE);
-
+    
     if (meta) {
         if (sink->display != meta->display) {
             g_clear_object(&sink->display);
             sink->display = g_object_ref (meta->display);
         }
         flags = meta->render_flags;
+	surface = meta->surface;
     }
-    
-    gst_buffer_map (buf, &map_info, GST_MAP_READ);
-    surface = map_info.data;
-    if (!surface){
-        GST_DEBUG_OBJECT (sink, "Failed to map the memory(GstVaapiSurface)");
-        return GST_FLOW_EOS;
-    }
-
+    if(!meta) {
+	/*Fixme: first buffer is comming without meta sometimes..*/
+	g_warning("Fixme:buffer with null meta received in vaapisink,,,");
+	return GST_FLOW_OK;
+    } 
     GST_DEBUG("render surface %" GST_VAAPI_ID_FORMAT,
                  GST_VAAPI_ID_ARGS(gst_vaapi_surface_get_id(surface)));
 

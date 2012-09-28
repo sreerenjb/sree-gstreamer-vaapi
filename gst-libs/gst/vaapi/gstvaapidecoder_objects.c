@@ -110,11 +110,12 @@ gst_vaapi_picture_allocate_surface(
 {
     GstVaapiSurface *surface;
     GstMapInfo map_info;
+    GstVaapiSurfaceMeta *meta;
     gboolean success;
 
     picture->surface_buffer = gst_vaapi_context_get_surface_buffer(GET_CONTEXT(picture));
-    gst_buffer_map (picture->surface_buffer, &map_info, GST_MAP_READ);
-    surface = (GstVaapiSurface *)map_info.data;
+    meta = gst_buffer_get_vaapi_surface_meta(picture->surface_buffer);
+    surface = (GstVaapiSurface *)meta->surface;
     if (!surface) {
         GST_DEBUG ("Mapping failed...");
         return FALSE;

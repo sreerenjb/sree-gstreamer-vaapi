@@ -239,6 +239,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
     GstFlowReturn result;
     GstBuffer *out;
     GstMapInfo map_info;
+    GstVaapiSurfaceMeta *meta;
 
     /* Number of scratch surfaces beyond those used as reference */
     /*Fixme: there is a bug some where which is preventing to set SCRATCH_SURFACES_COUNT to 4*/
@@ -291,16 +292,15 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
 
         result = gst_buffer_pool_acquire_buffer ((GstBufferPool *)priv->surfaces_pool, &out, NULL);
 
-        gst_buffer_map (out, &map_info, GST_MAP_READ);
-
-        surface = (GstVaapiSurface *)map_info.data;
+	meta =gst_buffer_get_vaapi_surface_meta(out);
+	
+	surface = (GstVaapiSurface *)meta->surface;
         if (!surface)
         {
                 GST_DEBUG ("Mapping failed...");
                 return FALSE;
         }
         g_ptr_array_add(priv->surfaces, surface);
-        gst_buffer_unmap (out, &map_info);
         gst_buffer_pool_release_buffer ((GstBufferPool *)priv->surfaces_pool, out);
     }
     return TRUE;
@@ -809,6 +809,7 @@ gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
     GstVaapiSurface *surface;
     GstBuffer *buffer;
     GstMapInfo info;
+    GstVaapiSurfaceMeta *meta;
 
     g_return_val_if_fail(GST_VAAPI_IS_CONTEXT(context), NULL);
 
@@ -817,11 +818,11 @@ gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
 	buffer = NULL;
     }
     if (buffer) {
-	gst_buffer_map(buffer, &info, GST_MAP_READ);
-	surface = info.data;
+
+	meta =gst_buffer_get_vaapi_surface_meta(buffer);
+	surface = meta->surface;
 	if (surface)
             gst_vaapi_surface_set_parent_context(GST_VAAPI_SURFACE(surface), context);
-	gst_buffer_unmap(buffer, &info);
     }
     return buffer;
 }
@@ -867,13 +868,13 @@ gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffe
     GstVaapiContextPrivate * const priv = context->priv;
     GstVaapiSurface *surface;
     GstMapInfo info;
+    GstVaapiSurfaceMeta *meta;
    
     if (buffer) {
-	gst_buffer_map(buffer, &info, GST_MAP_READ);
-	surface = (GstVaapiSurface *)info.data;
+	meta =gst_buffer_get_vaapi_surface_meta(buffer);
+	surface = (GstVaapiSurface *)meta->surface;
 	if (surface)
             gst_vaapi_surface_set_parent_context(GST_VAAPI_SURFACE(surface), NULL);
-	gst_buffer_unmap(buffer, &info);
     }
     gst_buffer_pool_release_buffer ((GstBufferPool *)priv->surfaces_pool, buffer);
 }

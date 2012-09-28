@@ -22,30 +22,15 @@
 #ifndef GST_VAAPI_SURFACE_POOL_H
 #define GST_VAAPI_SURFACE_POOL_H
 
+#include <gst/video/gstvideometa.h>
+#include <gst/video/gstvideopool.h>
+
 #include <gst/vaapi/gstvaapisurface.h>
 #include <gst/vaapi/gstvaapivideopool.h>
-#include <gst/video/gstvideometa.h>
 #include <gst/vaapi/gstvaapisurfacememory.h>
+#include <gst/vaapi/gstvaapisurfacemeta.h>
+
 G_BEGIN_DECLS
-
-typedef struct _GstVaapiSurfaceMeta GstVaapiSurfaceMeta;
-
-GType gst_vaapi_surface_meta_api_get_type (void);
-#define GST_VAAPI_SURFACE_META_API_TYPE  (gst_vaapi_surface_meta_api_get_type())
-const GstMetaInfo * gst_vaapi_surface_meta_get_info (void);
-#define GST_VAAPI_SURFACE_META_INFO  (gst_vaapi_surface_meta_get_info())
-
-#define gst_buffer_get_vaapi_surface_meta(b) ((GstVaapiSurfaceMeta*)gst_buffer_get_meta((b),GST_VAAPI_SURFACE_META_API_TYPE))
-
-struct _GstVaapiSurfaceMeta {
-   GstMeta meta;
-
-   GstVaapiDisplay *display;
-   gint width, height;
-   gboolean interlaced;
-   gboolean tff;
-   guint render_flags;
-};
 
 #define GST_VAAPI_TYPE_SURFACE_POOL \
     (gst_vaapi_surface_pool_get_type())
@@ -74,6 +59,14 @@ struct _GstVaapiSurfaceMeta {
 typedef struct _GstVaapiSurfacePool             GstVaapiSurfacePool;
 typedef struct _GstVaapiSurfacePoolPrivate      GstVaapiSurfacePoolPrivate;
 typedef struct _GstVaapiSurfacePoolClass        GstVaapiSurfacePoolClass;
+
+/**
+ * GST_BUFFER_POOL_OPTION_VDP_VIDEO_META:
+ *
+ * An option that can be activated on bufferpool to request VdpVideo metadata
+ * on buffers from the pool.
+ */
+#define GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META "GstBufferPoolOptionSurfaceMeta"
 
 /**
  * GstVaapiSurfacePool:

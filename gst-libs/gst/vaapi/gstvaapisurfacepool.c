@@ -32,80 +32,16 @@
 
 struct _GstVaapiSurfacePoolPrivate {
     GstAllocator 	*allocator;
-    GstVaapiChromaType  chroma_type;
-    guint               width;
-    guint               height; 
-};
-
-static void gst_vaapi_surface_meta_free (GstVaapiSurfaceMeta * meta, GstBuffer * buffer);
-
-/* vaapi_surface metadata */
-GType
-gst_vaapi_surface_meta_api_get_type (void)
-{
-  static volatile GType type;
-  static const gchar *tags[] =
-      { "memory", "size", "colorspace", "orientation", NULL };
-
-  if (g_once_init_enter (&type)) {
-    GType _type = gst_meta_api_type_register ("GstVaapiSurfaceMetaAPI", tags);
-    g_once_init_leave (&type, _type);
-  }
-  return type;
-}
-
-const GstMetaInfo *
-gst_vaapi_surface_meta_get_info (void)
-{
-  static const GstMetaInfo *vaapi_surface_meta_info = NULL;
-
-  if (vaapi_surface_meta_info == NULL) {
-    vaapi_surface_meta_info =
-        gst_meta_register (GST_VAAPI_SURFACE_META_API_TYPE, "GstVaapiSurfaceMeta",
-        sizeof (GstVaapiSurfaceMeta), (GstMetaInitFunction) NULL,
-        (GstMetaFreeFunction) gst_vaapi_surface_meta_free,
-        (GstMetaTransformFunction) NULL);
-  }
-  return vaapi_surface_meta_info;
-}
-
-static GstVaapiSurfaceMeta*
-gst_buffer_add_vaapi_surface_meta (GstBuffer *buffer, GstVaapiSurfacePool *pool)
-{
-    GstVaapiSurfaceMeta *meta;
-    GstVaapiSurfacePoolPrivate *priv;
-    GstVaapiDisplay *display;
-    gint width, height; 
-   
-    priv = pool->priv;
-    /*Fixme: implement stride, padding support*/
-    width  = priv->width;
-    height = priv->height;
-
-    meta = (GstVaapiSurfaceMeta *)gst_buffer_add_meta (buffer, GST_VAAPI_SURFACE_META_INFO, NULL);
-    
-    meta->width  = width;
-    meta->height = height;
-    meta->render_flags = 0x00000000; 
-
-    display = gst_vaapi_video_pool_get_display(GST_VAAPI_VIDEO_POOL(pool));
-    if (display)
-	meta->display = g_object_ref(G_OBJECT(display));
-
-    return meta;
-}
-
-static void
-gst_vaapi_surface_meta_free (GstVaapiSurfaceMeta * meta, GstBuffer * buffer)
-{
-    GstVaapiDisplay *display;
-
-    display = meta->display;
+  
+    GstVaapiDisplay     *display;
  
-    GST_DEBUG_OBJECT (display, "free meta on buffer %p", buffer);   
-    if (display)
-	g_object_unref(G_OBJECT(display)); 
-}
+    GstVaapiImageFormat yuv_format; 
+    GstVaapiChromaType  chroma_type;
+
+    GstVideoInfo	info;
+    guint		add_videometa          :1;
+    guint		add_vaapi_surface_meta :1; 
+};
 
 G_DEFINE_TYPE(
     GstVaapiSurfacePool,
@@ -117,12 +53,12 @@ G_DEFINE_TYPE(
                                  GST_VAAPI_TYPE_SURFACE_POOL,	\
                                  GstVaapiSurfacePoolPrivate))
 
+/*Fixme: this will go away once we directly subclass surfacepoool from bufferpool*/
 static void
 gst_vaapi_surface_pool_set_caps(GstVaapiVideoPool *pool, GstCaps *caps)
 {
     GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL(pool)->priv;
     GstStructure *structure;
-    gint width, height;
     GstVideoInfo info;
 
     if (!gst_video_info_from_caps (&info, caps))
@@ -130,74 +66,97 @@ gst_vaapi_surface_pool_set_caps(GstVaapiVideoPool *pool, GstCaps *caps)
 	GST_ERROR ("Failed to parse video info");
 	return;
     }
-
+    priv->info		= info;
     priv->chroma_type   = GST_VAAPI_CHROMA_TYPE_YUV420;
-    priv->width         = info.width;
-    priv->height        = info.height;
 }
 
 static const gchar **
 gst_vaapi_surface_pool_get_options (GstBufferPool * pool)
 {
   static const gchar *options[] = { GST_BUFFER_POOL_OPTION_VIDEO_META,
-    GST_BUFFER_POOL_OPTION_VIDEO_ALIGNMENT, NULL
+    GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META, NULL
   };
 
   return options;
 }
 
 static gboolean
+ensure_surface_memory (GstBufferPool *pool, GstVideoInfo *info)
+{
+    GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL(pool)->priv;
+    GstVaapiDisplay *display = gst_vaapi_video_pool_get_display (GST_VAAPI_VIDEO_POOL(pool));
+    
+ 
+    if(!priv->allocator) 
+       priv->allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);
+}
+
+static gboolean
 gst_vaapi_surface_pool_set_config (GstBufferPool * pool, GstStructure * config)
 {
+    GstVaapiSurfacePool *surface_pool = GST_VAAPI_SURFACE_POOL (pool);
+    GstVaapiSurfacePoolPrivate *priv = surface_pool->priv;
+    GstVaapiDisplay *display;
+    GstAllocationParams params;
+    GstVideoInfo info;
+    GstCaps *caps;
 
-  GstVaapiSurfacePool *surface_pool = GST_VAAPI_SURFACE_POOL (pool);
-  GstVaapiSurfacePoolPrivate *priv = surface_pool->priv;
-  GstAllocationParams params;
-  GstVideoInfo info;
-  GstCaps *caps;
+    if (!gst_buffer_pool_config_get_params (config, &caps, NULL, NULL, NULL))
+        goto wrong_config;
 
-  if (!gst_buffer_pool_config_get_params (config, &caps, NULL, NULL, NULL))
-    goto wrong_config;
+    if (caps == NULL)
+       goto no_caps;
 
-  if (caps == NULL)
-    goto no_caps;
+    /* now parse the caps from the config */
+    if (!gst_video_info_from_caps (&info, caps))
+       goto wrong_caps;
 
-  /* now parse the caps from the config */
-  if (!gst_video_info_from_caps (&info, caps))
-    goto wrong_caps;
+    GST_LOG_OBJECT (pool, "%dx%d, caps %" GST_PTR_FORMAT, info.width, info.height,
+        caps);
 
-  GST_LOG_OBJECT (pool, "%dx%d, caps %" GST_PTR_FORMAT, info.width, info.height,
-      caps);
+    priv->chroma_type   = GST_VAAPI_CHROMA_TYPE_YUV420;
+    priv->info 		= info;
+    display 		= gst_vaapi_video_pool_get_display (GST_VAAPI_VIDEO_POOL(pool));
+    priv->display	= g_object_ref(G_OBJECT(display));
+    
+    /*Fixme: move this to vaapisink:propose_allocation*/
+    gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META);
+    if (!priv->allocator)    
+        priv->allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);
 
-  /* keep track of the width and height and caps */
-  priv->width = info.width;
-  priv->height = info.height;
+    gst_allocation_params_init(&params);
+    gst_buffer_pool_config_set_allocator(config, priv->allocator, &params);
 
-  gst_allocation_params_init(&params);
-  gst_buffer_pool_config_set_allocator(config, priv->allocator, &params);
+    /* enable metadata based on config of the pool */
+    priv->add_videometa =
+        gst_buffer_pool_config_has_option (config,
+        GST_BUFFER_POOL_OPTION_VIDEO_META);
 
-  return GST_BUFFER_POOL_CLASS (gst_vaapi_surface_pool_parent_class)->set_config (pool, config);
+    /* parse extra alignment info */
+    priv->add_vaapi_surface_meta = gst_buffer_pool_config_has_option (config,
+        GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META);
 
-  /* ERRORS */
+    return GST_BUFFER_POOL_CLASS (gst_vaapi_surface_pool_parent_class)->set_config (pool, config);
+
+    /* ERRORS */
 wrong_config:
-  {
-    GST_WARNING_OBJECT (pool, "invalid config");
-    return FALSE;
-  }
+    {
+        GST_WARNING_OBJECT (pool, "invalid config");
+        return FALSE;
+    }
 
-  no_caps:
-  {
-    GST_WARNING_OBJECT (pool, "no caps in config");
-    return FALSE;
-  }
+   no_caps:
+    {
+        GST_WARNING_OBJECT (pool, "no caps in config");
+        return FALSE;
+    }
 
 wrong_caps:
-  {
-    GST_WARNING_OBJECT (pool,
-        "failed getting geometry from caps %" GST_PTR_FORMAT, caps);
-    return FALSE;
-  }
-
+    {
+        GST_WARNING_OBJECT (pool,
+            "failed getting geometry from caps %" GST_PTR_FORMAT, caps);
+        return FALSE;
+    } 
 }
   
 static GstFlowReturn
@@ -210,25 +169,32 @@ gst_vaapi_surface_pool_alloc (GstBufferPool * pool, GstBuffer ** buffer,
    GstMemory *surface_mem;
    GstAllocationParams params;
    GstVaapiSurfaceMeta *meta;
+   GstVideoInfo *info;
 
    GstVaapiVideoPool *video_pool = GST_VAAPI_VIDEO_POOL (pool);
    GstVaapiSurfacePool *surface_pool = GST_VAAPI_SURFACE_POOL (pool);
    GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL(pool)->priv;
 
+   info = &priv->info;
+
    display = gst_vaapi_video_pool_get_display (video_pool);
 
-   gst_allocation_params_init(&params);   
-   surface_mem = gst_allocator_alloc (priv->allocator , priv->width*priv->height, &params);
+   if (!(surface_mem = gst_vaapi_surface_memory_new(display,info))) {
+	GST_ERROR("Failed to create the VA Surface Memory");
+	return FALSE;
+   }
 
    surface_buffer = gst_buffer_new ();
    gst_buffer_insert_memory (surface_buffer, -1, (GstMemory *)surface_mem);
    GST_BUFFER_OFFSET(surface_buffer) = 0;
    GST_BUFFER_TIMESTAMP(surface_buffer) = 0;
-   
-   meta = gst_buffer_add_vaapi_surface_meta (surface_buffer, surface_pool);
-   if (!meta) {
-       gst_buffer_unref(surface_buffer);
-       goto no_buffer;
+  
+   if(priv->add_vaapi_surface_meta) {
+       meta = gst_buffer_add_vaapi_surface_meta (surface_buffer, display);
+       if (!meta) {
+           gst_buffer_unref(surface_buffer);
+           goto no_buffer;
+       }
    }
 
    *buffer = surface_buffer;
@@ -277,11 +243,11 @@ gst_vaapi_surface_pool_init(GstVaapiSurfacePool *pool)
 {
     GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL_GET_PRIVATE(pool);
 
-    pool->priv          = priv;
-    priv->chroma_type   = 0;
-    priv->width         = 0;
-    priv->height        = 0;
-    priv->allocator     = NULL;
+    pool->priv                   = priv;
+    priv->chroma_type   	 = 0;
+    priv->allocator     	 = NULL;
+    priv->add_videometa 	 = FALSE;
+    priv->add_vaapi_surface_meta = FALSE;
 }
 
 /**
@@ -298,19 +264,14 @@ GstVaapiVideoPool *
 gst_vaapi_surface_pool_new(GstVaapiDisplay *display, GstCaps *caps)
 {
     GstVaapiVideoPool *pool;
+    GstVideoInfo info;
     
     pool = g_object_new(GST_VAAPI_TYPE_SURFACE_POOL,
                         "display", display,
                         "caps",    caps,
                         NULL);
-    GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL_GET_PRIVATE(pool);
 
-    if (!gst_vaapi_surface_memory_init(display,caps)) {
-	GST_ERROR("Failed to initialize the surface_memory and surface_meory allocator");
-	return NULL;
-    }
-  
-    priv->allocator = gst_allocator_find("GstVaapiSurfaceAllocator");
+    gst_vaapi_surface_memory_allocator_setup();
 
     return pool;
 }
