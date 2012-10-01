@@ -138,18 +138,8 @@ struct _GLVTable {
     PFNGLFRAMEBUFFERRENDERBUFFEREXTPROC gl_framebuffer_renderbuffer;
     PFNGLFRAMEBUFFERTEXTURE2DEXTPROC    gl_framebuffer_texture_2d;
     PFNGLCHECKFRAMEBUFFERSTATUSEXTPROC  gl_check_framebuffer_status;
-    PFNGLGENPROGRAMSARBPROC             gl_gen_programs;
-    PFNGLDELETEPROGRAMSARBPROC          gl_delete_programs;
-    PFNGLBINDPROGRAMARBPROC             gl_bind_program;
-    PFNGLPROGRAMSTRINGARBPROC           gl_program_string;
-    PFNGLGETPROGRAMIVARBPROC            gl_get_program_iv;
-    PFNGLPROGRAMLOCALPARAMETER4FVARBPROC gl_program_local_parameter_4fv;
-    PFNGLACTIVETEXTUREPROC              gl_active_texture;
-    PFNGLMULTITEXCOORD2FPROC            gl_multi_tex_coord_2f;
     guint                               has_texture_from_pixmap : 1;
     guint                               has_framebuffer_object  : 1;
-    guint                               has_fragment_program    : 1;
-    guint                               has_multitexture        : 1;
 };
 
 G_GNUC_INTERNAL
