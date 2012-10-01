@@ -377,10 +377,11 @@ gst_vaapiupload_transform(
     GstBuffer *buf;
     GstMapInfo surface_info;
     GstMapInfo image_info;
+    GstVaapiSurfaceMeta *meta;
 
     if (outbuf) {
-        gst_buffer_map(outbuf, &surface_info, GST_MAP_READ);
-        surface = (GstVaapiSurface *)surface_info.data;
+         meta =  gst_buffer_get_meta((outbuf),GST_VAAPI_SURFACE_META_API_TYPE);
+         surface = (GstVaapiSurface *)meta->surface;
     }
 
     if (!surface)
@@ -564,6 +565,7 @@ gst_vaapiupload_ensure_direct_rendering_caps(
     GstMapInfo image_map, surface_map;
     GstBuffer *buf;
     gint width, height;
+    GstVaapiSurfaceMeta *meta;
 
 
     if (!upload->images_reset && !upload->surfaces_reset)
@@ -616,8 +618,8 @@ gst_vaapiupload_ensure_direct_rendering_caps(
         buf = NULL;
     }
     if (buf) {
-        gst_buffer_map(buf, &surface_map, GST_MAP_WRITE);
-        surface = (GstVaapiSurface *)surface_map.data;
+	 meta =  gst_buffer_get_meta((buf),GST_VAAPI_SURFACE_META_API_TYPE);
+         surface = (GstVaapiSurface *)meta->surface;
     }
     if (surface) {
         image = gst_vaapi_surface_derive_image(surface);

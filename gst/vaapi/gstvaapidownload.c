@@ -376,9 +376,10 @@ gst_vaapidownload_transform(
     GstMapInfo in_info;
     GstMapInfo out_info;
     GstMapInfo info;
-  
-    gst_buffer_map(inbuf, &in_info, GST_MAP_READ); 
-    surface = (GstVaapiSurface *)in_info.data;
+    GstVaapiSurfaceMeta *meta;
+ 
+    meta =  gst_buffer_get_meta((inbuf),GST_VAAPI_SURFACE_META_API_TYPE); 
+    surface = (GstVaapiSurface *)meta->surface;
     if (!surface){
         GST_DEBUG_OBJECT (download, "Failed to retrieve the VA surface from buffer");
         return GST_FLOW_EOS;
