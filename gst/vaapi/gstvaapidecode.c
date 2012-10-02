@@ -169,7 +169,7 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
 
     gst_structure_set(structure, "type", G_TYPE_STRING, "vaapi", NULL);
     gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_GLX, NULL);
-    gst_structure_set(structure, "format", G_TYPE_STRING, "YV12", NULL); /*Fixme*/
+    gst_structure_set(structure, "format", G_TYPE_STRING, "NV12", NULL); /*Fixme*/
 
     return success;
 }
@@ -577,7 +577,6 @@ gst_vaapi_dec_set_format(GstVideoDecoder * bdec, GstVideoCodecState * state)
     caps = state->caps;
     width = info.width;
     height = info.height;
-    fmt = GST_VIDEO_FORMAT_YV12;
 
     if (!gst_vaapidecode_update_sink_caps(dec, caps))
         return FALSE;
@@ -698,7 +697,7 @@ gst_vaapi_dec_negotiate(GstVideoDecoder *dec)
     }
 
     vaapi_dec->output_state =
-        gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec), GST_VIDEO_FORMAT_YV12,
+        gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec), GST_VIDEO_FORMAT_NV12,
         srcpad_info.width, srcpad_info.height, vaapi_dec->input_state);
 
     vaapi_dec->output_state->caps = vaapi_dec->srcpad_caps;

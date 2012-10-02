@@ -258,7 +258,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
     if (!priv->surfaces_pool) {
         caps = gst_caps_new_simple(
 	    "video/x-raw",
-	    "format", G_TYPE_STRING, "YV12",
+	    "format", G_TYPE_STRING, "NV12",
             "type", G_TYPE_STRING, "vaapi",
             "width",  G_TYPE_INT, priv->width,
             "height", G_TYPE_INT, priv->height,
