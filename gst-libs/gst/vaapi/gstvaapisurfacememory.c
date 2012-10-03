@@ -42,7 +42,6 @@ _gst_vaapi_surface_mem_new (GstAllocator *allocator, GstMemory *parent,
     GstVaapiSurface *surface;
 
     GST_DEBUG ("alloc from allocator %p", allocator);
-
     mem = g_slice_new (GstVaapiSurfaceMemory);
 
     gst_memory_init (GST_MEMORY_CAST (mem), GST_MEMORY_FLAG_READONLY , allocator, parent,
@@ -62,6 +61,9 @@ _gst_vaapi_surface_mem_new (GstAllocator *allocator, GstMemory *parent,
     mem->info        = info;
     mem->display     = g_object_ref(G_OBJECT(display));
     mem->chroma_type = GST_VAAPI_CHROMA_TYPE_YUV420;
+    mem->image       = gst_vaapi_image_new (mem->display, GST_VAAPI_IMAGE_NV12, 
+			  info->width,info->height);
+    mem->cache 	     = g_malloc (GST_VIDEO_INFO_SIZE (info));
     
     return (GstMemory *)mem;
 }
@@ -90,7 +92,10 @@ _gst_vaapi_surface_mem_free (GstAllocator *allocator, GstMemory *mem)
 	g_object_unref(G_OBJECT(surface_mem->display));
 	surface_mem->display = NULL;
     }
-
+    if (surface_mem->cache) {
+	free(surface_mem->cache);
+	surface_mem->cache = NULL;
+    }
     if (surface_mem->cache)
         g_free (surface_mem->cache);
     
@@ -99,28 +104,41 @@ _gst_vaapi_surface_mem_free (GstAllocator *allocator, GstMemory *mem)
 }
 
 static gboolean
-ensure_data (GstVaapiSurfaceMemory * vmem)
+ensure_data (GstVaapiSurfaceMemory * surface_mem)
 {
-    GstVideoInfo *info = vmem->info;
+    GstMapInfo map_info;
+    GstMemory *memory;
+    GstVideoInfo *info;
+    GstVaapiImageRaw raw_image;
+    guint num_planes, i;
+ 
+    info       = surface_mem->info;
+    num_planes = GST_VIDEO_INFO_N_PLANES(info);
+    
+    for (i=0; i<num_planes; i++) {
+        surface_mem->cached_data[i] = surface_mem->cache + GST_VIDEO_INFO_PLANE_OFFSET (info, i);
+        surface_mem->destination_pitches[i] = GST_VIDEO_INFO_PLANE_STRIDE (info, i);
+        
+        GST_DEBUG ("cached_data %p ", surface_mem->cached_data[i]);
+        GST_DEBUG ("pitches %d ", surface_mem->destination_pitches[i]);
+    
+	raw_image.pixels[i] = surface_mem->cached_data[i];
+    	raw_image.stride[i] = surface_mem->destination_pitches[i];
+    } 
+    if (!gst_vaapi_surface_get_image(surface_mem->surface, surface_mem->image))
+    {
+        GST_ERROR("Failed to get the image from surface");
+	return FALSE;
+    }
 
-    if (vmem->cache != NULL)
-        return TRUE;
-
-    /* Allocate enough room to store data */
-    vmem->cache = g_malloc (GST_VIDEO_INFO_SIZE (info));
-    vmem->cached_data[0] = vmem->cache;
-    vmem->cached_data[1] = vmem->cache + GST_VIDEO_INFO_PLANE_OFFSET (info, 1);
-    vmem->cached_data[2] = vmem->cache + GST_VIDEO_INFO_PLANE_OFFSET (info, 2);
-    vmem->destination_pitches[0] = GST_VIDEO_INFO_PLANE_STRIDE (info, 0);
-    vmem->destination_pitches[1] = GST_VIDEO_INFO_PLANE_STRIDE (info, 1);
-    vmem->destination_pitches[2] = GST_VIDEO_INFO_PLANE_STRIDE (info, 2);
-
-    GST_DEBUG ("cached_data %p %p %p",
-        vmem->cached_data[0], vmem->cached_data[1], vmem->cached_data[2]);
-    GST_DEBUG ("pitches %d %d %d",
-        vmem->destination_pitches[0],
-        vmem->destination_pitches[1], vmem->destination_pitches[2]);
-  
+    raw_image.format = GST_VAAPI_IMAGE_NV12;
+    raw_image.width  = surface_mem->info->width;
+    raw_image.height = surface_mem->info->height;
+    
+    if (!gst_vaapi_image_get_raw(surface_mem->image, &raw_image, NULL)) {
+        GST_ERROR("Failed to get raw image");
+	return FALSE;
+    }
     return TRUE;
 }
 
@@ -129,7 +147,6 @@ _gst_vaapi_surface_mem_map (GstVaapiSurfaceMemory *mem, gsize maxsize, GstMapFla
 {
      GST_DEBUG ("surface:%d, maxsize:%d, flags:%d", mem->surface,
       maxsize, flags);
-
      if (!ensure_data (mem))
          return NULL;
 
@@ -184,8 +201,8 @@ gst_vaapi_surface_allocator_init (GstVaapiSurfaceAllocator * allocator)
     alloc->mem_map     = (GstMemoryMapFunction) _gst_vaapi_surface_mem_map;
     alloc->mem_unmap   = (GstMemoryUnmapFunction) _gst_vaapi_surface_mem_unmap;
     alloc->mem_share   = (GstMemoryShareFunction) _gst_vaapi_surface_mem_share;
-    alloc->mem_copy    = (GstMemoryCopyFunction) _gst_vaapi_surface_mem_copy;
-    alloc->mem_is_span = (GstMemoryIsSpanFunction) _gst_vaapi_surface_mem_is_span;
+    //alloc->mem_copy    = (GstMemoryCopyFunction) _gst_vaapi_surface_mem_copy;
+    //alloc->mem_is_span = (GstMemoryIsSpanFunction) _gst_vaapi_surface_mem_is_span;
 }
 
 gboolean

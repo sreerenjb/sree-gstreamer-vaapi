@@ -34,16 +34,19 @@ typedef struct _GstVaapiSurfaceMemory GstVaapiSurfaceMemory;
 struct _GstVaapiSurfaceMemory {
     GstMemory memory;
 
-    GstVaapiSurface *surface;
     GstVaapiDisplay *display;
+    
+    GstVaapiSurface *surface;
+    GstVaapiChromaType  chroma_type;
+    
+    GstVaapiImage *image;
+    GstVaapiImageFormat ycbcr_format;
+
     gsize slice_size;
     gpointer user_data;
     GDestroyNotify notify;
 
     GstVideoInfo        *info;
-
-    GstVaapiChromaType  chroma_type;
-    GstVaapiImageFormat ycbcr_format;
 
     /* Cached data for mapping, copied from gstvdpvideomemory */
     GstMapFlags        map_flags;
