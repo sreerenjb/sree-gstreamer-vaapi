@@ -229,3 +229,37 @@ gst_vaapi_surface_memory_allocator_setup (void)
   }
 }
 
+/*just copied from vdpau port*/
+gboolean
+gst_vaapi_video_memory_map (GstVideoMeta * meta, guint plane, GstMapInfo * info,
+    gpointer * data, gint * stride, GstMapFlags flags)
+{
+  GstBuffer *buffer = meta->buffer;
+  GstVaapiSurfaceMemory *vmem =
+      (GstVaapiSurfaceMemory *) gst_buffer_get_memory (buffer, 0);
+
+  /* Only handle GstVdpVideoMemory */
+  g_return_val_if_fail (((GstMemory *) vmem)->allocator == _surface_allocator,
+      FALSE);
+
+  GST_DEBUG ("plane:%d", plane);
+
+  /* download if not already done */
+  if (!ensure_data (vmem))
+    return FALSE;
+
+  *data = vmem->cached_data[plane];
+  *stride = vmem->destination_pitches[plane];
+
+  return TRUE;
+}
+
+gboolean
+gst_vaapi_video_memory_unmap (GstVideoMeta * meta, guint plane, GstMapInfo * info)
+{
+  GST_DEBUG ("plane:%d", plane);
+
+  /*Fixme: implement*/
+  return TRUE;
+}
+

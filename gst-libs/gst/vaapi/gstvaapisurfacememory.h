@@ -82,6 +82,12 @@ struct _GstVaapiSurfaceAllocatorClass
 gboolean
 gst_vaapi_surface_memory_new (GstVaapiDisplay *display, GstVideoInfo *info);
 
+gboolean gst_vaapi_video_memory_map(GstVideoMeta * meta, guint plane,
+                                  GstMapInfo * info, gpointer * data,
+                                  gint * stride, GstMapFlags flags);
+gboolean gst_vaapi_video_memory_unmap(GstVideoMeta * meta, guint plane,
+                                    GstMapInfo * info);
+
 GType
 gst_vaapi_surface_allocator_get_type (void);
 

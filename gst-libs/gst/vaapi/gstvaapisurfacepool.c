@@ -119,6 +119,8 @@ gst_vaapi_surface_pool_set_config (GstBufferPool * pool, GstStructure * config)
     
     /*Fixme: move this to vaapisink:propose_allocation*/
     gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META);
+    gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VIDEO_META);
+    
     if (!priv->allocator)    
         priv->allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);
 
@@ -194,7 +196,19 @@ gst_vaapi_surface_pool_alloc (GstBufferPool * pool, GstBuffer ** buffer,
            goto no_buffer;
        }
    }
+   
+   if (priv->add_videometa) {
+       GstVideoMeta *vmeta;
 
+       GST_DEBUG_OBJECT (pool, "adding GstVideoMeta");
+       /* these are just the defaults for now */
+       vmeta = gst_buffer_add_video_meta (surface_buffer, 0, GST_VIDEO_INFO_FORMAT (info),
+           GST_VIDEO_INFO_WIDTH (info), GST_VIDEO_INFO_HEIGHT (info));
+       
+       vmeta->map   = gst_vaapi_video_memory_map;
+       vmeta->unmap = gst_vaapi_video_memory_unmap;
+   }
+ 
    *buffer = surface_buffer;
    return GST_FLOW_OK;
 
