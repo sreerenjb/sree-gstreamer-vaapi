@@ -85,7 +85,6 @@ ensure_surface_memory (GstBufferPool *pool, GstVideoInfo *info)
 {
     GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL(pool)->priv;
     GstVaapiDisplay *display = gst_vaapi_video_pool_get_display (GST_VAAPI_VIDEO_POOL(pool));
-    
  
     if(!priv->allocator) 
        priv->allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);
@@ -116,8 +115,7 @@ gst_vaapi_surface_pool_set_config (GstBufferPool * pool, GstStructure * config)
 
     priv->chroma_type   = GST_VAAPI_CHROMA_TYPE_YUV420;
     priv->info 		= info;
-    display 		= gst_vaapi_video_pool_get_display (GST_VAAPI_VIDEO_POOL(pool));
-    priv->display	= g_object_ref(G_OBJECT(display));
+    priv->display 	= gst_vaapi_video_pool_get_display (GST_VAAPI_VIDEO_POOL(pool));
     
     /*Fixme: move this to vaapisink:propose_allocation*/
     gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META);
