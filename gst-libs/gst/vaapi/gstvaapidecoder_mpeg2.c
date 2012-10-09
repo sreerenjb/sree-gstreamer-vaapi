@@ -1005,8 +1005,19 @@ gst_vaapi_decoder_mpeg2_parse(
 
     ofs = scan_for_start_code(adapter, 0, size, &start_code);
 
+<<<<<<< HEAD
     if (ofs < 0)
         goto need_data;
+=======
+        status = GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA;
+        if (size < 4)
+            break;
+        ofs = scan_for_start_code(priv->adapter, 0, size, &start_code);
+        if (ofs < 0)
+            break;
+        gst_adapter_flush(priv->adapter, ofs);
+        size -= ofs;
+>>>>>>> 91da4fc... mpeg2: fix memory leak of empty packets.
 
     gst_adapter_flush(adapter, ofs);
     size -= ofs;
@@ -1014,6 +1025,7 @@ gst_vaapi_decoder_mpeg2_parse(
     if (size < 8)
         goto need_data;
 
+<<<<<<< HEAD
     ofs = scan_for_start_code(adapter, 4, size-4, NULL);
 
     if (ofs < 0)
@@ -1032,6 +1044,10 @@ gst_vaapi_decoder_mpeg2_parse(
     }
 
     *toadd = ofs;
+=======
+        buf      = GST_BUFFER_DATA(buffer);
+        buf_size = GST_BUFFER_SIZE(buffer);
+>>>>>>> 91da4fc... mpeg2: fix memory leak of empty packets.
 
     if (ofs == 4) {
         /* Ignore empty user-data packets*/
