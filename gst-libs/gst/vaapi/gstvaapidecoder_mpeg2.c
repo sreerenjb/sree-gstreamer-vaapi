@@ -961,10 +961,101 @@ scan_for_start_code(GstAdapter *adapter, guint ofs, guint size, guint32 *scp)
                                                      scp);
 }
 
+<<<<<<< HEAD
 gboolean
 gst_vaapi_decoder_mpeg2_decide_allocation(
     GstVaapiDecoder *dec,
     GstBufferPool *pool)
+=======
+static GstVaapiDecoderStatus
+decode_packet(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
+{
+    GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
+    GstVaapiDecoderStatus status;
+    guchar type;
+
+    /* The packet defined by buf and buf_size contains the start code */
+    type = buf[3];
+    switch (type) {
+    case GST_MPEG_VIDEO_PACKET_PICTURE:
+        if (!priv->width || !priv->height)
+            goto unknown_picture_size;
+        status = decode_picture(decoder, buf, buf_size);
+        break;
+    case GST_MPEG_VIDEO_PACKET_SEQUENCE:
+        status = decode_sequence(decoder, buf, buf_size);
+        break;
+    case GST_MPEG_VIDEO_PACKET_EXTENSION: {
+        const guchar id = buf[4] >> 4;
+        switch (id) {
+        case GST_MPEG_VIDEO_PACKET_EXT_SEQUENCE:
+            status = decode_sequence_ext(decoder, buf, buf_size);
+            break;
+        case GST_MPEG_VIDEO_PACKET_EXT_QUANT_MATRIX:
+            status = decode_quant_matrix_ext(decoder, buf, buf_size);
+            break;
+        case GST_MPEG_VIDEO_PACKET_EXT_PICTURE:
+            if (!priv->width || !priv->height)
+                goto unknown_picture_size;
+            status = decode_picture_ext(decoder, buf, buf_size);
+            break;
+        default:
+            // Ignore unknown start-code extensions
+            GST_WARNING("unsupported start code extension (0x%02x)", id);
+            status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+            break;
+        }
+        break;
+    }
+    case GST_MPEG_VIDEO_PACKET_SEQUENCE_END:
+        status = decode_sequence_end(decoder);
+        break;
+    case GST_MPEG_VIDEO_PACKET_GOP:
+        status = decode_gop(decoder, buf, buf_size);
+        break;
+    case GST_MPEG_VIDEO_PACKET_USER_DATA:
+        // Ignore user-data packets
+        status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+        break;
+    default:
+        if (type >= GST_MPEG_VIDEO_PACKET_SLICE_MIN &&
+            type <= GST_MPEG_VIDEO_PACKET_SLICE_MAX) {
+            if (!priv->current_picture)
+                goto undefined_picture;
+            status = decode_slice(
+                decoder,
+                type - GST_MPEG_VIDEO_PACKET_SLICE_MIN,
+                buf, buf_size
+            );
+            break;
+        }
+        else if (type >= 0xb9 && type <= 0xff) {
+            // Ignore system start codes (PES headers)
+            status = GST_VAAPI_DECODER_STATUS_SUCCESS;
+            break;
+        }
+        GST_WARNING("unsupported start code (0x%02x)", type);
+        status = GST_VAAPI_DECODER_STATUS_ERROR_BITSTREAM_PARSER;
+        break;
+    }
+    return status;
+
+unknown_picture_size:
+    // Ignore packet while picture size is undefined
+    // i.e. missing sequence headers, or not parsed correctly
+    GST_WARNING("failed to parse picture of unknown size");
+    return GST_VAAPI_DECODER_STATUS_SUCCESS;
+
+undefined_picture:
+    // Ignore packet while picture is undefined
+    // i.e. missing picture headers, or not parsed correctly
+    GST_WARNING("failed to parse slice with undefined picture");
+    return GST_VAAPI_DECODER_STATUS_SUCCESS;
+}
+
+static GstVaapiDecoderStatus
+decode_buffer(GstVaapiDecoderMpeg2 *decoder, GstBuffer *buffer)
+>>>>>>> 388e881... mpeg2: add decode_packet() helper function.
 {
     GstVaapiDecoderMpeg2 *decoder = GST_VAAPI_DECODER_MPEG2(dec);
     GstVaapiDecoderMpeg2Private * priv = decoder->priv;
@@ -991,10 +1082,14 @@ gst_vaapi_decoder_mpeg2_parse(
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
     gint size = 0,ofs = 0;
     guint32 start_code;
+<<<<<<< HEAD
     guint8 *data;
     guint8 *buf_data = NULL;
     gsize buf_size = 0;
     guint8 type;
+=======
+    gint ofs;
+>>>>>>> 388e881... mpeg2: add decode_packet() helper function.
 
     priv->adapter = adapter;
     size = gst_adapter_available (adapter);
@@ -1033,6 +1128,7 @@ gst_vaapi_decoder_mpeg2_parse(
 
     *toadd = ofs;
 
+<<<<<<< HEAD
     buf_data = data;
     buf_size = ofs;
 
@@ -1106,6 +1202,14 @@ gst_vaapi_decoder_mpeg2_parse(
             status = GST_VAAPI_DECODER_STATUS_ERROR_BITSTREAM_PARSER;
             break;
     }
+=======
+        buf      = GST_BUFFER_DATA(buffer);
+        buf_size = GST_BUFFER_SIZE(buffer);
+        status   = decode_packet(decoder, buf, buf_size);
+
+        gst_buffer_unref(buffer);
+    } while (status == GST_VAAPI_DECODER_STATUS_SUCCESS);
+>>>>>>> 388e881... mpeg2: add decode_packet() helper function.
 
 beach:
     return status;
