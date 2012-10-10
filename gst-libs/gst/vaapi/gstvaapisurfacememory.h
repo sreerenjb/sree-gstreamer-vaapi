@@ -79,7 +79,7 @@ struct _GstVaapiSurfaceAllocatorClass
     GstAllocatorClass parent_class;
 };
 
-gboolean
+GstMemory *
 gst_vaapi_surface_memory_new (GstVaapiDisplay *display, GstVideoInfo *info);
 
 gboolean gst_vaapi_video_memory_map(GstVideoMeta * meta, guint plane,

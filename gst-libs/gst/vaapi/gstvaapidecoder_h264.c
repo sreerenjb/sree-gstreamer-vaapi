@@ -2285,7 +2285,7 @@ reset_context(GstVaapiDecoderH264 *decoder, GstBufferPool *pool)
         info.width      = priv->width;
         info.height     = priv->height;
         info.ref_frames = get_max_dec_frame_buffering(priv->sps);
-	info.pool	= pool;
+	info.pool	= GST_VAAPI_SURFACE_POOL(pool);
         
 	if (!gst_vaapi_decoder_ensure_context(GST_VAAPI_DECODER(decoder), &info))
             return FALSE;

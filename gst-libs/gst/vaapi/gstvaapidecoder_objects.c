@@ -298,7 +298,7 @@ gst_vaapi_picture_new_field(GstVaapiPicture *picture)
     gst_vaapi_picture_init(object);
     gst_vaapi_picture_initialize(object);
 
-    object = gst_vaapi_codec_object_finish(
+    object = (GstVaapiPicture *)gst_vaapi_codec_object_finish(
         GST_VAAPI_CODEC_OBJECT_CAST(object),
         GST_VAAPI_CODEC_BASE(GET_DECODER(picture)),
         NULL, picture->param_size,

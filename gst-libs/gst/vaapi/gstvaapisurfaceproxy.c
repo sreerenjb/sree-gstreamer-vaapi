@@ -453,7 +453,8 @@ gst_vaapi_surface_proxy_set_surface_buffer(
     }
 
     if (surface_buffer)
-        priv->surface_buffer = gst_mini_object_ref(GST_MINI_OBJECT_CAST(surface_buffer));
+          priv->surface_buffer = gst_buffer_ref(surface_buffer);
+//        priv->surface_buffer = gst_mini_object_ref(GST_MINI_OBJECT(surface_buffer));
 }
 
 

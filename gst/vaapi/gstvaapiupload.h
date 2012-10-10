@@ -66,10 +66,10 @@ struct _GstVaapiUpload {
     GstBaseTransform    parent_instance;
 
     GstVaapiDisplay    *display;
-    GstVaapiVideoPool  *images;
+    GstVaapiImagePool  *images;
     guint               image_width;
     guint               image_height;
-    GstVaapiVideoPool  *surfaces;
+    GstVaapiSurfacePool *surfaces;
     guint               surface_width;
     guint               surface_height;
     guint               direct_rendering_caps;

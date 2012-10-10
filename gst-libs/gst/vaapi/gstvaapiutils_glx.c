@@ -414,7 +414,7 @@ gl_destroy_context(GLContextState *cs)
         cs->display = NULL;
         cs->context = NULL;
     }
-    free(cs);
+    g_free(cs);
 }
 
 /**
@@ -865,7 +865,7 @@ gl_create_pixmap_object(Display *dpy, guint width, guint height)
         pixo->pixmap,
         pixmap_attrs
     );
-    free(fbconfig);
+    g_free(fbconfig);
     if (x11_untrap_errors() != 0)
         goto error;
 
@@ -913,7 +913,7 @@ gl_destroy_pixmap_object(GLPixmapObject *pixo)
         XFreePixmap(pixo->dpy, pixo->pixmap);
         pixo->pixmap = None;
     }
-    free(pixo);
+    g_free(pixo);
 }
 
 /**
@@ -1070,7 +1070,7 @@ gl_destroy_framebuffer_object(GLFramebufferObject *fbo)
         gl_vtable->gl_delete_framebuffers(1, &fbo->fbo);
         fbo->fbo = 0;
     }
-    free(fbo);
+    g_free(fbo);
 }
 
 /**

@@ -292,7 +292,7 @@ gst_vaapi_image_pool_init(GstVaapiImagePool *pool)
  *
  * Return value: the newly allocated #GstVaapiVideoPool
  */
-GstVaapiVideoPool *
+GstBufferPool *
 gst_vaapi_image_pool_new(GstVaapiDisplay *display, GstCaps *caps)
 {
     GstVaapiVideoPool *pool;
@@ -311,6 +311,6 @@ gst_vaapi_image_pool_new(GstVaapiDisplay *display, GstCaps *caps)
 
     priv->allocator = gst_allocator_find("GstVaapiImageAllocator");
 
-    return pool;
+    return GST_BUFFER_POOL_CAST(pool);
 
 }

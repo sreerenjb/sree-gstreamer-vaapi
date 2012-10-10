@@ -272,7 +272,7 @@ gst_vaapi_surface_pool_init(GstVaapiSurfacePool *pool)
  *
  * Return value: the newly allocated #GstVaapiVideoPool
  */
-GstVaapiVideoPool *
+GstBufferPool *
 gst_vaapi_surface_pool_new(GstVaapiDisplay *display, GstCaps *caps)
 {
     GstVaapiVideoPool *pool;
@@ -285,5 +285,5 @@ gst_vaapi_surface_pool_new(GstVaapiDisplay *display, GstCaps *caps)
 
     gst_vaapi_surface_memory_allocator_setup();
 
-    return pool;
+    return GST_BUFFER_POOL_CAST(pool);
 }

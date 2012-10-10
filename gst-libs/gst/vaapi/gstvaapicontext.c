@@ -57,16 +57,16 @@ struct _GstVaapiOverlayRectangle {
 
 /* XXX: optimize for the effective number of reference frames */
 struct _GstVaapiContextPrivate {
-    VAConfigID          config_id;
-    GPtrArray          *surfaces;
-    GstVaapiVideoPool  *surfaces_pool;
-    GPtrArray          *overlay;
-    GstVaapiProfile     profile;
-    GstVaapiEntrypoint  entrypoint;
-    guint               width;
-    guint               height;
-    guint               ref_frames;
-    guint               is_constructed  : 1;
+    VAConfigID           config_id;
+    GPtrArray           *surfaces;
+    GstVaapiSurfacePool *surfaces_pool;
+    GPtrArray           *overlay;
+    GstVaapiProfile      profile;
+    GstVaapiEntrypoint   entrypoint;
+    guint                width;
+    guint                height;
+    guint                ref_frames;
+    guint                is_constructed  : 1;
 };
 
 enum {

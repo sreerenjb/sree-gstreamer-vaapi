@@ -93,11 +93,9 @@ _gst_vaapi_surface_mem_free (GstAllocator *allocator, GstMemory *mem)
 	surface_mem->display = NULL;
     }
     if (surface_mem->cache) {
-	free(surface_mem->cache);
+	g_free(surface_mem->cache);
 	surface_mem->cache = NULL;
     }
-    if (surface_mem->cache)
-        g_free (surface_mem->cache);
     
     g_slice_free (GstVaapiSurfaceMemory, surface_mem);
     GST_DEBUG ("%p: freed", surface_mem);
@@ -205,7 +203,7 @@ gst_vaapi_surface_allocator_init (GstVaapiSurfaceAllocator * allocator)
     //alloc->mem_is_span = (GstMemoryIsSpanFunction) _gst_vaapi_surface_mem_is_span;
 }
 
-gboolean
+GstMemory *
 gst_vaapi_surface_memory_new (GstVaapiDisplay *display, GstVideoInfo *info)
 {
     return (GstMemory *) _gst_vaapi_surface_mem_new (_surface_allocator, NULL, display,

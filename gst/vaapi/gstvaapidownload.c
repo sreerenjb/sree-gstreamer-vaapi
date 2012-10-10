@@ -80,7 +80,7 @@ struct _GstVaapiDownload {
     GstVaapiDisplay    *display;
     GstCaps            *allowed_caps;
     TransformSizeCache  transform_size_cache[2];
-    GstVaapiVideoPool  *images;
+    GstVaapiImagePool  *images;
     GstVaapiImageFormat image_format;
     guint               image_width;
     guint               image_height;
@@ -378,7 +378,7 @@ gst_vaapidownload_transform(
     GstMapInfo info;
     GstVaapiSurfaceMeta *meta;
  
-    meta =  gst_buffer_get_meta((inbuf),GST_VAAPI_SURFACE_META_API_TYPE); 
+    meta =  (GstVaapiSurfaceMeta *)gst_buffer_get_meta((inbuf),GST_VAAPI_SURFACE_META_API_TYPE); 
     surface = (GstVaapiSurface *)meta->surface;
     if (!surface){
         GST_DEBUG_OBJECT (download, "Failed to retrieve the VA surface from buffer");
@@ -513,7 +513,7 @@ gst_vaapidownload_ensure_image_pool(GstVaapiDownload *download, GstCaps *caps)
         download->image_width  = width;
         download->image_height = height;
         g_clear_object(&download->images);
-        download->images = gst_vaapi_image_pool_new(download->display, caps);
+        download->images = (GstVaapiImagePool *)gst_vaapi_image_pool_new(download->display, caps);
         if (!download->images)
             return FALSE;
 	/*Fixme: remove hard-coded min and max values*/	

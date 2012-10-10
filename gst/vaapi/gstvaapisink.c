@@ -915,8 +915,8 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
         return GST_FLOW_EOS;
 
     gst_vaapisink_ensure_rotation(sink, TRUE);
-    
-    meta =  gst_buffer_get_meta((buf),GST_VAAPI_SURFACE_META_API_TYPE);
+   
+    meta = gst_buffer_get_vaapi_surface_meta (buf); 
     
     if (meta) {
         if (sink->display != meta->display) {

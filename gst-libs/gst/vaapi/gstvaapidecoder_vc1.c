@@ -168,8 +168,9 @@ check_context_reset (GstVaapiDecoderVC1 *decoder)
                                               profiles[i], entrypoint))
                 break;
         }
-        if (i == n_profiles)
-            return GST_VAAPI_DECODER_STATUS_ERROR_UNSUPPORTED_PROFILE;
+
+	g_return_if_fail(i != n_profiles);
+
         priv->profile = profiles[i];
     }
 
@@ -198,7 +199,7 @@ ensure_context(GstVaapiDecoderVC1 *decoder, GstBufferPool *pool)
         info.width      = priv->width;
         info.height     = priv->height;
         info.ref_frames = 2;
-	info.pool	= pool;
+	info.pool	= GST_VAAPI_SURFACE_POOL(pool);
         reset_context   = gst_vaapi_decoder_ensure_context(
             GST_VAAPI_DECODER(decoder),
             &info
@@ -1172,7 +1173,7 @@ decode_codec_data(GstVaapiDecoderVC1 *decoder, GstBuffer *buffer)
     guint32 format;
     GstMapInfo map_info;
     GstVideoInfo info;
-    gchar *format_string;
+    const gchar *format_string;
 
     gst_buffer_map (buffer, &map_info, GST_MAP_READ);
 

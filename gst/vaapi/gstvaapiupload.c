@@ -380,7 +380,7 @@ gst_vaapiupload_transform(
     GstVaapiSurfaceMeta *meta;
 
     if (outbuf) {
-         meta =  gst_buffer_get_meta((outbuf),GST_VAAPI_SURFACE_META_API_TYPE);
+         meta =  (GstVaapiSurfaceMeta *)gst_buffer_get_meta((outbuf),GST_VAAPI_SURFACE_META_API_TYPE);
          surface = (GstVaapiSurface *)meta->surface;
     }
 
@@ -507,7 +507,7 @@ gst_vaapiupload_ensure_image_pool(GstVaapiUpload *upload, GstCaps *caps)
         upload->image_width  = width;
         upload->image_height = height;
         g_clear_object(&upload->images);
-        upload->images = gst_vaapi_image_pool_new(upload->display, caps);
+        upload->images = (GstVaapiImagePool *)gst_vaapi_image_pool_new(upload->display, caps);
         config = gst_buffer_pool_get_config ((GstBufferPool *)upload->images);
         gst_buffer_pool_config_set_params (config, caps, info.size, 6, 24);
 
@@ -536,7 +536,7 @@ gst_vaapiupload_ensure_surface_pool(GstVaapiUpload *upload, GstCaps *caps)
         upload->surface_width  = width;
         upload->surface_height = height;
         g_clear_object(&upload->surfaces);
-        upload->surfaces = gst_vaapi_surface_pool_new(upload->display, caps);
+        upload->surfaces = (GstVaapiSurfacePool *)gst_vaapi_surface_pool_new(upload->display, caps);
         config = gst_buffer_pool_get_config ((GstBufferPool *)upload->surfaces);
         gst_buffer_pool_config_set_params (config, caps, info.size, 6, 24);
 
@@ -618,7 +618,7 @@ gst_vaapiupload_ensure_direct_rendering_caps(
         buf = NULL;
     }
     if (buf) {
-	 meta =  gst_buffer_get_meta((buf),GST_VAAPI_SURFACE_META_API_TYPE);
+	 meta =  (GstVaapiSurfaceMeta *)gst_buffer_get_meta((buf),GST_VAAPI_SURFACE_META_API_TYPE);
          surface = (GstVaapiSurface *)meta->surface;
     }
     if (surface) {
