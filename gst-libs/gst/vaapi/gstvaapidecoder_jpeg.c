@@ -69,6 +69,7 @@ struct _GstVaapiDecoderJpegPrivate {
     guint                       is_opened       : 1;
     guint                       profile_changed : 1;
     guint                       is_constructed  : 1;
+    guint			reset_context	: 1;
 };
 
 
@@ -109,8 +110,8 @@ gst_vaapi_decoder_jpeg_create(GstVaapiDecoderJpeg *decoder)
     return TRUE;
 }
 
-static GstVaapiDecoderStatus
-ensure_context(GstVaapiDecoderJpeg *decoder)
+static void
+check_context_reset (GstVaapiDecoderJpeg *decoder)
 {
     GstVaapiDecoderJpegPrivate * const priv = decoder->priv;
     GstVaapiProfile profiles[2];
@@ -121,7 +122,7 @@ ensure_context(GstVaapiDecoderJpeg *decoder)
     if (priv->profile_changed) {
         GST_DEBUG("profile changed");
         priv->profile_changed = FALSE;
-        reset_context         = TRUE;
+        priv->reset_context   = TRUE;
 
         profiles[n_profiles++] = priv->profile;
         //if (priv->profile == GST_VAAPI_PROFILE_JPEG_EXTENDED)
@@ -136,8 +137,18 @@ ensure_context(GstVaapiDecoderJpeg *decoder)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNSUPPORTED_PROFILE;
         priv->profile = profiles[i];
     }
+    if(priv->reset_context)
+        gst_vaapi_decoder_emit_caps_change(GST_VAAPI_DECODER_CAST(decoder), priv->width, priv->height);     
+}
 
-    if (reset_context) {
+static GstVaapiDecoderStatus
+ensure_context(GstVaapiDecoderJpeg *decoder, GstBufferPool *pool)
+{
+    GstVaapiDecoderJpegPrivate * const priv = decoder->priv;
+    GstVaapiEntrypoint entrypoint = GST_VAAPI_ENTRYPOINT_VLD;
+    gboolean reset_context = FALSE;
+
+    if (priv->reset_context) {
         GstVaapiContextInfo info;
 
         info.profile    = priv->profile;
@@ -145,6 +156,7 @@ ensure_context(GstVaapiDecoderJpeg *decoder)
         info.width      = priv->width;
         info.height     = priv->height;
         info.ref_frames = 2;
+	info.pool	= pool;
         reset_context   = gst_vaapi_decoder_ensure_context(
             GST_VAAPI_DECODER(decoder),
             &info
@@ -341,13 +353,9 @@ decode_picture(
     }
     priv->height = frame_hdr->height;
     priv->width  = frame_hdr->width;
-
-    status = ensure_context(decoder);
-    if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
-        GST_ERROR("failed to reset context");
-        return status;
-    }
-
+   
+    check_context_reset (decoder);
+    
     picture = GST_VAAPI_PICTURE_NEW(JPEGBaseline, decoder);
     if (!picture) {
         GST_ERROR("failed to allocate picture");
@@ -628,16 +636,16 @@ beach:
 gboolean
 gst_vaapi_decoder_jpeg_decide_allocation(
     GstVaapiDecoder *dec,
-    GstQuery *query)
+    GstBufferPool *pool)
 {
     GstVaapiDecoderJpeg *decoder = GST_VAAPI_DECODER_JPEG(dec);
     GstVaapiDecoderJpegPrivate * priv = decoder->priv;
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
 
-    status = ensure_context(decoder);
+    status = ensure_context(decoder, pool);
 
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
-        GST_ERROR("failed to create context,,failed to create the pool....");
+        GST_ERROR("failed to create VAContext....");
         return FALSE;
     }
     return TRUE;
@@ -755,6 +763,7 @@ gst_vaapi_decoder_jpeg_init(GstVaapiDecoderJpeg *decoder)
     priv->is_opened             = FALSE;
     priv->profile_changed       = TRUE;
     priv->is_constructed        = FALSE;
+    priv->reset_context		= FALSE;
     memset(&priv->frame_hdr, 0, sizeof(priv->frame_hdr));
     memset(&priv->huf_tables, 0, sizeof(priv->huf_tables));
     memset(&priv->quant_tables, 0, sizeof(priv->quant_tables));

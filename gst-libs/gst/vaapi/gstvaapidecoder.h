@@ -116,7 +116,7 @@ struct _GstVaapiDecoderClass {
     GstVaapiDecoderStatus (*parse) (GstVaapiDecoder *deccoder, GstAdapter *adapter, 
 	  			    guint *toadd, gboolean *have_frame);
 
-    gboolean (*decide_allocation) (GstVaapiDecoder *decoder, GstQuery *query);
+    gboolean (*decide_allocation) (GstVaapiDecoder *decoder, GstBufferPool *pool);
 
     GstVaapiDecoderStatus (*decode) (GstVaapiDecoder *decoder, GstVideoCodecFrame *frame);
 
@@ -146,6 +146,9 @@ gst_vaapi_decoder_get_surface(
     GstVaapiDecoderStatus *pstatus
 );
 
+void
+gst_vaapi_decoder_emit_caps_change(GstVaapiDecoder *decoder, guint width, guint height);
+ 
 gboolean
 gst_vaapi_decoder_start(GstVaapiDecoder * decoder);
 

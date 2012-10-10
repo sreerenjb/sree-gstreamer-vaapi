@@ -74,6 +74,7 @@ struct _GstVaapiContextInfo {
     guint               width;
     guint               height;
     guint               ref_frames;
+    GstVaapiSurfacePool *pool;
 };
 
 /**
@@ -107,7 +108,8 @@ gst_vaapi_context_new(
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
     guint               width,
-    guint               height
+    guint               height,
+    GstVaapiSurfacePool *pool
 );
 
 GstVaapiContext *
@@ -119,7 +121,8 @@ gst_vaapi_context_reset(
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
     guint               width,
-    guint               height
+    guint               height,
+    GstVaapiSurfacePool *pool
 );
 
 gboolean

@@ -69,6 +69,7 @@ struct _GstVaapiDecoderVC1Private {
     guint                       profile_changed         : 1;
     guint                       closed_entry            : 1;
     guint                       broken_link             : 1;
+    guint			reset_context		: 1;
 };
 
 static GstVaapiDecoderStatus
@@ -144,8 +145,8 @@ gst_vaapi_decoder_vc1_create(GstVaapiDecoderVC1 *decoder)
     return TRUE;
 }
 
-static GstVaapiDecoderStatus
-ensure_context(GstVaapiDecoderVC1 *decoder)
+static void
+check_context_reset (GstVaapiDecoderVC1 *decoder)
 {
     GstVaapiDecoderVC1Private * const priv = decoder->priv;
     GstVaapiProfile profiles[2];
@@ -156,7 +157,7 @@ ensure_context(GstVaapiDecoderVC1 *decoder)
     if (priv->profile_changed) {
         GST_DEBUG("profile changed");
         priv->profile_changed = FALSE;
-        reset_context         = TRUE;
+        priv->reset_context   = TRUE;
 
         profiles[n_profiles++] = priv->profile;
         if (priv->profile == GST_VAAPI_PROFILE_VC1_SIMPLE)
@@ -175,10 +176,21 @@ ensure_context(GstVaapiDecoderVC1 *decoder)
     if (priv->size_changed) {
         GST_DEBUG("size changed");
         priv->size_changed = FALSE;
-        reset_context      = TRUE;
+        priv->reset_context      = TRUE;
     }
+     if(priv->reset_context)
+        gst_vaapi_decoder_emit_caps_change(GST_VAAPI_DECODER_CAST(decoder), priv->width, priv->height);
 
-    if (reset_context) {
+}
+
+static GstVaapiDecoderStatus
+ensure_context(GstVaapiDecoderVC1 *decoder, GstBufferPool *pool)
+{
+    GstVaapiDecoderVC1Private * const priv = decoder->priv;
+    GstVaapiEntrypoint entrypoint = GST_VAAPI_ENTRYPOINT_VLD;
+    gboolean reset_context = FALSE;
+
+    if (priv->reset_context) {
         GstVaapiContextInfo info;
 
         info.profile    = priv->profile;
@@ -186,12 +198,14 @@ ensure_context(GstVaapiDecoderVC1 *decoder)
         info.width      = priv->width;
         info.height     = priv->height;
         info.ref_frames = 2;
+	info.pool	= pool;
         reset_context   = gst_vaapi_decoder_ensure_context(
             GST_VAAPI_DECODER(decoder),
             &info
         );
         if (!reset_context)
             return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
+	priv->reset_context = FALSE;
     }
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
 }
@@ -882,11 +896,7 @@ decode_frame(GstVaapiDecoderVC1 *decoder, GstVC1BDU *rbdu, GstVC1BDU *ebdu)
     VASliceParameterBufferVC1 *slice_param;
     GstClockTime pts;
 
-    /*status = ensure_context(decoder);
-    if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
-        GST_DEBUG("failed to reset context");
-        return status;
-    }*/
+    check_context_reset (decoder);
 
     priv->current_picture = GST_VAAPI_PICTURE_NEW(VC1, decoder);
     if (!priv->current_picture) {
@@ -1131,13 +1141,13 @@ beach:
 gboolean
 gst_vaapi_decoder_vc1_decide_allocation(
     GstVaapiDecoder *dec,
-    GstQuery *query)
+    GstBufferPool *pool)
 {
     GstVaapiDecoderVC1 *decoder = GST_VAAPI_DECODER_VC1(dec);
     GstVaapiDecoderVC1Private * priv = decoder->priv;
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
 
-    status = ensure_context(decoder);
+    status = ensure_context(decoder, pool);
 
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_ERROR("failed to create context,,failed to create the pool....");
@@ -1258,7 +1268,7 @@ gst_vaapi_decoder_vc1_decode(GstVaapiDecoder *base, GstVideoCodecFrame *frame)
 {
     GstVaapiDecoderVC1 * const decoder = GST_VAAPI_DECODER_VC1(base);
     GstVaapiDecoderVC1Private * const priv = decoder->priv;
-    GstVaapiDecoderStatus status;
+    GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
     GstBuffer *codec_data;
 
     g_return_val_if_fail(priv->is_constructed,
@@ -1361,6 +1371,7 @@ gst_vaapi_decoder_vc1_init(GstVaapiDecoderVC1 *decoder)
     priv->profile_changed       = FALSE;
     priv->closed_entry          = FALSE;
     priv->broken_link           = FALSE;
+    priv->reset_context		= FALSE;
 }
 
 /**

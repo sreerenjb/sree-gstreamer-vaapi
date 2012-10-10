@@ -350,6 +350,7 @@ gst_vaapi_decoder_init(GstVaapiDecoder *decoder)
     priv->caps                  = NULL;
     priv->codec                 = 0;
     priv->codec_data            = NULL;
+    priv->pool			= NULL;
     priv->width                 = 0;
     priv->height                = 0;
     priv->fps_n                 = 0;
@@ -566,27 +567,107 @@ gst_vaapi_decoder_decide_allocation(
     GstQuery *query
 )
 {  
-    GstBufferPool *pool;
-    GstCaps *caps;
-    GstStructure *config;
-    guint size;
-    guint min_buffers;
-    guint max_buffers;
+    GstBufferPool *pool = NULL, *old_pool = NULL;
+    GstAllocator  *allocator = NULL;
+    GstCaps *pool_caps, *new_caps;
+    GstStructure *config, *structure;
+    guint size = 0, min_buffers, max_buffers;
     gboolean result;
+    guint num_pools;
+    guint i;
+    static GstAllocationParams params = { 0, 15, 0, 0, };
 
-    result = GST_VAAPI_DECODER_GET_CLASS(decoder)->decide_allocation(decoder, query);
-    if (query){
-    	 pool = gst_vaapi_context_get_surface_pool (GST_VAAPI_DECODER_CONTEXT(decoder));
-         if (pool) {
-             config = gst_buffer_pool_get_config(pool);
-             gst_buffer_pool_config_get_params(config, &caps, &size, &min_buffers, &max_buffers);
+    GstVaapiDecoderPrivate * const priv = decoder->priv;
 
-             gst_query_add_allocation_pool (query, (GstBufferPool *)pool, size, min_buffers, max_buffers);
-             gst_structure_free(config);
-	 }
+    /* Fixme: Add a namespace for GST_VAAPI_SURFACE_META, so that any element other than vaapisink 
+	      should not be allowed to add this option */
+
+    num_pools = gst_query_get_n_allocation_pools (query);
+    GST_DEBUG("Query has %d pools", num_pools);
+    
+    for (i=0; i<num_pools; i++){
+	gst_query_parse_nth_allocation_pool (query, 0, &pool, &size, &min_buffers, &max_buffers);
+
+        config = gst_buffer_pool_get_config(pool);
+    	/*query might have many pools.If vaapisink is the renderer, then query should have a pool with VAAPI_SURFACE_META option*/
+	if (gst_buffer_pool_config_has_option (config, GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META)) {
+
+	    GST_DEBUG_OBJECT(decoder, "vaapisink is the renderer, use the pool supplied by vaapisink");
+
+	    gst_buffer_pool_config_get_params (config, &pool_caps, &size, &min_buffers, &max_buffers);
+	    break;
+	} else
+	    pool = NULL;
     }
+
+    if(!pool) {	
+        new_caps = gst_caps_new_simple(
+            "video/x-raw",
+            "format", G_TYPE_STRING, "NV12",
+            "type", G_TYPE_STRING, "vaapi",
+            "width",  G_TYPE_INT, priv->width,
+            "height", G_TYPE_INT, priv->height,
+            NULL
+        );
+        if (!new_caps)
+            goto failed_caps;
+
+        pool = gst_vaapi_surface_pool_new(
+            priv->display,
+            new_caps
+        );
+        
+	if (!pool)
+	    goto failed_pool;
+	
+	if(config) 
+            gst_buffer_pool_config_get_params(config, &pool_caps, &size, NULL, NULL);
+	
+	min_buffers = 8;
+ 	max_buffers = 0;
+
+        structure = gst_buffer_pool_get_config (pool);
+        gst_buffer_pool_config_set_params (structure, new_caps, size, min_buffers, max_buffers);
+        allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);
+    	gst_buffer_pool_config_set_allocator (structure, allocator, &params);
+    
+	if (!gst_buffer_pool_set_config (pool, structure))
+            goto failed_config;
+
+    
+	gst_query_add_allocation_pool (query, (GstBufferPool *)pool, size, min_buffers, max_buffers);
+
+    } 
+
+    if (priv->pool) {
+       	old_pool   = priv->pool;
+    	priv->pool = pool;
+        if (old_pool)
+            gst_object_unref (old_pool);
+    }
+
+    priv->pool = pool;
+
+    result = GST_VAAPI_DECODER_GET_CLASS(decoder)->decide_allocation(decoder, pool);
+
     GST_DEBUG("decide_allocation status: %d ",result);
     return result;
+
+failed_caps:
+    {
+        GST_ERROR_OBJECT(pool, "failed to create the caps for surface pool");
+	return FALSE;
+    }  
+failed_pool:
+    {
+	GST_ERROR_OBJECT(pool, "failed to create the surface pool from decoder");
+	return FALSE;
+    }
+failed_config:
+    {
+	GST_ERROR_OBJECT(pool, "failed to set the config in pool");
+	return FALSE;
+    }
 }
 
 /**
@@ -750,17 +831,30 @@ void
 gst_vaapi_decoder_set_interlaced(GstVaapiDecoder *decoder, gboolean interlaced)
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
+/*Fixme :*/
 
-    if (priv->is_interlaced != interlaced) {
+    //if (priv->is_interlaced != interlaced) {
         GST_DEBUG("interlaced changed to %s", interlaced ? "true" : "false");
         priv->is_interlaced = interlaced;
+	
         gst_caps_set_simple(
             priv->caps,
-            "interlaced", G_TYPE_BOOLEAN, interlaced,
+            "interlace-mode", G_TYPE_STRING, (interlaced ? "mixed" : "progressive"),
             NULL
         );
         g_object_notify_by_pspec(G_OBJECT(decoder), g_properties[PROP_CAPS]);
-    }
+    //}
+}
+
+void
+gst_vaapi_decoder_emit_caps_change(
+    GstVaapiDecoder   *decoder,
+    guint width,
+    guint height
+)
+{
+    gst_vaapi_decoder_set_picture_size(decoder, width, height);
+    g_object_notify_by_pspec(G_OBJECT(decoder), g_properties[PROP_CAPS]);
 }
 
 gboolean
@@ -772,13 +866,13 @@ gst_vaapi_decoder_ensure_context(
     GstVaapiDecoderPrivate * const priv = decoder->priv;
 
     gst_vaapi_decoder_set_picture_size(decoder, cip->width, cip->height);
-
+		
     if (priv->context) {
         if (!gst_vaapi_context_reset_full(priv->context, cip))
             return FALSE;
     }
     else {
-        priv->context = gst_vaapi_context_new_full(priv->display, cip);
+	priv->context = gst_vaapi_context_new_full(priv->display, cip);
         if (!priv->context)
             return FALSE;
     }

@@ -554,14 +554,26 @@ gst_vaapisink_set_caps(GstBaseSink *base_sink, GstCaps *caps)
     GstVideoInfo info;
     guint win_width, win_height, display_width, display_height;
     gint video_width, video_height, video_par_n = 1, video_par_d = 1;
+    GstBufferPool *newpool, *oldpool;
+    GstStructure *structure;
+    gint size;
+    GstAllocator *allocator = NULL;
+    static GstAllocationParams params = { 0, 15, 0, 0, };
 
 #if USE_DRM
     if (sink->display_type == GST_VAAPI_DISPLAY_TYPE_DRM)
         return TRUE;
 #endif
 
-     if (!gst_video_info_from_caps(&info, caps))
+    if (!gst_video_info_from_caps(&info, caps))
         goto invalid_format;
+
+    if (sink->caps && gst_caps_is_equal(sink->caps, caps))
+	return TRUE;
+
+    gst_caps_replace(&sink->caps, caps);
+    
+    sink->info = info;
 
     sink->video_width  = info.width;
     sink->video_height = info.height;
@@ -570,8 +582,6 @@ gst_vaapisink_set_caps(GstBaseSink *base_sink, GstCaps *caps)
     sink->video_par_d  = info.par_d;
 
     GST_DEBUG("video pixel-aspect-ratio %d/%d", sink->video_par_n, sink->video_par_d);
-
-    gst_caps_replace(&sink->caps, caps);
 
     if (!gst_vaapisink_ensure_display(sink))
         return FALSE;
@@ -599,6 +609,22 @@ gst_vaapisink_set_caps(GstBaseSink *base_sink, GstCaps *caps)
     sink->window_height = win_height;
     GST_DEBUG_OBJECT(sink, "window size %ux%u", win_width, win_height);
 
+    /* create a new pool for the new configuration */
+    GST_DEBUG_OBJECT(sink, "Creating new Vaapi Surface Pool");
+    newpool = gst_vaapi_surface_pool_new (sink->display, caps);
+    size = info.size;
+    structure = gst_buffer_pool_get_config (newpool);
+    gst_buffer_pool_config_set_params (structure, caps, size, 6, 0);
+    allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);   
+    gst_buffer_pool_config_set_allocator (structure, allocator, &params);
+    if (!gst_buffer_pool_set_config (newpool, structure))
+        goto config_failed;
+
+    oldpool = sink->pool;
+    sink->pool = newpool;
+    if (oldpool) 
+        gst_object_unref (oldpool);
+    
     return gst_vaapisink_ensure_render_rect(sink, win_width, win_height);
 
 invalid_format:
@@ -606,7 +632,100 @@ invalid_format:
     GST_ERROR_OBJECT (sink, "Could not locate image format from caps %" GST_PTR_FORMAT, caps);
     return FALSE;
 }
+config_failed:
+    {
+        GST_ERROR_OBJECT (sink, "failed to set config.");
+    	return FALSE;
+  }
+}
 
+static gboolean
+gst_vaapisink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
+{
+    GstVaapiSink *vaapisink = GST_VAAPISINK (bsink);
+    GstBufferPool *pool;
+    GstStructure *config;
+    GstCaps *caps;
+    GstAllocator *allocator = NULL;
+    guint size;
+    gboolean need_pool;
+    static GstAllocationParams params = { 0, 15, 0, 0, };
+
+    gst_query_parse_allocation (query, &caps, &need_pool);
+
+    if (caps == NULL)
+        goto no_caps;
+
+    /*Fixeme: Need a lock like xvsink?*/
+    if ((pool = vaapisink->pool))
+        gst_object_ref (pool);
+
+    if (pool != NULL) {
+        GstCaps *pcaps;
+        /* we had a pool, check caps */
+        GST_DEBUG_OBJECT (vaapisink, "check existing pool caps");
+        config = gst_buffer_pool_get_config (pool);
+        gst_buffer_pool_config_get_params (config, &pcaps, &size, NULL, NULL);
+
+        if (!gst_caps_is_equal (caps, pcaps)) {
+            GST_DEBUG_OBJECT (vaapisink, "pool has different caps");
+            /* different caps, we can't use this pool */
+            gst_object_unref (pool);
+            pool = NULL;
+        }
+        gst_structure_free (config);
+    }
+    if (pool == NULL && need_pool) {
+        GstVideoInfo info;
+
+        if (!gst_video_info_from_caps (&info, caps))
+            goto invalid_caps;
+
+    	GST_DEBUG_OBJECT (vaapisink, "create new pool");
+	pool = gst_vaapi_surface_pool_new (vaapisink->display, caps);
+    	/* the normal size of a frame */
+    	size = info.size;
+
+    	config = gst_buffer_pool_get_config (pool);
+	
+    	gst_buffer_pool_config_set_params (config, caps, size, 0, 0);
+        allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);   
+    	gst_buffer_pool_config_set_allocator (config, allocator, &params);
+    	
+	if (!gst_buffer_pool_set_config (pool, config))
+      	    goto config_failed;
+    }
+/*Fixme: Add VAAPI_SURFACE_META option*/
+    if (pool) {
+        /* we need at least 6 buffer except for h264 decoder */
+    	gst_query_add_allocation_pool (query, pool, size, 6, 0);
+    	gst_object_unref (pool);
+    }
+
+    /* we also support various metadata */
+    gst_query_add_allocation_meta (query, GST_VIDEO_META_API_TYPE, NULL);
+
+/*Fixe: add cropmeta api support*/
+
+    return TRUE;
+
+  /* ERRORS */
+no_caps:
+  {
+    GST_DEBUG_OBJECT (bsink, "no caps specified");
+    return FALSE;
+  }
+invalid_caps:
+  {
+    GST_DEBUG_OBJECT (bsink, "invalid caps specified");
+    return FALSE;
+  }
+config_failed:
+  {
+    GST_DEBUG_OBJECT (bsink, "failed setting config");
+    gst_object_unref (pool);
+    return FALSE;
+  }
 }
 
 #if USE_GLX
@@ -955,12 +1074,14 @@ gst_vaapisink_class_init(GstVaapiSinkClass *klass)
     object_class->set_property   = gst_vaapisink_set_property;
     object_class->get_property   = gst_vaapisink_get_property;
 
-    basesink_class->start        = gst_vaapisink_start;
-    basesink_class->stop         = gst_vaapisink_stop;
-    basesink_class->set_caps     = gst_vaapisink_set_caps;
-    basesink_class->preroll      = gst_vaapisink_show_frame;
-    basesink_class->render       = gst_vaapisink_show_frame;
-    basesink_class->query        = gst_vaapisink_query;
+    basesink_class->start              = gst_vaapisink_start;
+    basesink_class->stop               = gst_vaapisink_stop;
+    basesink_class->set_caps           = gst_vaapisink_set_caps;
+    basesink_class->preroll            = gst_vaapisink_show_frame;
+    basesink_class->render             = gst_vaapisink_show_frame;
+    basesink_class->query              = gst_vaapisink_query;
+    basesink_class->propose_allocation = gst_vaapisink_propose_allocation;
+
 
     gst_element_class_set_static_metadata (element_class,
       "VA-API Sink",

@@ -82,6 +82,10 @@ struct _GstVaapiSink {
     GstVaapiRectangle   display_rect;
     GstVaapiRotation    rotation;
     GstVaapiRotation    rotation_req;
+
+    GstBufferPool	*pool;
+    GstVideoInfo	info;
+
     guint               foreign_window  : 1;
     guint               fullscreen      : 1;
     guint               synchronous     : 1;

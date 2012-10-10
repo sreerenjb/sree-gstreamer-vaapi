@@ -76,7 +76,8 @@ enum {
     PROP_ENTRYPOINT,
     PROP_WIDTH,
     PROP_HEIGHT,
-    PROP_REF_FRAMES
+    PROP_REF_FRAMES,
+    PROP_POOL
 };
 
 static guint
@@ -234,9 +235,8 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
     GstCaps *caps;
     GstVaapiSurface *surface;
     guint i, num_ref_frames, num_surfaces;
-    guint size, min, max;
+    guint size;
     GstStructure *config;
-    GstFlowReturn result;
     GstBuffer *out;
     GstMapInfo map_info;
     GstVaapiSurfaceMeta *meta;
@@ -251,28 +251,9 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
 
     if (!priv->surfaces) {
         priv->surfaces = g_ptr_array_new();
-        if (!priv->surfaces)
-            return FALSE;
-    }
-
-    if (!priv->surfaces_pool) {
-        caps = gst_caps_new_simple(
-	    "video/x-raw",
-	    "format", G_TYPE_STRING, "NV12",
-            "type", G_TYPE_STRING, "vaapi",
-            "width",  G_TYPE_INT, priv->width,
-            "height", G_TYPE_INT, priv->height,
-            NULL
-        );
-        if (!caps)
-            return FALSE;
-        priv->surfaces_pool = gst_vaapi_surface_pool_new(
-            GST_VAAPI_OBJECT_DISPLAY(context),
-            caps
-        );
-        gst_caps_unref(caps);
-        if (!priv->surfaces_pool)
-            return FALSE;
+        if (!priv->surfaces) 
+	    return FALSE;
+	
     }
 
     num_ref_frames = 2;
@@ -280,20 +261,28 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
         num_ref_frames = 16;
     num_surfaces = num_ref_frames + SCRATCH_SURFACES_COUNT;
 
-    min = num_surfaces;
-    max = 24;
     config = gst_buffer_pool_get_config ((GstBufferPool *)priv->surfaces_pool);
-    gst_buffer_pool_config_set_params (config, caps, priv->width*priv->height, min, max);
-
+    gst_buffer_pool_config_get_params (config, &caps, &size, NULL, NULL);
+    gst_buffer_pool_config_set_params (config, caps, size, num_surfaces, 24);
     gst_buffer_pool_set_config ((GstBufferPool *)priv->surfaces_pool, config);
-    gst_buffer_pool_set_active ((GstBufferPool *)priv->surfaces_pool, TRUE);
+
+    if (!gst_buffer_pool_set_active ((GstBufferPool *)priv->surfaces_pool, TRUE)) {
+	GST_ERROR_OBJECT (context, "Failed to activate the surface_pool from GstVaapiContext");
+	return FALSE;
+    }
 
     for (i = priv->surfaces->len; i < num_surfaces; i++) {
 
-        result = gst_buffer_pool_acquire_buffer ((GstBufferPool *)priv->surfaces_pool, &out, NULL);
-
+        if (GST_FLOW_OK != gst_buffer_pool_acquire_buffer ((GstBufferPool *)priv->surfaces_pool, &out, NULL)) {
+	    GST_ERROR_OBJECT (priv->surfaces_pool, "Failed to acquire buffer from VaSurfacePool");
+	    return FALSE;
+	}
 	meta =gst_buffer_get_vaapi_surface_meta(out);
-	
+
+	if (!meta) {
+	   GST_ERROR ("Failed to get the VaapiSurfaceMeta");
+	   return FALSE;
+	}	
 	surface = (GstVaapiSurface *)meta->surface;
         if (!surface)
         {
@@ -433,6 +422,9 @@ gst_vaapi_context_set_property(
     case PROP_REF_FRAMES:
         priv->ref_frames = g_value_get_uint(value);
         break;
+    case PROP_POOL:
+	priv->surfaces_pool = g_value_get_pointer(value);
+	break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -466,6 +458,8 @@ gst_vaapi_context_get_property(
     case PROP_REF_FRAMES:
         g_value_set_uint(value, priv->ref_frames);
         break;
+    case PROP_POOL:
+	g_value_set_pointer(value, priv->surfaces_pool);
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -527,6 +521,15 @@ gst_vaapi_context_class_init(GstVaapiContextClass *klass)
                            "The number of reference frames",
                            0, G_MAXINT32, 0,
                            G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY));
+
+    g_object_class_install_property
+        (object_class,
+         PROP_POOL,
+         g_param_spec_pointer("pool",
+                              "pool",
+                              "The Vaapi Surface Pool",
+                              G_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY));
+
 }
 
 static void
@@ -565,7 +568,8 @@ gst_vaapi_context_new(
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
     guint               width,
-    guint               height
+    guint               height,
+    GstVaapiSurfacePool *pool
 )
 {
     GstVaapiContextInfo info;
@@ -575,6 +579,7 @@ gst_vaapi_context_new(
     info.width      = width;
     info.height     = height;
     info.ref_frames = get_max_ref_frames(profile);
+    info.pool	    = pool;
     return gst_vaapi_context_new_full(display, &info);
 }
 
@@ -604,11 +609,12 @@ gst_vaapi_context_new_full(GstVaapiDisplay *display, GstVaapiContextInfo *cip)
         GST_VAAPI_TYPE_CONTEXT,
         "display",      display,
         "id",           GST_VAAPI_ID(VA_INVALID_ID),
-        "profile",      cip->profile,
         "entrypoint",   cip->entrypoint,
         "width",        cip->width,
         "height",       cip->height,
         "ref-frames",   cip->ref_frames,
+	"pool",		cip->pool,
+        "profile",      cip->profile,
         NULL
     );
     if (!context->priv->is_constructed) {
@@ -638,7 +644,8 @@ gst_vaapi_context_reset(
     GstVaapiProfile     profile,
     GstVaapiEntrypoint  entrypoint,
     unsigned int        width,
-    unsigned int        height
+    unsigned int        height,
+    GstVaapiSurfacePool *pool
 )
 {
     GstVaapiContextPrivate * const priv = context->priv;
@@ -649,6 +656,7 @@ gst_vaapi_context_reset(
     info.width      = width;
     info.height     = height;
     info.ref_frames = priv->ref_frames;
+    info.pool	    = pool;
 
     return gst_vaapi_context_reset_full(context, &info);
 }
@@ -684,12 +692,16 @@ gst_vaapi_context_reset_full(GstVaapiContext *context, GstVaapiContextInfo *cip)
         priv->entrypoint = cip->entrypoint;
     }
 
+/*Fixme: check whether the pool is same or not*/
+    priv->surfaces_pool  = gst_object_ref(GST_OBJECT((GstVaapiSurfacePool *)cip->pool));
+
     if (size_changed && !gst_vaapi_context_create_surfaces(context))
         return FALSE;
 
     if (codec_changed && !gst_vaapi_context_create(context))
         return FALSE;
 
+/*Fixme*/
     priv->is_constructed = TRUE;
     return TRUE;
 }
@@ -748,7 +760,8 @@ gst_vaapi_context_set_profile(GstVaapiContext *context, GstVaapiProfile profile)
                                    profile,
                                    context->priv->entrypoint,
                                    context->priv->width,
-                                   context->priv->height);
+                                   context->priv->height,
+				   context->priv->surfaces_pool);
 }
 
 /**

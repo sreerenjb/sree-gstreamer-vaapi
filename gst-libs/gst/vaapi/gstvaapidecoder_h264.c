@@ -615,7 +615,10 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
     /* Reset DPB */
     if (priv->reset_context)
  	dpb_reset(decoder, sps);	
-    
+   
+    if(priv->reset_context)
+        gst_vaapi_decoder_emit_caps_change(GST_VAAPI_DECODER_CAST(decoder), priv->width, priv->height);
+ 
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
 }
 
@@ -2262,7 +2265,7 @@ beach:
 }
 
 static gboolean 
-reset_context(GstVaapiDecoderH264 *decoder)
+reset_context(GstVaapiDecoderH264 *decoder, GstBufferPool *pool)
 {
     GstVaapiDecoderH264Private * priv = decoder->priv;
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
@@ -2282,6 +2285,7 @@ reset_context(GstVaapiDecoderH264 *decoder)
         info.width      = priv->width;
         info.height     = priv->height;
         info.ref_frames = get_max_dec_frame_buffering(priv->sps);
+	info.pool	= pool;
         
 	if (!gst_vaapi_decoder_ensure_context(GST_VAAPI_DECODER(decoder), &info))
             return FALSE;
@@ -2296,16 +2300,16 @@ reset_context(GstVaapiDecoderH264 *decoder)
 gboolean
 gst_vaapi_decoder_h264_decide_allocation(
     GstVaapiDecoder *dec,
-    GstQuery *query)
+    GstBufferPool *pool)
 {
     GstVaapiDecoderH264 *decoder = GST_VAAPI_DECODER_H264(dec);
     GstVaapiDecoderH264Private * priv = decoder->priv;
     gboolean res;
 
-    res = reset_context(decoder);
+    res = reset_context(decoder, pool);
 
     if (!res) {
-        GST_ERROR("failed to reset context,,failed to create the pool....");
+        GST_ERROR("failed to reset VAContext..");
         return FALSE;
     }
     return TRUE;

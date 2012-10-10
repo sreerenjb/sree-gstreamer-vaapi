@@ -81,6 +81,9 @@ static GstStaticPadTemplate gst_vaapidecode_src_factory =
 static void
 gst_video_context_interface_init(GstVideoContextInterface *iface);
 
+static void 
+gst_vaapi_dec_negotiate(GstVideoDecoder *dec);
+
 #define GstVideoContextClass GstVideoContextInterface
 G_DEFINE_TYPE_WITH_CODE(
     GstVaapiDecode,
@@ -109,15 +112,12 @@ static void
 gst_vaapi_decoder_notify_caps(GObject *obj, GParamSpec *pspec, void *user_data)
 {
     GstVaapiDecode * const decode = GST_VAAPIDECODE(user_data);
-    GstVideoInfo info;
     GstCaps *caps;
 
     g_assert(decode->decoder == GST_VAAPI_DECODER(obj));
 
     caps = gst_vaapi_decoder_get_caps(decode->decoder);
-
     /*negotiate with downstream once the caps property of GstVideoDecoder has changed*/
-    gst_video_info_from_caps(&info, caps);
     gst_vaapidecode_update_src_caps(decode, caps);
 }
 
@@ -135,7 +135,7 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
 {
     GstStructure *structure;
     GstCaps *other_caps;
-    const GValue *v_width, *v_height, *v_framerate, *v_par, *v_interlaced;
+    const GValue *v_width, *v_height, *v_framerate, *v_par, *v_interlace_mode;
     gboolean success = TRUE;
 
     if (!decode->srcpad_caps) {
@@ -149,7 +149,7 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
     v_height     = gst_structure_get_value(structure, "height");
     v_framerate  = gst_structure_get_value(structure, "framerate");
     v_par        = gst_structure_get_value(structure, "pixel-aspect-ratio");
-    v_interlaced = gst_structure_get_value(structure, "interlaced");
+    v_interlace_mode = gst_structure_get_value(structure, "interlace-mode");
 
     other_caps = decode->srcpad_caps;
     decode->srcpad_caps = gst_caps_copy(decode->srcpad_caps);
@@ -164,14 +164,17 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
         gst_structure_set_value(structure, "framerate", v_framerate);
     if (v_par)
         gst_structure_set_value(structure, "pixel-aspect-ratio", v_par);
-    if (v_interlaced)
-        gst_structure_set_value(structure, "interlaced", v_interlaced);
+    if (v_interlace_mode)
+        gst_structure_set_value(structure, "interlace-mode", v_interlace_mode);
 
+    /*Fixme: setting format to NV12 for now*/
+    /*Fixme: setting to progressive for now*/
+    gst_structure_set(structure, "format", G_TYPE_STRING, "NV12", NULL); /*Fixme*/
+    gst_structure_set(structure, "interlace-mode", G_TYPE_STRING, "progressive", NULL);
     gst_structure_set(structure, "type", G_TYPE_STRING, "vaapi", NULL);
     gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_GLX, NULL);
-    gst_structure_set(structure, "format", G_TYPE_STRING, "NV12", NULL); /*Fixme*/
 
-    return success;
+    return TRUE;
 }
 
 static inline gboolean
@@ -688,20 +691,19 @@ gst_vaapi_dec_negotiate(GstVideoDecoder *dec)
         gst_video_info_from_caps(&outstate_info, outstate->caps);
         if (srcpad_info.width  		        == outstate_info.width &&
             srcpad_info.height 		        == outstate_info.height &&
-            GST_VIDEO_INFO_FORMAT(&srcpad_info) == GST_VIDEO_INFO_FORMAT (&outstate_info)) {
+	    GST_VIDEO_INFO_FORMAT(&srcpad_info)	== GST_VIDEO_INFO_FORMAT(&outstate_info)) {
 
 	    gst_video_codec_state_unref (outstate);
             return;
         } 
         gst_video_codec_state_unref (outstate);
     }
-
+    /*Fixme: Setting o/p state has no effect now sice we manually setting the output_state->caps to srcpad_caps */
     vaapi_dec->output_state =
         gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec), GST_VIDEO_FORMAT_NV12,
         srcpad_info.width, srcpad_info.height, vaapi_dec->input_state);
 
     vaapi_dec->output_state->caps = vaapi_dec->srcpad_caps;
-    /*gst_video_codec_state_unref (outstate);*/
     gst_video_decoder_negotiate (dec); 
 }
 
@@ -731,7 +733,7 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 
             GST_BUFFER_TIMESTAMP(buffer) = GST_VAAPI_SURFACE_PROXY_TIMESTAMP(proxy);
  
-  	    meta =  gst_buffer_get_meta((buffer),GST_VAAPI_SURFACE_META_API_TYPE);
+  	    meta =  (GstVaapiSurfaceMeta *)gst_buffer_get_meta((buffer),GST_VAAPI_SURFACE_META_API_TYPE);
 
 	    /*Fixme: add to videometa? */	    
 	    if (GST_VAAPI_SURFACE_PROXY_INTERLACED(proxy)) {
