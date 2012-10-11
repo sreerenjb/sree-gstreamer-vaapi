@@ -173,6 +173,7 @@ set_caps(GstVaapiDecoder *decoder, GstCaps *caps)
     const GValue *v_codec_data;
     gint v1, v2;
     gboolean b;
+    const gchar *interlaced_mode;
 
     profile = gst_vaapi_profile_from_caps(caps);
     if (!profile)
@@ -199,9 +200,10 @@ set_caps(GstVaapiDecoder *decoder, GstCaps *caps)
         priv->par_d = v2;
     }
 
-    if (gst_structure_get_boolean(structure, "interlaced", &b))
-        priv->is_interlaced = b;
-
+    interlaced_mode = gst_structure_get_string(structure, "interlace-mode");
+    if (interlaced_mode && g_strcmp0 (interlaced_mode, "progressive"))
+        priv->is_interlaced = TRUE;
+    
     v_codec_data = gst_structure_get_value(structure, "codec_data");
     if (v_codec_data)
         set_codec_data(decoder, gst_value_get_buffer(v_codec_data));
@@ -831,9 +833,8 @@ void
 gst_vaapi_decoder_set_interlaced(GstVaapiDecoder *decoder, gboolean interlaced)
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
-/*Fixme :*/
 
-    //if (priv->is_interlaced != interlaced) {
+    if (priv->is_interlaced != interlaced) {
         GST_DEBUG("interlaced changed to %s", interlaced ? "true" : "false");
         priv->is_interlaced = interlaced;
 	
@@ -843,7 +844,7 @@ gst_vaapi_decoder_set_interlaced(GstVaapiDecoder *decoder, gboolean interlaced)
             NULL
         );
         g_object_notify_by_pspec(G_OBJECT(decoder), g_properties[PROP_CAPS]);
-    //}
+    }
 }
 
 void

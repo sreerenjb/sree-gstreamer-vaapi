@@ -164,13 +164,16 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
         gst_structure_set_value(structure, "framerate", v_framerate);
     if (v_par)
         gst_structure_set_value(structure, "pixel-aspect-ratio", v_par);
-    if (v_interlace_mode)
+    if (v_interlace_mode) 
         gst_structure_set_value(structure, "interlace-mode", v_interlace_mode);
+    else
+        gst_structure_set(structure, "interlace-mode", G_TYPE_STRING, "progressive", NULL);
 
-    /*Fixme: setting format to NV12 for now*/
-    /*Fixme: setting to progressive for now*/
-    gst_structure_set(structure, "format", G_TYPE_STRING, "NV12", NULL); /*Fixme*/
+    /*Fixme: setting interlace-mode to progressive , otherwise deinterlace element which is 
+	     autoplugging in playbin will change the caps and which will create a mess */
     gst_structure_set(structure, "interlace-mode", G_TYPE_STRING, "progressive", NULL);
+    /*Fixme: setting format to NV12 for now*/
+    gst_structure_set(structure, "format", G_TYPE_STRING, "NV12", NULL); /*Fixme*/
     gst_structure_set(structure, "type", G_TYPE_STRING, "vaapi", NULL);
     gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_GLX, NULL);
 
