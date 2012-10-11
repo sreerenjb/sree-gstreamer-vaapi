@@ -64,7 +64,6 @@ _gst_vaapi_surface_mem_new (GstAllocator *allocator, GstMemory *parent,
     mem->image       = gst_vaapi_image_new (mem->display, GST_VAAPI_IMAGE_NV12, 
 			  info->width,info->height);
     mem->cache 	     = g_malloc (GST_VIDEO_INFO_SIZE (info));
-    
     return (GstMemory *)mem;
 }
 
@@ -122,13 +121,23 @@ ensure_data (GstVaapiSurfaceMemory * surface_mem)
     
 	raw_image.pixels[i] = surface_mem->cached_data[i];
     	raw_image.stride[i] = surface_mem->destination_pitches[i];
-    } 
+    }
+    /*
+    gst_vaapi_image_map(surface_mem->image);
+    surface_mem->cache = gst_vaapi_image_get_plane(surface_mem->image, 0);
+    gst_vaapi_image_unmap(surface_mem->image);
+    */    
     if (!gst_vaapi_surface_get_image(surface_mem->surface, surface_mem->image))
     {
         GST_ERROR("Failed to get the image from surface");
 	return FALSE;
     }
-
+    
+    gst_vaapi_image_map(surface_mem->image);
+    surface_mem->cache = gst_vaapi_image_get_plane(surface_mem->image, 0);
+    gst_vaapi_image_unmap(surface_mem->image);
+    surface_mem->flag = GST_VAAPI_SURFACE_MEMORY_MAPPED;
+    /* 
     raw_image.format = GST_VAAPI_IMAGE_NV12;
     raw_image.width  = surface_mem->info->width;
     raw_image.height = surface_mem->info->height;
@@ -136,7 +145,7 @@ ensure_data (GstVaapiSurfaceMemory * surface_mem)
     if (!gst_vaapi_image_get_raw(surface_mem->image, &raw_image, NULL)) {
         GST_ERROR("Failed to get raw image");
 	return FALSE;
-    }
+    }*/
     return TRUE;
 }
 

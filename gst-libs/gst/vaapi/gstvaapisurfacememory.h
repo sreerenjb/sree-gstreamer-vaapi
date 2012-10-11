@@ -29,6 +29,12 @@
 
 G_BEGIN_DECLS
 
+typedef enum {
+   GST_VAAPI_SURFACE_MEMORY_NON_MAPPED = 0,
+   GST_VAAPI_SURFACE_MEMORY_MAPPED,
+   GST_VAAPI_SURFACE_MEMORY_DERIVED
+} GstVaapiSurfaceMemoryMapFlag;
+
 typedef struct _GstVaapiSurfaceMemory GstVaapiSurfaceMemory;
 
 struct _GstVaapiSurfaceMemory {
@@ -47,6 +53,8 @@ struct _GstVaapiSurfaceMemory {
     GDestroyNotify notify;
 
     GstVideoInfo        *info;
+
+    GstVaapiSurfaceMemoryMapFlag flag;
 
     /* Cached data for mapping, copied from gstvdpvideomemory */
     GstMapFlags        map_flags;

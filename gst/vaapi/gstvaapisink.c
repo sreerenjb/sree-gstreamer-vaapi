@@ -64,13 +64,16 @@
 GST_DEBUG_CATEGORY_STATIC(gst_debug_vaapisink);
 #define GST_CAT_DEFAULT gst_debug_vaapisink
 
+/*Fixme:Format is hard-coded to NV12 to satisfy autopugging 
+        during the upload of yuv data to vaapi surface */
+
 /* Default template */
 static GstStaticPadTemplate gst_vaapisink_sink_factory =
     GST_STATIC_PAD_TEMPLATE(
         "sink",
         GST_PAD_SINK,
         GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("video/x-raw"));
+        GST_STATIC_CAPS("video/x-raw, format=(string)NV12"));
 
 static void
 gst_vaapisink_video_context_iface_init(GstVideoContextInterface *iface);
@@ -698,7 +701,7 @@ gst_vaapisink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
 /*Fixme: Add VAAPI_SURFACE_META option*/
     if (pool) {
         /* we need at least 6 buffer except for h264 decoder */
-    	gst_query_add_allocation_pool (query, pool, size, 6, 0);
+    	gst_query_add_allocation_pool (query, pool, size, 8, 0);
     	gst_object_unref (pool);
     }
 
@@ -904,6 +907,8 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     GstVaapiSink * const sink = GST_VAAPISINK(base_sink);
     GstBuffer *buffer;
     GstVaapiSurface *surface;
+    GstVaapiImage   *image;
+    GstVaapiSurfaceMemoryMapFlag surface_map_flag;
     guint flags;
     gboolean success;
     GstVideoOverlayComposition *composition = NULL;
@@ -923,8 +928,10 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
             g_clear_object(&sink->display);
             sink->display = g_object_ref (meta->display);
         }
-        flags = meta->render_flags;
+        flags   = meta->render_flags;
 	surface = meta->surface;
+ 	image   = meta->surface_mem->image;
+	surface_map_flag = meta->surface_mem->flag;
     }
     if(!meta) {
 	/*Fixme: first buffer is comming without meta sometimes..*/
@@ -942,6 +949,9 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
         if (!gst_vaapi_surface_set_subpictures_from_composition(surface,
             composition, TRUE))
             GST_WARNING("could not update subtitles");
+    
+    if(image && (surface_map_flag == GST_VAAPI_SURFACE_MEMORY_MAPPED))
+	gst_vaapi_surface_put_image(surface, meta->surface_mem->image);
 
     switch (sink->display_type) {
 #if USE_GLX
