@@ -46,6 +46,7 @@ struct _GstVaapiSurfaceMemory {
     GstVaapiChromaType  chroma_type;
     
     GstVaapiImage *image;
+    GstVaapiImageRaw *raw_image;
     GstVaapiImageFormat ycbcr_format;
 
     gsize slice_size;

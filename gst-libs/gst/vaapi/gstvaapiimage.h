@@ -162,6 +162,11 @@ gboolean
 gst_vaapi_image_map(GstVaapiImage *image);
 
 gboolean
+gst_vaapi_image_map_to_raw_image(
+    GstVaapiImage *image,
+    GstVaapiImageRaw *raw_image);
+
+gboolean
 gst_vaapi_image_unmap(GstVaapiImage *image);
 
 guint

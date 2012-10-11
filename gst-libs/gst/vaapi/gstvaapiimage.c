@@ -748,6 +748,26 @@ gst_vaapi_image_map(GstVaapiImage *image)
     return _gst_vaapi_image_map(image, NULL);
 }
 
+/**
+ * gst_vaapi_image_map_to_raw_image:
+ * @image: a #GstVaapiImage
+ * @raw_iamge: a #GstVaapiRawImage 
+ * Map pixels data contained in the @image into the #GstVaapiImageRaw
+ * image should be unmapped with gst_image_unmap() after usage
+ *
+ * Return value: %TRUE on success
+ */
+gboolean
+gst_vaapi_image_map_to_raw_image(
+    GstVaapiImage *image, 
+    GstVaapiImageRaw *raw_image)
+{
+    g_return_val_if_fail(GST_VAAPI_IS_IMAGE(image), FALSE);
+    g_return_val_if_fail(image->priv->is_constructed, FALSE);
+
+    return _gst_vaapi_image_map(image, raw_image);
+}
+
 gboolean
 _gst_vaapi_image_map(GstVaapiImage *image, GstVaapiImageRaw *raw_image)
 {

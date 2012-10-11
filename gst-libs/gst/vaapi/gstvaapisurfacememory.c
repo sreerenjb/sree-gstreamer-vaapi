@@ -63,7 +63,7 @@ _gst_vaapi_surface_mem_new (GstAllocator *allocator, GstMemory *parent,
     mem->chroma_type = GST_VAAPI_CHROMA_TYPE_YUV420;
     mem->image       = gst_vaapi_image_new (mem->display, GST_VAAPI_IMAGE_NV12, 
 			  info->width,info->height);
-    mem->cache 	     = g_malloc (GST_VIDEO_INFO_SIZE (info));
+    mem->raw_image   = g_slice_new (GstVaapiImageRaw);
     return (GstMemory *)mem;
 }
 
@@ -91,9 +91,9 @@ _gst_vaapi_surface_mem_free (GstAllocator *allocator, GstMemory *mem)
 	g_object_unref(G_OBJECT(surface_mem->display));
 	surface_mem->display = NULL;
     }
-    if (surface_mem->cache) {
-	g_free(surface_mem->cache);
-	surface_mem->cache = NULL;
+    if (surface_mem->raw_image) {
+	g_slice_free(GstVaapiImageRaw, surface_mem->raw_image);
+	surface_mem->raw_image = NULL;
     }
     
     g_slice_free (GstVaapiSurfaceMemory, surface_mem);
@@ -106,46 +106,24 @@ ensure_data (GstVaapiSurfaceMemory * surface_mem)
     GstMapInfo map_info;
     GstMemory *memory;
     GstVideoInfo *info;
-    GstVaapiImageRaw raw_image;
     guint num_planes, i;
  
     info       = surface_mem->info;
-    num_planes = GST_VIDEO_INFO_N_PLANES(info);
     
-    for (i=0; i<num_planes; i++) {
-        surface_mem->cached_data[i] = surface_mem->cache + GST_VIDEO_INFO_PLANE_OFFSET (info, i);
-        surface_mem->destination_pitches[i] = GST_VIDEO_INFO_PLANE_STRIDE (info, i);
-        
-        GST_DEBUG ("cached_data %p ", surface_mem->cached_data[i]);
-        GST_DEBUG ("pitches %d ", surface_mem->destination_pitches[i]);
-    
-	raw_image.pixels[i] = surface_mem->cached_data[i];
-    	raw_image.stride[i] = surface_mem->destination_pitches[i];
-    }
-    /*
-    gst_vaapi_image_map(surface_mem->image);
-    surface_mem->cache = gst_vaapi_image_get_plane(surface_mem->image, 0);
-    gst_vaapi_image_unmap(surface_mem->image);
-    */    
     if (!gst_vaapi_surface_get_image(surface_mem->surface, surface_mem->image))
     {
         GST_ERROR("Failed to get the image from surface");
 	return FALSE;
     }
     
-    gst_vaapi_image_map(surface_mem->image);
-    surface_mem->cache = gst_vaapi_image_get_plane(surface_mem->image, 0);
-    gst_vaapi_image_unmap(surface_mem->image);
-    surface_mem->flag = GST_VAAPI_SURFACE_MEMORY_MAPPED;
-    /* 
-    raw_image.format = GST_VAAPI_IMAGE_NV12;
-    raw_image.width  = surface_mem->info->width;
-    raw_image.height = surface_mem->info->height;
-    
-    if (!gst_vaapi_image_get_raw(surface_mem->image, &raw_image, NULL)) {
-        GST_ERROR("Failed to get raw image");
+    if (!gst_vaapi_image_map_to_raw_image(surface_mem->image, surface_mem->raw_image)){
+	GST_ERROR("Failed to map GstVaapiImage to GstVaapiImageRaw");	
 	return FALSE;
-    }*/
+    }	
+    gst_vaapi_image_unmap(surface_mem->image);
+  
+    surface_mem->flag = GST_VAAPI_SURFACE_MEMORY_MAPPED;
+    
     return TRUE;
 }
 
@@ -157,7 +135,7 @@ _gst_vaapi_surface_mem_map (GstVaapiSurfaceMemory *mem, gsize maxsize, GstMapFla
      if (!ensure_data (mem))
          return NULL;
 
-     return mem->cache;
+     return mem->raw_image->pixels[0];
 }
 
 static void
@@ -248,15 +226,14 @@ gst_vaapi_video_memory_map (GstVideoMeta * meta, guint plane, GstMapInfo * info,
   /* Only handle GstVdpVideoMemory */
   g_return_val_if_fail (((GstMemory *) vmem)->allocator == _surface_allocator,
       FALSE);
-
   GST_DEBUG ("plane:%d", plane);
 
   /* download if not already done */
   if (!ensure_data (vmem))
     return FALSE;
-
-  *data = vmem->cached_data[plane];
-  *stride = vmem->destination_pitches[plane];
+  
+  *data = vmem->raw_image->pixels[plane];
+  *stride = vmem->raw_image->stride[plane];
 
   return TRUE;
 }
