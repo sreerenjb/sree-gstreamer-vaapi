@@ -235,7 +235,7 @@ gst_vaapipostproc_process(GstVaapiPostproc *postproc, GstBuffer *buf)
     if(!buf)
 	return GST_FLOW_EOS;
 
-    meta =  (GstVaapiSurfaceMeta *)gst_buffer_get_meta((buf),GST_VAAPI_SURFACE_META_API_TYPE); 
+    meta = gst_buffer_get_vaapi_surface_meta (buf);
 
     /* Deinterlacing disabled, push frame */
     if (!postproc->deinterlace) {

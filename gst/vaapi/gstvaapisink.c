@@ -922,7 +922,6 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     gst_vaapisink_ensure_rotation(sink, TRUE);
    
     meta = gst_buffer_get_vaapi_surface_meta (buf); 
-    
     if (meta) {
         if (sink->display != meta->display) {
             g_clear_object(&sink->display);
@@ -949,7 +948,8 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
         if (!gst_vaapi_surface_set_subpictures_from_composition(surface,
             composition, TRUE))
             GST_WARNING("could not update subtitles");
-    
+
+    /*upload yuv data to surface if the memory has been mapped */ 
     if(image && (surface_map_flag == GST_VAAPI_SURFACE_MEMORY_MAPPED))
 	gst_vaapi_surface_put_image(surface, meta->surface_mem->image);
 

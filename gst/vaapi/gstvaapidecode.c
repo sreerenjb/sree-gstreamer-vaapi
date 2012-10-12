@@ -736,7 +736,7 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 
             GST_BUFFER_TIMESTAMP(buffer) = GST_VAAPI_SURFACE_PROXY_TIMESTAMP(proxy);
  
-  	    meta =  (GstVaapiSurfaceMeta *)gst_buffer_get_meta((buffer),GST_VAAPI_SURFACE_META_API_TYPE);
+  	    meta = gst_buffer_get_vaapi_surface_meta (buffer);
 
 	    /*Fixme: add to videometa? */	    
 	    if (GST_VAAPI_SURFACE_PROXY_INTERLACED(proxy)) {

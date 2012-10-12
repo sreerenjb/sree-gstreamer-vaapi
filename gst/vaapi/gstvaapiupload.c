@@ -380,7 +380,7 @@ gst_vaapiupload_transform(
     GstVaapiSurfaceMeta *meta;
 
     if (outbuf) {
-         meta =  (GstVaapiSurfaceMeta *)gst_buffer_get_meta((outbuf),GST_VAAPI_SURFACE_META_API_TYPE);
+  	 meta = gst_buffer_get_vaapi_surface_meta (outbuf);
          surface = (GstVaapiSurface *)meta->surface;
     }
 
@@ -618,7 +618,7 @@ gst_vaapiupload_ensure_direct_rendering_caps(
         buf = NULL;
     }
     if (buf) {
-	 meta =  (GstVaapiSurfaceMeta *)gst_buffer_get_meta((buf),GST_VAAPI_SURFACE_META_API_TYPE);
+	 meta = gst_buffer_get_vaapi_surface_meta (buf);
          surface = (GstVaapiSurface *)meta->surface;
     }
     if (surface) {

@@ -253,7 +253,6 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
         priv->surfaces = g_ptr_array_new();
         if (!priv->surfaces) 
 	    return FALSE;
-	
     }
 
     num_ref_frames = 2;
