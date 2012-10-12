@@ -35,10 +35,6 @@ gst_vaapi_surface_meta_free (GstVaapiSurfaceMeta * meta, GstBuffer * buffer)
         g_object_unref(G_OBJECT(meta->display));
 	meta->display = NULL;
     }
-    if (meta->surface) {
-	g_object_unref(G_OBJECT(meta->surface));
-	meta->surface = NULL;
-    }
     if (meta->surface_mem) {
 	g_object_unref(G_OBJECT(meta->surface_mem));
 	meta->surface_mem = NULL;
@@ -89,8 +85,23 @@ gst_buffer_add_vaapi_surface_meta (GstBuffer *buffer, GstVaapiDisplay *display)
 
     meta->surface_mem = (GstVaapiSurfaceMemory *) gst_buffer_get_memory (buffer, 0);
    
-    if (meta->surface_mem)
-        meta->surface = g_object_ref(G_OBJECT(meta->surface_mem->surface));
-
     return meta;
+}
+
+GstVaapiSurface * gst_vaapi_surface_meta_get_surface (GstVaapiSurfaceMeta *meta)
+{
+    g_return_val_if_fail(meta != NULL, NULL);
+    if (meta->surface_mem)
+	return meta->surface_mem->surface;
+    else
+	return NULL;
+}
+
+GstVaapiImage   * gst_vaapi_surface_meta_get_image (GstVaapiSurfaceMeta *meta)
+{
+    g_return_val_if_fail(meta != NULL, NULL);
+    if (meta->surface_mem)
+	return meta->surface_mem->image;
+    else
+	return NULL;
 }

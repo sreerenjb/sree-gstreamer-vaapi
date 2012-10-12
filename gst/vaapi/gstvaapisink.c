@@ -927,9 +927,9 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
             g_clear_object(&sink->display);
             sink->display = g_object_ref (meta->display);
         }
+	surface = gst_vaapi_surface_meta_get_surface(meta);
+ 	image   = gst_vaapi_surface_meta_get_image(meta);
         flags   = meta->render_flags;
-	surface = meta->surface;
- 	image   = meta->surface_mem->image;
 	surface_map_flag = meta->surface_mem->flag;
     }
     if(!meta) {

@@ -43,7 +43,6 @@ struct _GstVaapiSurfaceMeta {
    GstMeta meta;
 
    GstVaapiDisplay *display;
-   GstVaapiSurface *surface;
    GstVaapiSurfaceMemory *surface_mem;
 
    gboolean interlaced;
@@ -53,6 +52,9 @@ struct _GstVaapiSurfaceMeta {
 
 #define gst_buffer_get_vaapi_surface_meta(b) ((GstVaapiSurfaceMeta*)gst_buffer_get_meta((b),GST_VAAPI_SURFACE_META_API_TYPE))
 GstVaapiSurfaceMeta * gst_buffer_add_vaapi_surface_meta (GstBuffer * buffer, GstVaapiDisplay *display);
+
+GstVaapiSurface * gst_vaapi_surface_meta_get_surface (GstVaapiSurfaceMeta *meta);
+GstVaapiImage   * gst_vaapi_surface_meta_get_image (GstVaapiSurfaceMeta *meta);
 
 G_END_DECLS
 

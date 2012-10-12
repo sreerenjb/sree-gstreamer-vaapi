@@ -282,7 +282,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
 	   GST_ERROR ("Failed to get the VaapiSurfaceMeta");
 	   return FALSE;
 	}	
-	surface = (GstVaapiSurface *)meta->surface;
+	surface = gst_vaapi_surface_meta_get_surface(meta);
         if (!surface)
         {
                 GST_DEBUG ("Mapping failed...");
@@ -832,7 +832,7 @@ gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
     if (buffer) {
 
 	meta =gst_buffer_get_vaapi_surface_meta(buffer);
-	surface = meta->surface;
+	surface = gst_vaapi_surface_meta_get_surface(meta);
 	if (surface)
             gst_vaapi_surface_set_parent_context(GST_VAAPI_SURFACE(surface), context);
     }
@@ -884,7 +884,7 @@ gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffe
    
     if (buffer) {
 	meta =gst_buffer_get_vaapi_surface_meta(buffer);
-	surface = (GstVaapiSurface *)meta->surface;
+	surface = gst_vaapi_surface_meta_get_surface(meta);
 	if (surface)
             gst_vaapi_surface_set_parent_context(GST_VAAPI_SURFACE(surface), NULL);
     }
