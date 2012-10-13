@@ -36,7 +36,7 @@ gst_vaapi_surface_meta_free (GstVaapiSurfaceMeta * meta, GstBuffer * buffer)
 	meta->display = NULL;
     }
     if (meta->surface_mem) {
-	g_object_unref(G_OBJECT(meta->surface_mem));
+	gst_memory_unref((GstMemory *)(meta->surface_mem));
 	meta->surface_mem = NULL;
     }   
 }

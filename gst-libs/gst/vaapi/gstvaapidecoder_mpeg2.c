@@ -755,40 +755,48 @@ parse_picture_ext(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
         picture->structure = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
         break;
     }
-
-    /* Allocate dummy picture for first field based I-frame */
-    if (picture->type == GST_VAAPI_PICTURE_TYPE_I &&
-        !GST_VAAPI_PICTURE_IS_FRAME(picture) &&
-        gst_vaapi_dpb_size(priv->dpb) == 0) {
-        GstVaapiPicture *dummy_picture;
-        gboolean success;
-
-        dummy_picture = GST_VAAPI_PICTURE_NEW(MPEG2, decoder);
-        if (!dummy_picture) {
-            GST_ERROR("failed to allocate dummy picture");
-            return GST_VAAPI_DECODER_STATUS_ERROR_ALLOCATION_FAILED;
-        }
-
-        dummy_picture->type      = GST_VAAPI_PICTURE_TYPE_I;
-        dummy_picture->pts       = GST_CLOCK_TIME_NONE;
-        dummy_picture->poc       = -1;
-        dummy_picture->structure = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
-
-        GST_VAAPI_PICTURE_FLAG_SET(
-            dummy_picture,
-            (GST_VAAPI_PICTURE_FLAG_SKIPPED |
-             GST_VAAPI_PICTURE_FLAG_REFERENCE)
-        );
-
-        success = gst_vaapi_dpb_add(priv->dpb, dummy_picture);
-        gst_vaapi_picture_unref(dummy_picture);
-        if (!success) {
-            GST_ERROR("failed to add dummy picture into DPB");
-            return GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
-        }
-        GST_INFO("allocated dummy picture for first field based I-frame");
-    }
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
+}
+
+static gboolean
+allocate_dummy_picture (GstVaapiDecoderMpeg2 *decoder) 
+{
+    GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
+    GstVaapiPicture * const picture = priv->current_picture;
+    GstVaapiPicture *dummy_picture;
+    gboolean success;
+    
+    /* Allocate dummy picture for first field based I-frame */
+    dummy_picture = GST_VAAPI_PICTURE_NEW(MPEG2, decoder);
+    if (!dummy_picture) {
+        GST_ERROR("failed to create dummy picture");
+	return FALSE;
+    }
+
+    if (!gst_vaapi_picture_allocate_surface(dummy_picture)) {
+	GST_ERROR("failed to allocate storage for dummy picture");
+	return FALSE;
+    }
+
+    dummy_picture->type      = GST_VAAPI_PICTURE_TYPE_I;
+    dummy_picture->pts       = GST_CLOCK_TIME_NONE;
+    dummy_picture->poc       = -1;
+    dummy_picture->structure = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
+
+    GST_VAAPI_PICTURE_FLAG_SET(
+        dummy_picture,
+        (GST_VAAPI_PICTURE_FLAG_SKIPPED |
+         GST_VAAPI_PICTURE_FLAG_REFERENCE)
+    );
+
+    success = gst_vaapi_dpb_add(priv->dpb, dummy_picture);
+    gst_vaapi_picture_unref(dummy_picture);
+    if (!success) {
+       GST_ERROR("failed to add dummy picture into DPB");
+       return FALSE;
+    }
+   
+    return TRUE;
 }
 
 static inline guint32
@@ -1114,9 +1122,20 @@ decode_buffer(GstVaapiDecoderMpeg2 *decoder, GstBuffer *buffer, GstVideoCodecFra
     GstVaapiPicture *picture = priv->current_picture;
 
     if (picture) {
-        if (!gst_vaapi_picture_allocate_surface(picture)) {
-	    GST_ERROR("failed to allocate surface for current pic");
-	    return FALSE;
+    
+	if (picture->type == GST_VAAPI_PICTURE_TYPE_I &&
+            !GST_VAAPI_PICTURE_IS_FRAME(picture) &&
+            gst_vaapi_dpb_size(priv->dpb) == 0) {
+		if(!allocate_dummy_picture(decoder))
+		    GST_ERROR("Failed to add allocate dummy picture");
+	}
+
+	if (GST_VAAPI_PICTURE_IS_FRAME(picture) ||
+	    GST_VAAPI_PICTURE_IS_FIRST_FIELD(picture)) { 
+            if (!gst_vaapi_picture_allocate_surface(picture)) {
+	        GST_ERROR("failed to allocate surface for current pic");
+	        return FALSE;
+	    }
 	}
         
 	picture->frame_id       = frame->system_frame_number;

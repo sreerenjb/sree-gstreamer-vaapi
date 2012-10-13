@@ -952,7 +952,7 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     /*upload yuv data to surface if the memory has been mapped */ 
     if(image && (surface_map_flag == GST_VAAPI_SURFACE_MEMORY_MAPPED))
 	gst_vaapi_surface_put_image(surface, meta->surface_mem->image);
-
+    
     switch (sink->display_type) {
 #if USE_GLX
     case GST_VAAPI_DISPLAY_TYPE_GLX:
