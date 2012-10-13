@@ -96,9 +96,6 @@ gst_vaapi_picture_destroy(GstVaapiPicture *picture)
     if(picture->surface_buffer)
  	gst_vaapi_context_put_surface_buffer (GET_CONTEXT(picture), picture->surface_buffer);
 
-    if(picture->surface_pool) 
-	gst_object_unref(GST_OBJECT(picture->surface_pool));
-
     vaapi_destroy_buffer(GET_VA_DISPLAY(picture), &picture->param_id);
     picture->param = NULL;
 }
@@ -127,8 +124,6 @@ gst_vaapi_picture_allocate_surface(
         return FALSE;
     picture->surface_id = gst_vaapi_surface_get_id(picture->surface);
 
-    picture->surface_pool = gst_vaapi_context_get_surface_pool(GET_CONTEXT(picture));
-
     return TRUE;
 }
 
@@ -150,7 +145,6 @@ gst_vaapi_picture_create(
         picture->surface 	= gst_vaapi_surface_proxy_get_surface(picture->proxy); 
     
 	picture->surface_id   = parent_picture->surface_id;
-    	picture->surface_pool = parent_picture->surface_pool;
 	
         picture->type    = parent_picture->type;
         picture->pts     = parent_picture->pts;
@@ -205,7 +199,6 @@ gst_vaapi_picture_create(
 #if 0
     picture->surface_id = gst_vaapi_surface_get_id(picture->surface);
 
-    picture->surface_pool = gst_vaapi_context_get_surface_pool(GET_CONTEXT(picture));
 #endif
     success = vaapi_create_buffer(
         GET_VA_DISPLAY(picture),

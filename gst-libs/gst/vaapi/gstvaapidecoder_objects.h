@@ -113,7 +113,6 @@ struct _GstVaapiPicture {
     GstVaapiCodecObject         parent_instance;
     GstVaapiSurface            *surface;
     GstBuffer                  *surface_buffer;
-    GstVaapiSurfacePool        *surface_pool;
     GstVaapiSurfaceProxy       *proxy;
     VABufferID                  param_id;
     guint                       param_size;
