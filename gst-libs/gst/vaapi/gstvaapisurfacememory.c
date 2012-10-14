@@ -86,7 +86,10 @@ _gst_vaapi_surface_mem_free (GstAllocator *allocator, GstMemory *mem)
 	g_object_unref(G_OBJECT(surface_mem->surface));
         surface_mem->surface = NULL;
     }
-
+    if (surface_mem->image) {
+	g_object_unref(G_OBJECT(surface_mem->image));
+	surface_mem->image = NULL;
+    }
     if (surface_mem->display) {
 	g_object_unref(G_OBJECT(surface_mem->display));
 	surface_mem->display = NULL;
