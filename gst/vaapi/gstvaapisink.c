@@ -701,7 +701,7 @@ gst_vaapisink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
 /*Fixme: Add VAAPI_SURFACE_META option*/
     if (pool) {
         /* we need at least 6 buffer except for h264 decoder */
-    	gst_query_add_allocation_pool (query, pool, size, 8, 0);
+    	gst_query_add_allocation_pool (query, pool, size, 6, 0);
     	gst_object_unref (pool);
     }
 
