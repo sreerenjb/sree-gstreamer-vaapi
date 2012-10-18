@@ -387,9 +387,13 @@ static void
 gst_vaapi_context_finalize(GObject *object)
 {
     GstVaapiContext * const context = GST_VAAPI_CONTEXT(object);
+    GstVaapiContextPrivate * const priv    = context->priv;
 
     gst_vaapi_context_destroy(context);
     gst_vaapi_context_destroy_surfaces(context);
+   
+    if(priv->surfaces_pool)
+        gst_object_unref (priv->surfaces_pool);
 
     G_OBJECT_CLASS(gst_vaapi_context_parent_class)->finalize(object);
 }
@@ -423,6 +427,8 @@ gst_vaapi_context_set_property(
         break;
     case PROP_POOL:
 	priv->surfaces_pool = g_value_get_pointer(value);
+	if (priv->surfaces_pool)
+  	    gst_object_ref (priv->surfaces_pool);
 	break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -692,7 +698,10 @@ gst_vaapi_context_reset_full(GstVaapiContext *context, GstVaapiContextInfo *cip)
     }
 
 /*Fixme: check whether the pool is same or not*/
-    priv->surfaces_pool  = gst_object_ref(GST_OBJECT((GstVaapiSurfacePool *)cip->pool));
+    if (priv->surfaces_pool)
+	gst_object_unref(priv->surfaces_pool);
+    else
+        priv->surfaces_pool  = gst_object_ref(cip->pool);
 
     if (size_changed && !gst_vaapi_context_create_surfaces(context))
         return FALSE;
