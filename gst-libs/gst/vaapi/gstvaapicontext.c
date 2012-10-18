@@ -238,13 +238,13 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
     guint size;
     GstStructure *config;
     GstBuffer *out;
-    GstMapInfo map_info;
     GstVaapiSurfaceMeta *meta;
 
     /* Number of scratch surfaces beyond those used as reference */
-    /*Fixme: there is a bug some where which is preventing to set SCRATCH_SURFACES_COUNT to 4*/
-    /*Fixme: bug is with the mpeg2 decoder, which is the only decoder causing tearing issue with SCRATCH_SURFACE_COUNT=4:*/
-    const guint SCRATCH_SURFACES_COUNT = 6;
+    /* Fixme: there is a bug some where which is preventing to set SCRATCH_SURFACES_COUNT to 4*/
+    /* Fixme: bug is with the mpeg2 decoder, which is the only decoder causing tearing issue
+     *        with SCRATCH_SURFACE_COUNT=4 */
+     const guint SCRATCH_SURFACES_COUNT = 6;
 
     if (!gst_vaapi_context_create_overlay(context))
         return FALSE;
@@ -288,6 +288,9 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
                 GST_DEBUG ("Mapping failed...");
                 return FALSE;
         }
+	/* Even though the surface pool destroyed at some point, surfaces will stay alive 
+	 * until context destruction, which will release the final ref to surfaces*/
+	g_object_ref(surface);
         g_ptr_array_add(priv->surfaces, surface);
         gst_buffer_pool_release_buffer ((GstBufferPool *)priv->surfaces_pool, out);
     }
@@ -896,8 +899,9 @@ gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffe
 	surface = gst_vaapi_surface_meta_get_surface(meta);
 	if (surface)
             gst_vaapi_surface_set_parent_context(GST_VAAPI_SURFACE(surface), NULL);
+       
+	gst_buffer_unref(buffer);
     }
-    gst_buffer_pool_release_buffer ((GstBufferPool *)priv->surfaces_pool, buffer);
 }
 
 /**
