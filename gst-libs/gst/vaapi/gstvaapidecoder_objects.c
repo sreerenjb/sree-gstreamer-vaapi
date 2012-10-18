@@ -141,14 +141,15 @@ gst_vaapi_picture_create(
         GstVaapiPicture * const parent_picture = GST_VAAPI_PICTURE(args->data);
 
         picture->proxy          = g_object_ref(parent_picture->proxy);
-	picture->surface_buffer = gst_vaapi_surface_proxy_get_surface_buffer(picture->proxy);
-        picture->surface 	= gst_vaapi_surface_proxy_get_surface(picture->proxy); 
-    
-	picture->surface_id   = parent_picture->surface_id;
+        picture->surface_buffer = gst_buffer_ref(parent_picture->surface_buffer);
+        picture->surface	= parent_picture->surface;
+	picture->surface_id     = parent_picture->surface_id;
 	
         picture->type    = parent_picture->type;
         picture->pts     = parent_picture->pts;
         picture->poc     = parent_picture->poc;
+
+        gst_vaapi_surface_set_parent_context (picture->surface, GET_CONTEXT(parent_picture));
 
         // Copy all picture flags but "output"
         GST_VAAPI_PICTURE_FLAG_SET(
