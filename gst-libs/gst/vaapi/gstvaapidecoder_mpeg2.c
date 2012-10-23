@@ -525,10 +525,17 @@ parse_sequence(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
     pts_set_framerate(&priv->tsg, priv->fps_n, priv->fps_d);
     gst_vaapi_decoder_set_framerate(base_decoder, priv->fps_n, priv->fps_d);
 
-    priv->width                 = seq_hdr->width;
-    priv->height                = seq_hdr->height;
+    if (priv->width != seq_hdr->width) {
+        priv->width = seq_hdr->width;
+        priv->size_changed = TRUE;
+    }
+
+    if (priv->height != seq_hdr->height) {
+        priv->height = seq_hdr->height;
+        priv->size_changed = TRUE;
+    }
+
     priv->has_seq_ext           = FALSE;
-    priv->size_changed          = TRUE;
     priv->quant_matrix_changed  = TRUE;
     priv->progressive_sequence  = TRUE;
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
