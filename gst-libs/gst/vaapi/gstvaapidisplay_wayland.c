@@ -59,7 +59,7 @@ get_default_display_name(void)
     static const gchar *g_display_name;
 
     if (!g_display_name)
-        g_display_name = getenv("WAYLAND_DISPLAY");
+        g_display_name = g_getenv("WAYLAND_DISPLAY");
     return g_display_name;
 }
 
