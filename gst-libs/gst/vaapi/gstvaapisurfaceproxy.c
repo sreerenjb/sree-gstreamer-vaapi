@@ -448,16 +448,13 @@ gst_vaapi_surface_proxy_set_surface_buffer(
     if (priv->surface_buffer) {
         if (priv->context)
             gst_vaapi_context_put_surface_buffer (priv->context, priv->surface_buffer);
-        gst_mini_object_unref(GST_MINI_OBJECT_CAST(priv->surface_buffer));
+        gst_buffer_unref(priv->surface_buffer);
         priv->surface_buffer = NULL;
     }
 
     if (surface_buffer)
           priv->surface_buffer = gst_buffer_ref(surface_buffer);
-//        priv->surface_buffer = gst_mini_object_ref(GST_MINI_OBJECT(surface_buffer));
 }
-
-
 
 /**
  * gst_vaapi_surface_proxy_get_timestamp:

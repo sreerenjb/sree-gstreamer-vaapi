@@ -726,7 +726,7 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 
     gst_vaapi_dec_negotiate (bdec);
     
-    proxy = gst_vaapi_decoder_get_surface2(dec->decoder, frame,  &status); /*will merge with gvd_get_surface later*/
+    proxy = gst_vaapi_decoder_get_surface(dec->decoder, frame,  &status); /*will merge with gvd_get_surface later*/
 
     do {
         if (proxy) {

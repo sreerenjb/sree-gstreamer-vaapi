@@ -48,83 +48,6 @@ enum {
 
 static GParamSpec *g_properties[N_PROPERTIES] = { NULL, };
 
-static void
-destroy_buffer(GstBuffer *buffer)
-{
-    gst_buffer_unref(buffer);
-}
-
-static gboolean
-push_buffer(GstVaapiDecoder *decoder, GstBuffer *buffer)
-{
-    GstVaapiDecoderPrivate * const priv = decoder->priv;
-
-    if (!buffer) {
-        buffer = gst_buffer_new();
-        if (!buffer)
-            return FALSE;
-        GST_BUFFER_FLAG_SET(buffer, GST_BUFFER_FLAG_EOS);
-    }
-
-    GST_DEBUG("queue encoded data buffer %p (%d bytes)",
-              buffer, gst_buffer_get_size(buffer));
-
-    g_queue_push_tail(priv->buffers, buffer);
-    return TRUE;
-}
-
-static void
-push_back_buffer(GstVaapiDecoder *decoder, GstBuffer *buffer)
-{
-    GstVaapiDecoderPrivate * const priv = decoder->priv;
-
-    GST_DEBUG("requeue encoded data buffer %p (%d bytes)",
-              buffer, gst_buffer_get_size(buffer));
-
-    g_queue_push_head(priv->buffers, buffer);
-}
-
-static GstBuffer *
-pop_buffer(GstVaapiDecoder *decoder)
-{
-    GstVaapiDecoderPrivate * const priv = decoder->priv;
-    GstBuffer *buffer;
-
-    buffer = g_queue_pop_head(priv->buffers);
-    if (!buffer)
-        return NULL;
-
-    GST_DEBUG("dequeue buffer %p for decoding (%d bytes)",
-              buffer, gst_buffer_get_size(buffer));
-
-    return buffer;
-}
-
-static GstVaapiDecoderStatus
-decode_step(GstVaapiDecoder *decoder)
-{
-    GstVaapiDecoderStatus status;
-    GstBuffer *buffer;
-
-    /* Decoding will fail if there is no surface left */
-    status = gst_vaapi_decoder_check_status(decoder);
-    if (status != GST_VAAPI_DECODER_STATUS_SUCCESS)
-        return status;
-
-    do {
-        buffer = pop_buffer(decoder);
-        if (!buffer)
-            return GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA;
-
-        /*status = GST_VAAPI_DECODER_GET_CLASS(decoder)->decode(decoder, buffer);*/
-        GST_DEBUG("decode frame (status = %d)", status);
-        if (status != GST_VAAPI_DECODER_STATUS_SUCCESS && GST_BUFFER_IS_EOS(buffer))
-            status = GST_VAAPI_DECODER_STATUS_END_OF_STREAM;
-        gst_buffer_unref(buffer);
-    } while (status == GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA);
-    return status;
-}
-
 static inline void
 push_surface(GstVaapiDecoder *decoder, GstVaapiSurfaceProxy *proxy)
 {
@@ -235,12 +158,6 @@ gst_vaapi_decoder_finalize(GObject *object)
         priv->va_context = VA_INVALID_ID;
     }
  
-    if (priv->buffers) {
-        clear_queue(priv->buffers, (GDestroyNotify)destroy_buffer);
-        g_queue_free(priv->buffers);
-        priv->buffers = NULL;
-    }
-
     if (priv->surfaces) {
         clear_queue(priv->surfaces, (GDestroyNotify)g_object_unref);
         g_queue_free(priv->surfaces);
@@ -359,9 +276,7 @@ gst_vaapi_decoder_init(GstVaapiDecoder *decoder)
     priv->fps_d                 = 0;
     priv->par_n                 = 0;
     priv->par_d                 = 0;
-    priv->buffers               = g_queue_new();
     priv->surfaces              = g_queue_new();
-    priv->surface_buffers       = g_queue_new();
     priv->is_interlaced         = FALSE;
 }
 
@@ -397,26 +312,6 @@ gst_vaapi_decoder_get_caps(GstVaapiDecoder *decoder)
 }
 
 /**
- * gst_vaapi_decoder_put_buffer:
- * @decoder: a #GstVaapiDecoder
- * @buf: a #GstBuffer
- *
- * Queues a #GstBuffer to the HW decoder. The decoder holds a
- * reference to @buf.
- *
- * Caller can notify an End-Of-Stream with @buf set to %NULL.
- *
- * Return value: %TRUE on success
- */
-gboolean
-gst_vaapi_decoder_put_buffer(GstVaapiDecoder *decoder, GstBuffer *buf)
-{
-    g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), FALSE);
-
-    return push_buffer(decoder, buf ? gst_buffer_ref(buf) : NULL);
-}
-
-/**
  * gst_vaapi_decoder_get_surface_proxy:
  * @decoder: a #GstVaapiDecoder
  *
@@ -428,63 +323,6 @@ GstVaapiSurfaceProxy *
 gst_vaapi_decoder_get_surface_proxy(GstVaapiDecoder *decoder)
 {
   return pop_surface(decoder);
-}
-
-/**
- * gst_vaapi_decoder_get_surface:
- * @decoder: a #GstVaapiDecoder
- * @pstatus: return location for the decoder status, or %NULL
- *
- * Flushes encoded buffers to the decoder and returns a decoded
- * surface, if any.
- *
- * Return value: a #GstVaapiSurfaceProxy holding the decoded surface,
- *   or %NULL if none is available (e.g. an error). Caller owns the
- *   returned object. g_object_unref() after usage.
- */
-GstVaapiSurfaceProxy *
-gst_vaapi_decoder_get_surface(
-    GstVaapiDecoder       *decoder,
-    GstVaapiDecoderStatus *pstatus
-)
-{
-    GstVaapiSurfaceProxy *proxy;
-    GstVaapiDecoderStatus status;
-
-    if (pstatus)
-        *pstatus = GST_VAAPI_DECODER_STATUS_ERROR_UNKNOWN;
-
-    g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), NULL);
-
-    proxy = pop_surface(decoder);
-    if (!proxy) {
-        do {
-            status = decode_step(decoder);
-        } while (status == GST_VAAPI_DECODER_STATUS_SUCCESS);
-        proxy = pop_surface(decoder);
-    }
-
-    if (proxy)
-        status = GST_VAAPI_DECODER_STATUS_SUCCESS;
-
-    if (pstatus)
-        *pstatus = status;
-    return proxy;
-}
-static inline GstBuffer *
-pop_surface_buffer(GstVaapiDecoder *decoder)
-{
-    GstVaapiDecoderPrivate * const priv = decoder->priv;
-
-    return g_queue_pop_head(priv->surface_buffers);
-}
-
-static inline void
-push_surface_buffer (GstVaapiDecoder *decoder, GstBuffer *buffer)
-{
-    GstVaapiDecoderPrivate * const priv = decoder->priv;
-
-    g_queue_push_tail(priv->surface_buffers, buffer);
 }
 
 /**
@@ -671,7 +509,7 @@ failed_config:
 }
 
 /**
- * gst_vaapi_decoder_get_surface2:
+ * gst_vaapi_decoder_get_surface:
  * @decoder: a #GstVaapiDecoder
  * @frame: a #GstVideoCodecFrame to decode
  * @pstatus: return location for the decoder status, or %NULL
@@ -684,7 +522,7 @@ failed_config:
  *   returned object. g_object_unref() after usage.
  */
 GstVaapiSurfaceProxy *
-gst_vaapi_decoder_get_surface2(
+gst_vaapi_decoder_get_surface(
     GstVaapiDecoder       *decoder,
     GstVideoCodecFrame	  *frame,
     GstVaapiDecoderStatus *pstatus
@@ -879,25 +717,6 @@ gst_vaapi_decoder_ensure_context(
     return TRUE;
 }
 
-gboolean
-gst_vaapi_decoder_push_buffer_sub(
-    GstVaapiDecoder *decoder,
-    GstBuffer       *buffer,
-    guint            offset,
-    guint            size
-)
-{
-    GstBuffer *subbuffer;
-
-    /*Fixme*/
-    return FALSE;
-    /*subbuffer = gst_buffer_create_sub(buffer, offset, size);
-    if (!subbuffer)
-        return FALSE;
-
-    push_back_buffer(decoder, subbuffer);*/
-    return TRUE;
-}
 
 void
 gst_vaapi_decoder_push_surface_proxy(
@@ -917,7 +736,7 @@ gst_vaapi_decoder_check_status(GstVaapiDecoder *decoder)
     GstBufferPoolAcquireParams params = {0, };
     GstFlowReturn ret;
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
-/*Fixme: This might be  bit expensive operation ..? */
+/*Fixme: This might be  bit expensive operation if checking for every frame..? */
 #if 0    
     if (priv->context) {
        pool = gst_vaapi_context_get_surface_pool(priv->context);

@@ -146,10 +146,7 @@ gst_vaapi_context_get_size(
     guint           *pwidth,
     guint           *pheight
 );
-/*
-void
-gst_vaapi_context_put_surface(GstVaapiContext *context, GstVaapiSurface *surface);
-*/
+
 void
 gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffer);
 
@@ -158,19 +155,6 @@ gst_vaapi_context_get_surface_buffer(GstVaapiContext *context);
 
 GstVaapiSurfacePool *
 gst_vaapi_context_get_surface_pool (GstVaapiContext *context);
-
-#if 0
-
-GstVaapiSurface *
-gst_vaapi_context_get_surface(GstVaapiContext *context);
-
-guint
-gst_vaapi_context_get_surface_count(GstVaapiContext *context);
-
-void
-gst_vaapi_context_put_surface(GstVaapiContext *context, GstVaapiSurface *surface);
-
-#endif
 
 GstVaapiSurface *
 gst_vaapi_context_find_surface_by_id(GstVaapiContext *context, GstVaapiID id);

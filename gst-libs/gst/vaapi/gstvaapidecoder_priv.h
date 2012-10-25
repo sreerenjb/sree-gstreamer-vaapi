@@ -124,9 +124,7 @@ struct _GstVaapiDecoderPrivate {
     guint               fps_d;
     guint               par_n;
     guint               par_d;
-    GQueue             *buffers;
     GQueue             *surfaces;
-    GQueue             *surface_buffers;
     guint               is_interlaced   : 1;
 };
 
@@ -163,15 +161,6 @@ gboolean
 gst_vaapi_decoder_ensure_context(
     GstVaapiDecoder     *decoder,
     GstVaapiContextInfo *cip
-);
-
-G_GNUC_INTERNAL
-gboolean
-gst_vaapi_decoder_push_buffer_sub(
-    GstVaapiDecoder *decoder,
-    GstBuffer       *buffer,
-    guint            offset,
-    guint            size
 );
 
 G_GNUC_INTERNAL

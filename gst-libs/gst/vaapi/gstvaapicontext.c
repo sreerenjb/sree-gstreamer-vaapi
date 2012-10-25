@@ -842,7 +842,6 @@ gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
 	buffer = NULL;
     }
     if (buffer) {
-
 	meta =gst_buffer_get_vaapi_surface_meta(buffer);
 	surface = gst_vaapi_surface_meta_get_surface(meta);
 	if (surface)
@@ -868,23 +867,6 @@ gst_vaapi_context_get_surface_pool (GstVaapiContext *context)
     else
 	return NULL;
 }
-
-/**
- * gst_vaapi_context_get_surface_count:
- * @context: a #GstVaapiContext
- *
- * Retrieves the number of free surfaces left in the pool.
- *
- * Return value: the number of free surfaces available in the pool
- */
-/*guint
-gst_vaapi_context_get_surface_count(GstVaapiContext *context)
-{
-    g_return_val_if_fail(GST_VAAPI_IS_CONTEXT(context), 0);
-
-    return gst_vaapi_video_pool_get_size(context->priv->surfaces_pool);
-}*/
-
 
 void
 gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffer)

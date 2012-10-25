@@ -85,6 +85,7 @@ gst_vaapi_picture_destroy(GstVaapiPicture *picture)
         picture->proxy = NULL;
     }
 #if 0
+    /* Picture doesn't own any extra ref to surface, all refs are dropping from the proxy itself*/
     else if (picture->surface) {
         /* Explicitly release any surface that was not bound to a proxy */
         gst_vaapi_context_put_surface(GET_CONTEXT(picture), picture->surface);

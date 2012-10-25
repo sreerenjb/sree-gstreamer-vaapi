@@ -134,17 +134,8 @@ gst_vaapi_decoder_get_codec(GstVaapiDecoder *decoder);
 GstCaps *
 gst_vaapi_decoder_get_caps(GstVaapiDecoder *decoder);
 
-gboolean
-gst_vaapi_decoder_put_buffer(GstVaapiDecoder *decoder, GstBuffer *buf);
-
 GstVaapiSurfaceProxy *
 gst_vaapi_decoder_get_surface_proxy(GstVaapiDecoder *decoder);
-
-GstVaapiSurfaceProxy *
-gst_vaapi_decoder_get_surface(
-    GstVaapiDecoder       *decoder,
-    GstVaapiDecoderStatus *pstatus
-);
 
 void
 gst_vaapi_decoder_emit_caps_change(GstVaapiDecoder *decoder, guint width, guint height);
@@ -165,7 +156,7 @@ gst_vaapi_decoder_decide_allocation(
     GstQuery *query);
 
 GstVaapiSurfaceProxy *
-gst_vaapi_decoder_get_surface2(
+gst_vaapi_decoder_get_surface(
     GstVaapiDecoder       *decoder,
     GstVideoCodecFrame    *frame,
     GstVaapiDecoderStatus *pstatus
