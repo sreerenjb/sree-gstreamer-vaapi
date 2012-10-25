@@ -116,7 +116,6 @@ struct _GstVaapiPicture {
     GstVaapiSurfaceProxy       *proxy;
     VABufferID                  param_id;
     guint                       param_size;
-
     /*< public >*/
     GstVaapiPictureType         type;
     VASurfaceID                 surface_id;

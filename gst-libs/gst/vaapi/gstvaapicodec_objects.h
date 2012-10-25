@@ -42,8 +42,6 @@ typedef struct _GstVaapiHuffmanTable            GstVaapiHuffmanTable;
 #define GST_VAAPI_CODEC_BASE(obj) \
     ((GstVaapiCodecBase *)(obj))
 
-#define GST_VAAPI_TYPE_CODEC_OBJECT             (gst_vaapi_codec_object_get_type())
-//#define GST_VAAPI_IS_CODEC_OBJECT_TYPE(obj)     (GST_IS_MINI_OBJECT_TYPE(obj))
 #define GST_VAAPI_CODEC_OBJECT_CAST(obj)        ((GstVaapiCodecObject *)(obj))
 #define GST_VAAPI_CODEC_OBJECT(obj)             (GST_VAAPI_CODEC_OBJECT_CAST(obj))
 
@@ -67,12 +65,13 @@ typedef struct {
  * GstVaapiCodecObject:
  *
  * A #GstMiniObject holding the base codec object data
+ *
  */
 struct _GstVaapiCodecObject {
     /*< private >*/
     GstMiniObject               parent_instance;
     GstVaapiCodecBase          *codec;
-  
+    
     gboolean (*initialize_ob) (GstVaapiCodecObject *obj);    
     gboolean (*construct_obj) (GstVaapiCodecObject *obj, const GstVaapiCodecObjectConstructorArgs *args); 
 };
@@ -81,22 +80,9 @@ G_GNUC_INTERNAL
 GType
 gst_vaapi_codec_object_get_type(void) G_GNUC_CONST;
 
-/*
 G_GNUC_INTERNAL
 GstVaapiCodecObject *
-gst_vaapi_codec_object_new(
-    GType              type,
-    GstVaapiCodecBase *codec,
-    gconstpointer      param,
-    guint              param_size,
-    gconstpointer      data,
-    guint              data_size    
-);
-*/
-
-G_GNUC_INTERNAL
-GstVaapiCodecObject *
-gst_vaapi_codec_object_finish(
+gst_vaapi_codec_object_create(
     GstVaapiCodecObject  *va_obj,
     GstVaapiCodecBase    *codec,
     gconstpointer        param,
@@ -225,10 +211,13 @@ gst_vaapi_huffman_table_new(
 #define GST_VAAPI_CODEC_DEFINE_TYPE(type, prefix)            		\
 GST_DEFINE_MINI_OBJECT_TYPE(type, prefix)                               \
                                                                         \
-void                                                             \
+static void 								\
+prefix##_init(type *);							\
+									\
+void					                 		\
 prefix##_destroy(type *);                                               \
                                                                         \
-gboolean                                                         \
+gboolean                                                        	\
 prefix##_create(                                                        \
     type *,                                                             \
     const GstVaapiCodecObjectConstructorArgs *args                      \
@@ -238,6 +227,7 @@ static void                                                             \
 prefix##_free(GstMiniObject *object)                                    \
 {									\
     prefix##_destroy((type *)object);                                   \
+    g_slice_free(type, (type *)object);					\
 }     									\
 									\
 static gboolean                                                         \
@@ -258,6 +248,7 @@ prefix##_initialize(type *obj)                                			    \
         (GstMiniObjectCopyFunction) NULL,					    \
         (GstMiniObjectDisposeFunction) NULL,			   	            \
         (GstMiniObjectFreeFunction) prefix##_free);			            \
+    prefix##_init(obj);								    \
     codec_obj	= GST_VAAPI_CODEC_OBJECT_CAST(obj);		                    \
     codec_obj->codec = NULL;				                            \
     codec_obj->construct_obj = prefix##_construct;                                  \

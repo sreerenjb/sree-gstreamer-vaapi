@@ -88,7 +88,7 @@ gst_vaapi_picture_h264_create(
     return TRUE;
 }
 
-static void
+void
 gst_vaapi_picture_h264_init(GstVaapiPictureH264 *picture)
 {
     VAPictureH264 *va_pic;
@@ -120,7 +120,7 @@ gst_vaapi_picture_h264_new(GstVaapiDecoderH264 *decoder)
     gst_vaapi_picture_h264_initialize(obj);
     gst_vaapi_picture_h264_init(obj);
 
-    object = gst_vaapi_codec_object_finish(
+    object = gst_vaapi_codec_object_create(
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
         GST_VAAPI_CODEC_BASE(decoder),
         NULL, sizeof(VAPictureParameterBufferH264),
@@ -128,12 +128,6 @@ gst_vaapi_picture_h264_new(GstVaapiDecoderH264 *decoder)
 	0
     );
 
-    /*object = gst_vaapi_codec_object_new(
-        GST_VAAPI_TYPE_PICTURE_H264,
-        GST_VAAPI_CODEC_BASE(decoder),
-        NULL, sizeof(VAPictureParameterBufferH264),
-        NULL, 0
-    );*/
     if (!object)
         return NULL;
     return GST_VAAPI_PICTURE_H264_CAST(object);
@@ -175,7 +169,7 @@ gst_vaapi_slice_h264_create(
     return TRUE;
 }
 
-static void
+void
 gst_vaapi_slice_h264_init(GstVaapiSliceH264 *slice)
 {
 }
@@ -199,7 +193,7 @@ gst_vaapi_slice_h264_new(
     gst_vaapi_slice_h264_initialize(obj);
     gst_vaapi_slice_h264_init(obj);
 
-    object = gst_vaapi_codec_object_finish(
+    object = gst_vaapi_codec_object_create(
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
         GST_VAAPI_CODEC_BASE(decoder),
 	NULL, sizeof(VASliceParameterBufferH264),
@@ -207,13 +201,6 @@ gst_vaapi_slice_h264_new(
 	0
     );
 
-
-    /*object = gst_vaapi_codec_object_new(
-        GST_VAAPI_TYPE_SLICE_H264,
-        GST_VAAPI_CODEC_BASE(decoder),
-        NULL, sizeof(VASliceParameterBufferH264),
-        data, data_size
-    );*/
     if (!object)
         return NULL;
     return GST_VAAPI_SLICE_H264_CAST(object);

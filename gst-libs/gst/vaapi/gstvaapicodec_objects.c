@@ -34,53 +34,13 @@
 /* ------------------------------------------------------------------------- */
 /* --- Base Codec Object                                                 --- */
 /* ------------------------------------------------------------------------- */
-
-GST_DEFINE_MINI_OBJECT_TYPE(GstVaapiCodecObject, gst_vaapi_codec_object)
-
-static gboolean
-gst_vaapi_codec_object_create(
-    GstVaapiCodecObject                      *obj,
-    const GstVaapiCodecObjectConstructorArgs *args
-)
-{
-    obj->codec = args->codec;
-    return TRUE;
-}
-
-/*GstVaapiCodecObject *
-gst_vaapi_codec_object_new(
-    GType              type,
-    GstVaapiCodecBase *codec,
-    gconstpointer      param,
-    guint              param_size,
-    gconstpointer      data,
-    guint              data_size
-)
-{
-    GstMiniObject *obj;
-    GstVaapiCodecObject *va_obj;
-    GstVaapiCodecObjectConstructorArgs args;
-
-    obj = gst_mini_object_new(type);
-    if (!obj)
-        return NULL;
-
-    va_obj = GST_VAAPI_CODEC_OBJECT(obj);
-    args.codec      = codec;
-    args.param      = param;
-    args.param_size = param_size;
-    args.data       = data;
-    args.data_size  = data_size;
-    args.flags      = 0;
-    if (gst_vaapi_codec_object_construct(va_obj, &args))
-        return va_obj;
-
-    gst_mini_object_unref(obj);
-    return NULL;
-}*/
+/* Just keeping the GstVaapiCodecObject as a simple structure, which is helpful 
+ * for typecasting different objects like #GstVaapiPictre, #GstVaapiSlice etc 
+ * to use common routines.
+ * The actual mini_object_init() is separately calling for each object */
 
 GstVaapiCodecObject *
-gst_vaapi_codec_object_finish(
+gst_vaapi_codec_object_create(
     GstVaapiCodecObject  *va_obj,
     GstVaapiCodecBase    *codec,
     gconstpointer        param,
@@ -184,7 +144,7 @@ gst_vaapi_iq_matrix_new(
 
     gst_vaapi_iq_matrix_initialize(obj);
 
-    object = gst_vaapi_codec_object_finish(
+    object = gst_vaapi_codec_object_create(
 	GST_VAAPI_CODEC_OBJECT_CAST(obj), 
 	GST_VAAPI_CODEC_BASE(decoder),
         param, param_size,
@@ -192,12 +152,6 @@ gst_vaapi_iq_matrix_new(
 	0
     );
 
-    /*object = gst_vaapi_codec_object_new(
-        GST_VAAPI_TYPE_IQ_MATRIX,
-        GST_VAAPI_CODEC_BASE(decoder),
-        param, param_size,
-        NULL, 0
-    );*/
     if (!object)
         return NULL;
     return GST_VAAPI_IQ_MATRIX_CAST(object);
@@ -253,7 +207,7 @@ gst_vaapi_bitplane_new(GstVaapiDecoder *decoder, guint8 *data, guint data_size)
 
     gst_vaapi_bitplane_initialize(obj);
 
-    object = gst_vaapi_codec_object_finish(
+    object = gst_vaapi_codec_object_create(
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
         GST_VAAPI_CODEC_BASE(decoder),
         data, data_size,
@@ -261,13 +215,6 @@ gst_vaapi_bitplane_new(GstVaapiDecoder *decoder, guint8 *data, guint data_size)
 	0
     );
 
-
-    /*object = gst_vaapi_codec_object_new(
-        GST_VAAPI_TYPE_BITPLANE,
-        GST_VAAPI_CODEC_BASE(decoder),
-        data, data_size,
-        NULL, 0
-    );*/
     if (!object)
         return NULL;
     return GST_VAAPI_BITPLANE_CAST(object);
@@ -328,7 +275,7 @@ gst_vaapi_huffman_table_new(
 
     gst_vaapi_huffman_table_initialize(obj);
 
-    object = gst_vaapi_codec_object_finish(
+    object = gst_vaapi_codec_object_create(
         GST_VAAPI_CODEC_OBJECT_CAST(obj),
         GST_VAAPI_CODEC_BASE(decoder),
         data, data_size,
@@ -336,12 +283,6 @@ gst_vaapi_huffman_table_new(
 	0
     );
 
-    /*object = gst_vaapi_codec_object_new(
-        GST_VAAPI_TYPE_HUFFMAN_TABLE,
-        GST_VAAPI_CODEC_BASE(decoder),
-        data, data_size,
-        NULL, 0
-    );*/
     if (!object)
         return NULL;
     return GST_VAAPI_HUFFMAN_TABLE_CAST(object);
