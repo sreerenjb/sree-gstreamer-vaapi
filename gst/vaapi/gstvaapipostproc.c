@@ -43,14 +43,10 @@ GST_DEBUG_CATEGORY_STATIC(gst_debug_vaapipostproc);
 
 /* Default templates */
 static const char gst_vaapipostproc_sink_caps_str[] =
-    "video/x-raw, "
-//    "format=(string)NV12, "
-    "interlaced = (boolean) { true, false }";
+    "video/x-raw ";
 
 static const char gst_vaapipostproc_src_caps_str[] =
-    "video/x-raw, "
-    "format=(string)NV12, "
-    "interlaced = (boolean) false";
+    "video/x-raw ";
 
 static GstStaticPadTemplate gst_vaapipostproc_sink_factory =
     GST_STATIC_PAD_TEMPLATE(
@@ -237,6 +233,12 @@ gst_vaapipostproc_process(GstVaapiPostproc *postproc, GstBuffer *buf)
 
     meta = gst_buffer_get_vaapi_surface_meta (buf);
 
+    if(!meta) {
+        /*Fixme:  buffer is comming without meta sometimes..*/
+        g_warning("Fixme:buffer with null meta received in vaapipostproc,,,");
+        return GST_FLOW_OK;
+    }
+
     /* Deinterlacing disabled, push frame */
     if (!postproc->deinterlace) {
 	ret = gst_pad_push(postproc->srcpad, buf);
@@ -308,6 +310,9 @@ gst_vaapipostproc_update_sink_caps(GstVaapiPostproc *postproc, GstCaps *caps)
 {
     gboolean interlaced;
     GstVideoInfo info;
+    GstStructure *structure;
+    const gchar *interlace_mode;
+    gboolean interlace_flag = FALSE;
 
     if(!gst_video_info_from_caps(&info, caps))
 	return FALSE;
@@ -315,9 +320,23 @@ gst_vaapipostproc_update_sink_caps(GstVaapiPostproc *postproc, GstCaps *caps)
     postproc->fps_n = info.fps_n;
     postproc->fps_d = info.fps_d;
 
+    structure = gst_caps_get_structure(caps, 0);
+    interlace_mode = gst_structure_get_string (structure, "va-interlace-mode");
+    if (interlace_mode && g_strcmp0(interlace_mode, "progressive"))
+	interlace_flag = TRUE;
+    
     switch (postproc->deinterlace_mode) {
     case GST_VAAPI_DEINTERLACE_MODE_AUTO:
-        postproc->deinterlace = GST_VIDEO_INFO_IS_INTERLACED(&info);
+        /*postproc->deinterlace = GST_VIDEO_INFO_IS_INTERLACED(&info);*/
+        
+	/*Fixme: This is a hack: vaapipostproc is sacrificing for the deinterlace element. 
+	 The playbin is autoplugging the deinterlace element and which is doing the 
+         deinterlacing (in AUTO mode) if the incoming caps has "interlace-mode != progressive".
+         But when vaapi elements autoplug in to the pipeline, vaapidecode o/p is not intended to 
+         deinterlace with the deinterlace element. For now "va-interlace-mode", 
+	 (which is a parameter setting by the vaapidecode in caps) is helping to resolve this issue*/
+
+	 postproc->deinterlace = interlace_flag;
         break;
     case GST_VAAPI_DEINTERLACE_MODE_INTERLACED:
         postproc->deinterlace = TRUE;
@@ -342,7 +361,7 @@ gst_vaapipostproc_update_src_caps(GstVaapiPostproc *postproc, GstCaps *caps)
 {
     GstCaps *src_caps;
     GstStructure *structure;
-    const GValue *v_width, *v_height, *v_par;
+    const GValue *v_width, *v_height, *v_par, *v_interlace_mode;
     gint fps_n, fps_d;
 
     if (postproc->srcpad_caps)
@@ -357,6 +376,7 @@ gst_vaapipostproc_update_src_caps(GstVaapiPostproc *postproc, GstCaps *caps)
     v_width      = gst_structure_get_value(structure, "width");
     v_height     = gst_structure_get_value(structure, "height");
     v_par        = gst_structure_get_value(structure, "pixel-aspect-ratio");
+    v_interlace_mode = gst_structure_get_value(structure, "interlace-mode");
 
     structure = gst_caps_get_structure(src_caps, 0);
     if (v_width && v_height) {
@@ -365,14 +385,15 @@ gst_vaapipostproc_update_src_caps(GstVaapiPostproc *postproc, GstCaps *caps)
     }
     if (v_par)
         gst_structure_set_value(structure, "pixel-aspect-ratio", v_par);
+    if (v_interlace_mode)
+        gst_structure_set_value(structure, "interlace-mode", v_interlace_mode);
 
     gst_structure_set(structure, "type", G_TYPE_STRING, "vaapi", NULL);
     gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_GLX, NULL);
-    gst_structure_set(structure, "format", G_TYPE_STRING, "YV12", NULL);
+    gst_structure_set(structure, "format", G_TYPE_STRING, "NV12", NULL);
 
-    if (!postproc->deinterlace)
-        gst_structure_remove_field(structure, "interlaced");
-    else {
+    if (postproc->deinterlace_mode != GST_VAAPI_DEINTERLACE_MODE_DISABLED &&
+        postproc->deinterlace){
         /* Set double framerate in interlaced mode */
         if (!gst_util_fraction_multiply(postproc->fps_n, postproc->fps_d,
                                         2, 1,
@@ -381,7 +402,7 @@ gst_vaapipostproc_update_src_caps(GstVaapiPostproc *postproc, GstCaps *caps)
 
         gst_structure_set(
             structure,
-            "interlaced", G_TYPE_BOOLEAN, FALSE,
+            "interlace-mode", G_TYPE_STRING, "progressive",
             "framerate", GST_TYPE_FRACTION, fps_n, fps_d,
             NULL
         );
