@@ -312,20 +312,6 @@ gst_vaapi_decoder_get_caps(GstVaapiDecoder *decoder)
 }
 
 /**
- * gst_vaapi_decoder_get_surface_proxy:
- * @decoder: a #GstVaapiDecoder
- *
- * Return value: a #GstVaapiSurfaceProxy holding the decoded surface,
- *   or %NULL if none is available (e.g. an error). Caller owns the
- *   returned object. g_object_unref() after usage.
-*/
-GstVaapiSurfaceProxy *
-gst_vaapi_decoder_get_surface_proxy(GstVaapiDecoder *decoder)
-{
-  return pop_surface(decoder);
-}
-
-/**
  * gst_vaapi_decoder_start:
  * @decoder: a #GstVaapiDecoder
  * 
@@ -536,14 +522,18 @@ gst_vaapi_decoder_get_surface(
 
     g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), NULL);
 
-    if (!frame)
-	return NULL;
+    if (!frame) {
+    	proxy = pop_surface(decoder);
+	GST_INFO_OBJECT(decoder, "pop out the pending surfaces, proxy=%p",proxy);
+	goto beach;
+    } 
 
     status = GST_VAAPI_DECODER_GET_CLASS(decoder)->decode(decoder, frame);
     GST_DEBUG("decode frame (status = %d)", status);
     
     proxy = pop_surface(decoder);
 
+beach:
     if (proxy)
         status = GST_VAAPI_DECODER_STATUS_SUCCESS;
     if (pstatus)

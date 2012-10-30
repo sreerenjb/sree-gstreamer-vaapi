@@ -499,9 +499,7 @@ gst_vaapidecode_init(GstVaapiDecode *decode)
     gst_pad_set_query_function(GST_VIDEO_DECODER_SINK_PAD(decode), gst_vaapidecode_query);
     gst_pad_set_query_function(GST_VIDEO_DECODER_SRC_PAD(decode), gst_vaapidecode_query); 
  
-    /*gst_pad_set_getcaps_function(GST_VIDEO_DECODER (decode)->sinkpad, gst_vaapidecode_get_caps); */
     gst_video_decoder_set_packetized (GST_VIDEO_DECODER(decode), FALSE);
-    
 }
 
 static gboolean
@@ -703,7 +701,7 @@ gst_vaapi_dec_negotiate(GstVideoDecoder *dec)
         } 
         gst_video_codec_state_unref (outstate);
     }
-    /*Fixme: Setting o/p state has no effect now sice we manually setting the output_state->caps to srcpad_caps */
+    /*Fixme: Setting o/p state has no effect now since we manually set the output_state->caps to srcpad_caps */
     vaapi_dec->output_state =
         gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec), GST_VIDEO_FORMAT_NV12,
         srcpad_info.width, srcpad_info.height, vaapi_dec->input_state);
@@ -728,7 +726,7 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 
     gst_vaapi_dec_negotiate (bdec);
     
-    proxy = gst_vaapi_decoder_get_surface(dec->decoder, frame,  &status); /*will merge with gvd_get_surface later*/
+    proxy = gst_vaapi_decoder_get_surface(dec->decoder, frame,  &status);
 
     do {
         if (proxy) {
@@ -763,8 +761,7 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
         else if (status != GST_VAAPI_DECODER_STATUS_SUCCESS)
 	    goto error_decode;
 
-	/*Fixme: this will change with gvd_get_surface2() with frame=NULL*/
-        proxy = gst_vaapi_decoder_get_surface_proxy(dec->decoder);
+        proxy = gst_vaapi_decoder_get_surface(dec->decoder, NULL,  &status);
 
     }while (proxy); /* to handle SEQUENCE_END, multiple frames might be pending to render*/
    

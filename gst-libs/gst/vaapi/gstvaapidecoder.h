@@ -134,9 +134,6 @@ gst_vaapi_decoder_get_codec(GstVaapiDecoder *decoder);
 GstCaps *
 gst_vaapi_decoder_get_caps(GstVaapiDecoder *decoder);
 
-GstVaapiSurfaceProxy *
-gst_vaapi_decoder_get_surface_proxy(GstVaapiDecoder *decoder);
-
 void
 gst_vaapi_decoder_emit_caps_change(GstVaapiDecoder *decoder, guint width, guint height);
  
