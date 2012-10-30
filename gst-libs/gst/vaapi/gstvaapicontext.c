@@ -234,17 +234,14 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
     GstVaapiContextPrivate * const priv = context->priv;
     GstCaps *caps;
     GstVaapiSurface *surface;
-    guint i, num_ref_frames, num_surfaces;
+    guint i, num_surfaces;
     guint size;
     GstStructure *config;
     GstBuffer *out;
     GstVaapiSurfaceMeta *meta;
 
     /* Number of scratch surfaces beyond those used as reference */
-    /* Fixme: there is a bug some where which is preventing to set SCRATCH_SURFACES_COUNT to 4*/
-    /* Fixme: bug is with the mpeg2 decoder, which is the only decoder causing tearing issue
-     *        with SCRATCH_SURFACE_COUNT=4 */
-     const guint SCRATCH_SURFACES_COUNT = 6;
+    const guint SCRATCH_SURFACES_COUNT = 4;
 
     if (!gst_vaapi_context_create_overlay(context))
         return FALSE;
@@ -255,10 +252,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
 	    return FALSE;
     }
 
-    num_ref_frames = 2;
-    if (gst_vaapi_profile_get_codec(priv->profile) == GST_VAAPI_CODEC_H264)
-        num_ref_frames = 16;
-    num_surfaces = num_ref_frames + SCRATCH_SURFACES_COUNT;
+    num_surfaces = priv->ref_frames + SCRATCH_SURFACES_COUNT;
 
     config = gst_buffer_pool_get_config ((GstBufferPool *)priv->surfaces_pool);
     gst_buffer_pool_config_get_params (config, &caps, &size, NULL, NULL);
