@@ -549,10 +549,19 @@ beach:
 gboolean
 gst_vaapi_decoder_reset(GstVaapiDecoder * decoder)
 {
+    GstVaapiSurfaceProxy *proxy;
+    GstVaapiDecoderStatus status;
     gboolean res;
     
     res = GST_VAAPI_DECODER_GET_CLASS(decoder)->reset(decoder);
-   
+        
+    proxy = gst_vaapi_decoder_get_surface(decoder, NULL, &status);
+    do {
+        if (proxy)
+	    g_object_unref(proxy);
+        proxy = gst_vaapi_decoder_get_surface(decoder, NULL, &status);
+        
+    }while(proxy);
     return res; 
 }
 
