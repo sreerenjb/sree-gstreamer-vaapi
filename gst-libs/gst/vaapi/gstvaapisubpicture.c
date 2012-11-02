@@ -240,34 +240,50 @@ gst_vaapi_subpicture_new_from_overlay_rectangle(
     GstVaapiImageRaw raw_image;
     GstBuffer *buffer;
     guint width, height, stride;
-    GstMapInfo map_info;
+    GstMapInfo map_info, meta_map_info;
+    gpointer data;
+    GstVideoMeta *vmeta;
 
     g_return_val_if_fail(GST_IS_VIDEO_OVERLAY_RECTANGLE(rect), NULL);
 
-    buffer = gst_video_overlay_rectangle_get_pixels_unscaled_raw(rect, 0);   
-    /*buffer = gst_video_overlay_rectangle_get_pixels_unscaled_argb(
-        rect,
-        &width, &height, &stride,
-        GST_VIDEO_OVERLAY_FORMAT_FLAG_NONE
-    );*/
-    if (!buffer)
+    buffer = gst_video_overlay_rectangle_get_pixels_unscaled_argb(
+	         rect, 
+		 GST_VIDEO_OVERLAY_FORMAT_FLAG_NONE
+	     );  
+    if (!buffer) {
+	GST_ERROR("Failed to get the argb pixel data from overlay rectangle..");
         return NULL;
+    }
 
+    vmeta = gst_buffer_get_video_meta(buffer);
+    if (!vmeta) {
+	GST_ERROR("Failed to get the video meta...");
+	return NULL;
+    }
+
+    if(!gst_video_meta_map(vmeta, 0, &meta_map_info, &data, &stride, GST_MAP_READ)) {
+	GST_ERROR("Faild to map the video meta..");
+	return NULL;
+    }
+
+    /*Fixme: use format from vmeta */
     /* XXX: use gst_vaapi_image_format_from_video() */
 #if G_BYTE_ORDER == G_LITTLE_ENDIAN
     format = GST_VAAPI_IMAGE_BGRA;
 #else
     format = GST_VAAPI_IMAGE_ARGB;
 #endif
-    image = gst_vaapi_image_new(display, format, width, height);
+
+    image = gst_vaapi_image_new(display, format, vmeta->width, vmeta->height);
     if (!image)
         return NULL;
 
-    raw_image.format     = format;
-    raw_image.width      = width;
-    raw_image.height     = height;
-    raw_image.num_planes = 1;
     gst_buffer_map(buffer,&map_info,GST_MAP_WRITE);
+
+    raw_image.format     = format;
+    raw_image.width      = vmeta->width;
+    raw_image.height     = vmeta->height;
+    raw_image.num_planes = 1;
     raw_image.pixels[0]  = map_info.data;
     raw_image.stride[0]  = stride;
     if (!gst_vaapi_image_update_from_raw(image, &raw_image, NULL)) {
@@ -278,6 +294,9 @@ gst_vaapi_subpicture_new_from_overlay_rectangle(
 
     subpicture = gst_vaapi_subpicture_new(image);
     g_object_unref(image);
+
+    gst_video_meta_unmap(vmeta, 0, &meta_map_info);
+    gst_buffer_unmap(buffer,&map_info);
     return subpicture;
 }
 

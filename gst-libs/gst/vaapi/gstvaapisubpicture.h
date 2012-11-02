@@ -27,7 +27,7 @@
 #include <gst/vaapi/gstvaapidisplay.h>
 #include <gst/vaapi/gstvaapiimage.h>
 #include <gst/video/video-overlay-composition.h>
-
+#include <gst/video/gstvideometa.h>
 G_BEGIN_DECLS
 
 #define GST_VAAPI_TYPE_SUBPICTURE \

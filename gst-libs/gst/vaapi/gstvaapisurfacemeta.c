@@ -4,6 +4,8 @@
  *  Copyright (C) 2012 Intel Corporation
  *  Copyright (C) : Sreerenj Balachandran <sreerenj.balachandran@intel.com>
  *
+ *  Contact : Sreerenj Balachandran <sreerenj.balachandran@intel.com>
+ *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public License
  *  as published by the Free Software Foundation; either version 2.1
@@ -27,6 +29,32 @@
 #include <gst/video/gstvideometa.h>
 
 #include "gstvaapisurfacemeta.h"
+
+static gboolean
+gst_vaapi_surface_meta_transform (GstBuffer * dest, GstMeta * meta,
+    GstBuffer * buffer, GQuark type, gpointer data)
+{
+    GstVaapiSurfaceMeta *dmeta, *smeta;
+    guint i;
+    
+    smeta = (GstVaapiSurfaceMeta *) meta;
+    
+    if (GST_META_TRANSFORM_IS_COPY (type)) {
+        GstMetaTransformCopy *copy = data;
+        if (!copy->region) {
+        /* only copy if the complete data is copied as well */
+        dmeta =
+            (GstVaapiSurfaceMeta *) gst_buffer_add_meta (dest, GST_VAAPI_SURFACE_META_INFO,
+                NULL);
+        GST_DEBUG ("copy vaapi surface metadata");
+        dmeta->display      = g_object_ref(G_OBJECT(smeta->display));
+        dmeta->surface_mem  = (GstVaapiSurfaceMemory *)gst_memory_ref((GstMemory *)(smeta->surface_mem));
+        dmeta->render_flags = smeta->render_flags;
+      }
+    } 
+
+    return TRUE;
+}
 
 static void
 gst_vaapi_surface_meta_free (GstVaapiSurfaceMeta * meta, GstBuffer * buffer)
@@ -66,7 +94,7 @@ gst_vaapi_surface_meta_get_info (void)
         gst_meta_register (GST_VAAPI_SURFACE_META_API_TYPE, "GstVaapiSurfaceMeta",
         sizeof (GstVaapiSurfaceMeta), (GstMetaInitFunction) NULL,
         (GstMetaFreeFunction) gst_vaapi_surface_meta_free,
-        (GstMetaTransformFunction) NULL);
+        (GstMetaTransformFunction) gst_vaapi_surface_meta_transform);
   }
   return vaapi_surface_meta_info;
 }
