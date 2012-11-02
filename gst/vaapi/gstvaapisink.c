@@ -945,14 +945,14 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     if (c_meta)
         composition  = c_meta->overlay;
     
+    /*upload yuv data to surface if the memory has been mapped */ 
+    if(image && (surface_map_flag == GST_VAAPI_SURFACE_MEMORY_MAPPED))
+	gst_vaapi_surface_put_image(surface, meta->surface_mem->image);
+    
     if(composition)
         if (!gst_vaapi_surface_set_subpictures_from_composition(surface,
             composition, TRUE))
             GST_WARNING("could not update subtitles");
-
-    /*upload yuv data to surface if the memory has been mapped */ 
-    if(image && (surface_map_flag == GST_VAAPI_SURFACE_MEMORY_MAPPED))
-	gst_vaapi_surface_put_image(surface, meta->surface_mem->image);
     
     switch (sink->display_type) {
 #if USE_GLX
