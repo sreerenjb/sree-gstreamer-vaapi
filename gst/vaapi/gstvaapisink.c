@@ -707,6 +707,7 @@ gst_vaapisink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
 
     /* we also support various metadata */
     gst_query_add_allocation_meta (query, GST_VIDEO_META_API_TYPE, NULL);
+    gst_query_add_allocation_meta (query, GST_VIDEO_OVERLAY_COMPOSITION_META_API_TYPE, NULL);
 
 /*Fixe: add cropmeta api support*/
 
