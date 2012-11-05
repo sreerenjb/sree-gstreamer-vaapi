@@ -716,7 +716,6 @@ gst_vaapi_decoder_ensure_context(
     return TRUE;
 }
 
-
 void
 gst_vaapi_decoder_push_surface_proxy(
     GstVaapiDecoder      *decoder,

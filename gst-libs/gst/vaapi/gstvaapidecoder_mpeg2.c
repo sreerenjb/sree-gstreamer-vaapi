@@ -535,6 +535,12 @@ decode_sequence(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
         priv->size_changed = TRUE;
     }
 
+    gst_vaapi_decoder_set_pixel_aspect_ratio(
+        base_decoder,
+        seq_hdr->par_w,
+        seq_hdr->par_h
+    );
+
     priv->has_seq_ext           = FALSE;
     priv->quant_matrix_changed  = TRUE;
     priv->progressive_sequence  = TRUE;
