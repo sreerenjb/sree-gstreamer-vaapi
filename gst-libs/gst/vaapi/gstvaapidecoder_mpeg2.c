@@ -1000,24 +1000,13 @@ gst_vaapi_decoder_mpeg2_parse(
     size = gst_adapter_available (adapter);
     data = (guint8 *)gst_adapter_map (adapter,size);
 
-    if (size < 8)
+    if (size < 4)
         goto need_data;
 
     ofs = scan_for_start_code(adapter, 0, size, &start_code);
 
-<<<<<<< HEAD
     if (ofs < 0)
         goto need_data;
-=======
-        status = GST_VAAPI_DECODER_STATUS_ERROR_NO_DATA;
-        if (size < 4)
-            break;
-        ofs = scan_for_start_code(priv->adapter, 0, size, &start_code);
-        if (ofs < 0)
-            break;
-        gst_adapter_flush(priv->adapter, ofs);
-        size -= ofs;
->>>>>>> 91da4fc... mpeg2: fix memory leak of empty packets.
 
     gst_adapter_flush(adapter, ofs);
     size -= ofs;
@@ -1025,7 +1014,6 @@ gst_vaapi_decoder_mpeg2_parse(
     if (size < 8)
         goto need_data;
 
-<<<<<<< HEAD
     ofs = scan_for_start_code(adapter, 4, size-4, NULL);
 
     if (ofs < 0)
@@ -1044,19 +1032,6 @@ gst_vaapi_decoder_mpeg2_parse(
     }
 
     *toadd = ofs;
-=======
-        buf      = GST_BUFFER_DATA(buffer);
-        buf_size = GST_BUFFER_SIZE(buffer);
->>>>>>> 91da4fc... mpeg2: fix memory leak of empty packets.
-
-    if (ofs == 4) {
-        /* Ignore empty user-data packets*/
-        if (type == GST_MPEG_VIDEO_PACKET_USER_DATA)
-            return GST_FLOW_OK;
-        GST_ERROR("failed to get a valid packet (SC: 0x%08x)", start_code);
-        status = GST_VAAPI_DECODER_STATUS_ERROR_BITSTREAM_PARSER;
-        goto beach;
-    }
 
     buf_data = data;
     buf_size = ofs;
