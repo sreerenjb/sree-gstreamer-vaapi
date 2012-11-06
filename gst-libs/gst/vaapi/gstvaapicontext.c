@@ -256,7 +256,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
 
     config = gst_buffer_pool_get_config ((GstBufferPool *)priv->surfaces_pool);
     gst_buffer_pool_config_get_params (config, &caps, &size, NULL, NULL);
-    gst_buffer_pool_config_set_params (config, caps, size, num_surfaces, 24);
+    gst_buffer_pool_config_set_params (config, caps, size, num_surfaces, num_surfaces);
     gst_buffer_pool_set_config ((GstBufferPool *)priv->surfaces_pool, config);
 
     if (!gst_buffer_pool_set_active ((GstBufferPool *)priv->surfaces_pool, TRUE)) {
