@@ -166,7 +166,7 @@ gst_vaapi_picture_h264_new(GstVaapiDecoderH264 *decoder)
 static inline GstVaapiSliceH264 *
 gst_vaapi_picture_h264_get_last_slice(GstVaapiPictureH264 *picture)
 {
-    g_return_val_if_fail(GST_VAAPI_IS_PICTURE_H264(picture), NULL);
+    g_return_val_if_fail(picture != NULL, NULL);
 
     if (G_UNLIKELY(picture->base.slices->len < 1))
         return NULL;
@@ -295,7 +295,6 @@ struct _GstVaapiDecoderH264Private {
     gint32                      frame_num_offset;       // FrameNumOffset
     gint32                      frame_num;              // frame_num (from slice_header())
     gint32                      prev_frame_num;         // prevFrameNum
-    GstVaapiEntrypoint          entrypoint;
     gboolean                    prev_pic_has_mmco5;     // prevMmco5Pic
     gboolean                    prev_pic_structure;     // previous picture structure
     guint                       is_constructed          : 1;
@@ -689,8 +688,6 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
     if (!priv->reset_context && priv->has_context)
         return GST_VAAPI_DECODER_STATUS_SUCCESS;
      
-    priv->entrypoint = entrypoint;
-
     /* Reset DPB */
     if (priv->reset_context)
         dpb_reset(decoder, sps);
@@ -2490,7 +2487,7 @@ gst_vaapi_decoder_h264_parse(
 {
     GstVaapiDecoderH264 * const decoder = GST_VAAPI_DECODER_H264(base);
     GstVaapiDecoderH264Private * const priv = decoder->priv;
-    GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCES;
+    GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
     GstH264ParserResult result;
     GstH264NalUnit nalu;
     guchar *data;
@@ -2503,7 +2500,7 @@ gst_vaapi_decoder_h264_parse(
 
     if (priv->is_avc) {
 	if (size < priv->nal_length_size)
-            goto need_dta;
+            goto need_data;
 
         result = gst_h264_parser_identify_nalu_avc(
                 priv->parser,
@@ -2557,7 +2554,7 @@ reset_context(GstVaapiDecoderH264 *decoder, GstBufferPool *pool)
     GstVaapiDecoderStatus status = GST_VAAPI_DECODER_STATUS_SUCCESS;
 
     /*Fixme: Do we actually need to check the sps parameters here?*/
-    status = ensure_context(decoder, priv->sps);
+    status = ensure_context(decoder, &priv->last_sps);
     if (status != GST_VAAPI_DECODER_STATUS_SUCCESS) {
         GST_DEBUG("failed to reset context");
         return FALSE;
@@ -2570,7 +2567,7 @@ reset_context(GstVaapiDecoderH264 *decoder, GstBufferPool *pool)
         info.entrypoint = priv->entrypoint;
         info.width      = priv->width;
         info.height     = priv->height;
-        info.ref_frames = get_max_dec_frame_buffering(priv->sps);
+        info.ref_frames = get_max_dec_frame_buffering(&priv->last_sps);
 	info.pool	= GST_VAAPI_SURFACE_POOL(pool);
         
 	if (!gst_vaapi_decoder_ensure_context(GST_VAAPI_DECODER(decoder), &info))
@@ -2578,7 +2575,7 @@ reset_context(GstVaapiDecoderH264 *decoder, GstBufferPool *pool)
         priv->has_context = TRUE;
 	priv->reset_context = FALSE;
         /* Reset DPB */
- 	dpb_reset(decoder, priv->sps);	
+ 	dpb_reset(decoder, &priv->last_sps);	
     }
     return TRUE;
 }
@@ -2678,19 +2675,16 @@ gst_vaapi_picture_h264_allocate_surface(GstVaapiDecoderH264 *decoder)
     GstVaapiPictureH264 *picture = priv->current_picture;
     GstVaapiPicture *base_picture = &picture->base;
     VAPictureParameterBufferH264 * const pic_param = base_picture->param;
-    VAPictureH264 *pic;
 
     if (!gst_vaapi_picture_allocate_surface(GST_VAAPI_PICTURE_CAST(base_picture))) {
             GST_ERROR("failed to allocate surface for current pic");
             return FALSE;
     }
-    
-    pic = &picture->info;
-    pic->picture_id = picture->base.surface_id;
-    pic_param->CurrPic = picture->info;
+    vaapi_fill_picture(&pic_param->CurrPic, picture); 
 
     return TRUE;   
 }
+
 GstVaapiDecoderStatus
 decode_buffer_h264(GstVaapiDecoderH264 *decoder, GstBuffer *buffer, GstVideoCodecFrame *frame)
 {
@@ -2733,9 +2727,7 @@ gst_vaapi_decoder_h264_reset(GstVaapiDecoder *bdec)
     priv->adapter = NULL;
 
     gst_vaapi_picture_replace(&priv->current_picture, NULL);
-    clear_references(decoder, priv->short_ref, &priv->short_ref_count);
-    clear_references(decoder, priv->long_ref,  &priv->long_ref_count );
-    clear_references(decoder, priv->dpb,       &priv->dpb_count      );
+    dpb_clear(decoder);
 
     return TRUE;
 }
@@ -2823,7 +2815,6 @@ gst_vaapi_decoder_h264_init(GstVaapiDecoderH264 *decoder)
     priv->frame_num_offset      = 0;
     priv->frame_num             = 0;
     priv->prev_frame_num        = 0;
-    priv->entrypoint	  	= GST_VAAPI_ENTRYPOINT_VLD;	
     priv->prev_pic_has_mmco5    = FALSE;
     priv->prev_pic_structure    = GST_VAAPI_PICTURE_STRUCTURE_FRAME;
     priv->is_constructed        = FALSE;
