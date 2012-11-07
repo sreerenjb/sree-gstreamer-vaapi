@@ -68,7 +68,7 @@ gst_vaapi_surface_proxy_finalize(GObject *object)
     GstVaapiSurfaceProxy * const proxy = GST_VAAPI_SURFACE_PROXY(object);
 
     gst_vaapi_surface_proxy_set_surface(proxy, NULL);
-    /*gst_vaapi_surface_proxy_set_surface_buffer(proxy, NULL);*/
+    gst_vaapi_surface_proxy_set_surface_buffer(proxy, NULL);
     gst_vaapi_surface_proxy_set_context(proxy, NULL);
 
     G_OBJECT_CLASS(gst_vaapi_surface_proxy_parent_class)->finalize(object);
@@ -448,7 +448,8 @@ gst_vaapi_surface_proxy_set_surface_buffer(
     if (priv->surface_buffer) {
         if (priv->context)
             gst_vaapi_context_put_surface_buffer (priv->context, priv->surface_buffer);
-        gst_buffer_unref(priv->surface_buffer);
+	else
+            gst_buffer_unref(priv->surface_buffer);
         priv->surface_buffer = NULL;
     }
 
