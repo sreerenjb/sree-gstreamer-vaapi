@@ -749,7 +749,7 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 
             frame_id  = gst_vaapi_surface_proxy_get_frame_id(proxy);
             frame_out = gst_video_decoder_get_frame(bdec, frame_id);
-            frame_out->output_buffer = buffer;
+            frame_out->output_buffer = gst_buffer_ref(buffer);
             frame_out->pts = GST_BUFFER_TIMESTAMP(buffer);
             ret = gst_video_decoder_finish_frame(bdec, frame_out);
             if (ret != GST_FLOW_OK)
@@ -786,7 +786,10 @@ error_create_buffer:
 error_commit_buffer:
     {
         GST_DEBUG("video sink rejected the video buffer (error %d)", ret);
-        g_object_unref(proxy);
+	if(frame_out)
+            gst_video_codec_frame_unref (frame_out);
+	if(proxy)
+            g_object_unref(proxy);
         return GST_FLOW_EOS;
     }
 }
