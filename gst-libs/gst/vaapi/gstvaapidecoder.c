@@ -452,10 +452,7 @@ gst_vaapi_decoder_decide_allocation(
         }
     
         if(!pool) {	
-            pool = gst_vaapi_surface_pool_new(
-                priv->display,
-                caps
-            );
+            pool = gst_vaapi_surface_pool_new(priv->display);
         
 	if (!pool)
 	    goto failed_pool;

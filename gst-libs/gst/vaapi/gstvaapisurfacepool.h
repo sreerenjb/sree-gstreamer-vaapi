@@ -22,11 +22,11 @@
 #ifndef GST_VAAPI_SURFACE_POOL_H
 #define GST_VAAPI_SURFACE_POOL_H
 
+#include <gst/vaapi/gstvaapidisplay.h>
 #include <gst/video/gstvideometa.h>
 #include <gst/video/gstvideopool.h>
 
 #include <gst/vaapi/gstvaapisurface.h>
-#include <gst/vaapi/gstvaapivideopool.h>
 #include <gst/vaapi/gstvaapisurfacememory.h>
 #include <gst/vaapi/gstvaapisurfacemeta.h>
 
@@ -75,8 +75,9 @@ typedef struct _GstVaapiSurfacePoolClass        GstVaapiSurfacePoolClass;
  */
 struct _GstVaapiSurfacePool {
     /*< private >*/
-    GstVaapiVideoPool parent_instance;
+    GstBufferPool parent_instance;
 
+    GstVaapiDisplay *display;
     GstVaapiSurfacePoolPrivate *priv;
 };
 
@@ -87,14 +88,14 @@ struct _GstVaapiSurfacePool {
  */
 struct _GstVaapiSurfacePoolClass {
     /*< private >*/
-    GstVaapiVideoPoolClass parent_class;
+    GstBufferPoolClass parent_class;
 };
 
 GType
 gst_vaapi_surface_pool_get_type (void);
 
 GstBufferPool *
-gst_vaapi_surface_pool_new(GstVaapiDisplay *display, GstCaps *caps);
+gst_vaapi_surface_pool_new(GstVaapiDisplay *display);
 
 
 G_END_DECLS

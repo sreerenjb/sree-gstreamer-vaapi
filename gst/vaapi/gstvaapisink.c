@@ -614,7 +614,7 @@ gst_vaapisink_set_caps(GstBaseSink *base_sink, GstCaps *caps)
 
     /* create a new pool for the new configuration */
     GST_DEBUG_OBJECT(sink, "Creating new Vaapi Surface Pool");
-    newpool = gst_vaapi_surface_pool_new (sink->display, caps);
+    newpool = gst_vaapi_surface_pool_new (sink->display);
     size = info.size;
     structure = gst_buffer_pool_get_config (newpool);
     gst_buffer_pool_config_set_params (structure, caps, size, 6, 0);
@@ -685,7 +685,7 @@ gst_vaapisink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
             goto invalid_caps;
 
     	GST_DEBUG_OBJECT (vaapisink, "create new pool");
-	pool = gst_vaapi_surface_pool_new (vaapisink->display, caps);
+	pool = gst_vaapi_surface_pool_new (vaapisink->display);
     	/* the normal size of a frame */
     	size = info.size;
 

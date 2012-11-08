@@ -62,7 +62,6 @@ libgstvaapi_source_c =				\
 	gstvaapisurfaceproxy.c			\
 	gstvaapiutils.c				\
 	gstvaapivalue.c				\
-	gstvaapivideopool.c			\
         gstvaapisurfacememory.c			\
         gstvaapisurfacemeta.c			\
 	gstvaapiwindow.c			\
@@ -87,7 +86,6 @@ libgstvaapi_source_h =				\
 	gstvaapisurfaceproxy.h			\
 	gstvaapitypes.h				\
 	gstvaapivalue.h				\
-	gstvaapivideopool.h			\
 	gstvaapisurfacememory.h			\
         gstvaapisurfacemeta.h			\
 	gstvaapiwindow.h			\
