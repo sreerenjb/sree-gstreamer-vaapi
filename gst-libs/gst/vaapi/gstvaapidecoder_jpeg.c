@@ -133,8 +133,7 @@ check_context_reset (GstVaapiDecoderJpeg *decoder)
                                               profiles[i], entrypoint))
                 break;
         }
-        if (i == n_profiles)
-            return GST_VAAPI_DECODER_STATUS_ERROR_UNSUPPORTED_PROFILE;
+        g_return_if_fail (i != n_profiles);
         priv->profile = profiles[i];
     }
     if(priv->reset_context)
