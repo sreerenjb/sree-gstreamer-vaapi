@@ -535,6 +535,9 @@ decode_sequence(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
         priv->size_changed = TRUE;
     }
 
+    if (!gst_mpeg_video_finalise_mpeg2_sequence_header(seq_hdr, NULL, NULL)) 
+	GST_DEBUG_OBJECT(decoder, "Calculated PAR value might not be correct..");
+
     gst_vaapi_decoder_set_pixel_aspect_ratio(
         base_decoder,
         seq_hdr->par_w,
@@ -552,6 +555,7 @@ decode_sequence_ext(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
 {
     GstVaapiDecoder * const base_decoder = GST_VAAPI_DECODER(decoder);
     GstVaapiDecoderMpeg2Private * const priv = decoder->priv;
+    GstMpegVideoSequenceHdr * const seq_hdr = &priv->seq_hdr;
     GstMpegVideoSequenceExt * const seq_ext = &priv->seq_ext;
     GstVaapiProfile profile;
     guint width, height;
@@ -603,6 +607,15 @@ decode_sequence_ext(GstVaapiDecoderMpeg2 *decoder, guchar *buf, guint buf_size)
         priv->profile = profile;
         priv->profile_changed = TRUE;
     }
+    
+    if (!gst_mpeg_video_finalise_mpeg2_sequence_header(seq_hdr, seq_ext, NULL)) 
+	GST_DEBUG_OBJECT(decoder, "Calculated PAR value might not be correct..");
+
+    gst_vaapi_decoder_set_pixel_aspect_ratio(
+        base_decoder,
+        seq_hdr->par_w,
+        seq_hdr->par_h
+    );
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
 }
 
