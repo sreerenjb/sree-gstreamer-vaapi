@@ -31,7 +31,7 @@
 #include "gstvaapicontext.h"
 #include "gstvaapisurface.h"
 #include "gstvaapisurface_priv.h"
-#include "gstvaapisurfacepool.h"
+#include "gstvaapivideopool.h"
 #include "gstvaapiimage.h"
 #include "gstvaapisubpicture.h"
 #include "gstvaapiutils.h"
@@ -59,7 +59,7 @@ struct _GstVaapiOverlayRectangle {
 struct _GstVaapiContextPrivate {
     VAConfigID           config_id;
     GPtrArray           *surfaces;
-    GstVaapiSurfacePool *surfaces_pool;
+    GstVaapiVideoPool   *video_pool;
     GPtrArray           *overlay;
     GstVaapiProfile      profile;
     GstVaapiEntrypoint   entrypoint;
@@ -174,7 +174,7 @@ gst_vaapi_context_destroy_surfaces(GstVaapiContext *context)
         priv->surfaces = NULL;
     }
 
-    g_clear_object(&priv->surfaces_pool);
+    g_clear_object(&priv->video_pool);
 }
 
 static void
@@ -238,7 +238,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
     guint size;
     GstStructure *config;
     GstBuffer *out;
-    GstVaapiSurfaceMeta *meta;
+    GstVaapiVideoMeta *meta;
 
     /* Number of scratch surfaces beyond those used as reference */
     const guint SCRATCH_SURFACES_COUNT = 4;
@@ -254,29 +254,29 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
 
     num_surfaces = priv->ref_frames + SCRATCH_SURFACES_COUNT;
 
-    config = gst_buffer_pool_get_config ((GstBufferPool *)priv->surfaces_pool);
+    config = gst_buffer_pool_get_config ((GstBufferPool *)priv->video_pool);
     gst_buffer_pool_config_get_params (config, &caps, &size, NULL, NULL);
     gst_buffer_pool_config_set_params (config, caps, size, num_surfaces, num_surfaces);
-    gst_buffer_pool_set_config ((GstBufferPool *)priv->surfaces_pool, config);
+    gst_buffer_pool_set_config ((GstBufferPool *)priv->video_pool, config);
 
-    if (!gst_buffer_pool_set_active ((GstBufferPool *)priv->surfaces_pool, TRUE)) {
-	GST_ERROR_OBJECT (context, "Failed to activate the surface_pool from GstVaapiContext");
+    if (!gst_buffer_pool_set_active ((GstBufferPool *)priv->video_pool, TRUE)) {
+	GST_ERROR_OBJECT (context, "Failed to activate the video_pool from GstVaapiContext");
 	return FALSE;
     }
 
     for (i = priv->surfaces->len; i < num_surfaces; i++) {
 
-        if (GST_FLOW_OK != gst_buffer_pool_acquire_buffer ((GstBufferPool *)priv->surfaces_pool, &out, NULL)) {
-	    GST_ERROR_OBJECT (priv->surfaces_pool, "Failed to acquire buffer from VaSurfacePool");
+        if (GST_FLOW_OK != gst_buffer_pool_acquire_buffer ((GstBufferPool *)priv->video_pool, &out, NULL)) {
+	    GST_ERROR_OBJECT (priv->video_pool, "Failed to acquire buffer from Va Video Pool");
 	    return FALSE;
 	}
-	meta =gst_buffer_get_vaapi_surface_meta(out);
+	meta =gst_buffer_get_vaapi_video_meta(out);
 
 	if (!meta) {
-	   GST_ERROR ("Failed to get the VaapiSurfaceMeta");
+	   GST_ERROR ("Failed to get the VaapiVideoMeta");
 	   return FALSE;
 	}	
-	surface = gst_vaapi_surface_meta_get_surface(meta);
+	surface = gst_vaapi_video_meta_get_surface(meta);
         if (!surface)
         {
                 GST_DEBUG ("Mapping failed...");
@@ -286,7 +286,7 @@ gst_vaapi_context_create_surfaces(GstVaapiContext *context)
 	 * until context destruction, which will release the final ref to surfaces*/
 	g_object_ref(surface);
         g_ptr_array_add(priv->surfaces, surface);
-        gst_buffer_pool_release_buffer ((GstBufferPool *)priv->surfaces_pool, out);
+        gst_buffer_pool_release_buffer ((GstBufferPool *)priv->video_pool, out);
     }
     return TRUE;
 }
@@ -389,8 +389,8 @@ gst_vaapi_context_finalize(GObject *object)
     gst_vaapi_context_destroy(context);
     gst_vaapi_context_destroy_surfaces(context);
    
-    if(priv->surfaces_pool)
-        gst_object_unref (priv->surfaces_pool);
+    if(priv->video_pool)
+        gst_object_unref (priv->video_pool);
 
     G_OBJECT_CLASS(gst_vaapi_context_parent_class)->finalize(object);
 }
@@ -423,9 +423,9 @@ gst_vaapi_context_set_property(
         priv->ref_frames = g_value_get_uint(value);
         break;
     case PROP_POOL:
-	priv->surfaces_pool = g_value_get_pointer(value);
-	if (priv->surfaces_pool)
-  	    gst_object_ref (priv->surfaces_pool);
+	priv->video_pool = g_value_get_pointer(value);
+	if (priv->video_pool)
+  	    gst_object_ref (priv->video_pool);
 	break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -461,7 +461,7 @@ gst_vaapi_context_get_property(
         g_value_set_uint(value, priv->ref_frames);
         break;
     case PROP_POOL:
-	g_value_set_pointer(value, priv->surfaces_pool);
+	g_value_set_pointer(value, priv->video_pool);
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -542,7 +542,7 @@ gst_vaapi_context_init(GstVaapiContext *context)
     context->priv       = priv;
     priv->config_id     = VA_INVALID_ID;
     priv->surfaces      = NULL;
-    priv->surfaces_pool = NULL;
+    priv->video_pool    = NULL;
     priv->overlay       = NULL;
     priv->profile       = 0;
     priv->entrypoint    = 0;
@@ -571,7 +571,7 @@ gst_vaapi_context_new(
     GstVaapiEntrypoint  entrypoint,
     guint               width,
     guint               height,
-    GstVaapiSurfacePool *pool
+    GstVaapiVideoPool *pool
 )
 {
     GstVaapiContextInfo info;
@@ -647,7 +647,7 @@ gst_vaapi_context_reset(
     GstVaapiEntrypoint  entrypoint,
     unsigned int        width,
     unsigned int        height,
-    GstVaapiSurfacePool *pool
+    GstVaapiVideoPool *pool
 )
 {
     GstVaapiContextPrivate * const priv = context->priv;
@@ -695,10 +695,10 @@ gst_vaapi_context_reset_full(GstVaapiContext *context, GstVaapiContextInfo *cip)
     }
 
 /*Fixme: check whether the pool is same or not*/
-    if (priv->surfaces_pool)
-	gst_object_unref(priv->surfaces_pool);
+    if (priv->video_pool)
+	gst_object_unref(priv->video_pool);
     else
-        priv->surfaces_pool  = gst_object_ref(cip->pool);
+        priv->video_pool  = gst_object_ref(cip->pool);
 
     if (size_changed && !gst_vaapi_context_create_surfaces(context))
         return FALSE;
@@ -766,7 +766,7 @@ gst_vaapi_context_set_profile(GstVaapiContext *context, GstVaapiProfile profile)
                                    context->priv->entrypoint,
                                    context->priv->width,
                                    context->priv->height,
-				   context->priv->surfaces_pool);
+				   context->priv->video_pool);
 }
 
 /**
@@ -827,17 +827,17 @@ gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
     GstVaapiSurface *surface;
     GstBuffer *buffer;
     GstMapInfo info;
-    GstVaapiSurfaceMeta *meta;
+    GstVaapiVideoMeta *meta;
 
     g_return_val_if_fail(GST_VAAPI_IS_CONTEXT(context), NULL);
 
-    if (gst_buffer_pool_acquire_buffer((GstBufferPool *)priv->surfaces_pool, &buffer, NULL) != GST_FLOW_OK){
+    if (gst_buffer_pool_acquire_buffer((GstBufferPool *)priv->video_pool, &buffer, NULL) != GST_FLOW_OK){
 	GST_ERROR("Failed to acquire buffer");
 	buffer = NULL;
     }
     if (buffer) {
-	meta =gst_buffer_get_vaapi_surface_meta(buffer);
-	surface = gst_vaapi_surface_meta_get_surface(meta);
+	meta =gst_buffer_get_vaapi_video_meta(buffer);
+	surface = gst_vaapi_video_meta_get_surface(meta);
 	if (surface)
             gst_vaapi_surface_set_parent_context(GST_VAAPI_SURFACE(surface), context);
     }
@@ -845,19 +845,18 @@ gst_vaapi_context_get_surface_buffer(GstVaapiContext *context)
 }
 
 /**
- * gst_vaapi_context_get_surface_pool:
+ * gst_vaapi_context_get_video_pool:
  * @context: a #GstVaapiContext
  *
- * Return the surfacepool owned by the context.returning NUll if there is no surface_pool.
  * caller of this API is responsible for unreffing it after the usage.
  */
 
-GstVaapiSurfacePool *
-gst_vaapi_context_get_surface_pool (GstVaapiContext *context)
+GstVaapiVideoPool *
+gst_vaapi_context_get_video_pool (GstVaapiContext *context)
 {
     GstVaapiContextPrivate * const priv = context->priv;
-    if (priv->surfaces_pool)
-        return gst_object_ref (GST_OBJECT(priv->surfaces_pool));
+    if (priv->video_pool)
+        return gst_object_ref (GST_OBJECT(priv->video_pool));
     else
 	return NULL;
 }
@@ -868,11 +867,11 @@ gst_vaapi_context_put_surface_buffer (GstVaapiContext *context, GstBuffer *buffe
     GstVaapiContextPrivate * const priv = context->priv;
     GstVaapiSurface *surface;
     GstMapInfo info;
-    GstVaapiSurfaceMeta *meta;
+    GstVaapiVideoMeta *meta;
    
     if (buffer) {
-	meta =gst_buffer_get_vaapi_surface_meta(buffer);
-	surface = gst_vaapi_surface_meta_get_surface(meta);
+	meta =gst_buffer_get_vaapi_video_meta(buffer);
+	surface = gst_vaapi_video_meta_get_surface(meta);
 	if (surface)
             gst_vaapi_surface_set_parent_context(GST_VAAPI_SURFACE(surface), NULL);
        

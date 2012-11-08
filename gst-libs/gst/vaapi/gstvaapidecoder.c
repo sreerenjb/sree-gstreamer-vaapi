@@ -428,7 +428,7 @@ gst_vaapi_decoder_decide_allocation(
     }
 
     if (pool == NULL) {
-        /* Fixme: Add a namespace for GST_VAAPI_SURFACE_META, so that any element other than 
+        /* Fixme: Add a namespace for GST_VAAPI_VIDEO_META, so that any element other than 
          * vaapisink should not be allowed to add this option */
         num_pools = gst_query_get_n_allocation_pools (query);
         GST_DEBUG("Query has %d pools", num_pools);
@@ -438,8 +438,8 @@ gst_vaapi_decoder_decide_allocation(
             config = gst_buffer_pool_get_config(pool);
 	    
 	    /* query might have many pools.If vaapisink is the renderer,
-	    * then query should have a pool with VAAPI_SURFACE_META option */
-	    if (gst_buffer_pool_config_has_option (config, GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META)) {
+	    * then query should have a pool with VAAPI_VIDEO_META option */
+	    if (gst_buffer_pool_config_has_option (config, GST_BUFFER_POOL_OPTION_VAAPI_VIDEO_META)) {
   	        GST_DEBUG_OBJECT(decoder, "vaapisink is the renderer, use the pool supplied by vaapisink");
 		gst_structure_free (config);
 		/* decoder is keeping an extra ref to the pool*/
@@ -452,13 +452,13 @@ gst_vaapi_decoder_decide_allocation(
         }
     
         if(!pool) {	
-            pool = gst_vaapi_surface_pool_new(priv->display);
+            pool = gst_vaapi_video_pool_new(priv->display);
         
 	if (!pool)
 	    goto failed_pool;
         }	
 	config = gst_buffer_pool_get_config(pool);
-        allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);
+        allocator = gst_allocator_find(GST_VAAPI_VIDEO_ALLOCATOR_NAME);
 	gst_buffer_pool_config_set_params (config, caps, info.size, min_buffers, max_buffers);
     	gst_buffer_pool_config_set_allocator (config, allocator, &params);
 	if (!gst_buffer_pool_set_config (pool, config))
@@ -726,7 +726,7 @@ GstVaapiDecoderStatus
 gst_vaapi_decoder_check_status(GstVaapiDecoder *decoder)
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
-    GstVaapiSurfacePool *pool;
+    GstVaapiVideoPool *pool;
     GstBuffer *buffer;
     GstBufferPoolAcquireParams params = {0, };
     GstFlowReturn ret;
@@ -734,7 +734,7 @@ gst_vaapi_decoder_check_status(GstVaapiDecoder *decoder)
 /*Fixme: This might be  bit expensive operation if checking for every frame..? */
 #if 0    
     if (priv->context) {
-       pool = gst_vaapi_context_get_surface_pool(priv->context);
+       pool = gst_vaapi_context_get_video_pool(priv->context);
 
        if (pool && !GST_BUFFER_POOL_IS_FLUSHING((GST_BUFFER_POOL(pool)))) {
            params.flags = GST_BUFFER_POOL_ACQUIRE_FLAG_DONTWAIT;

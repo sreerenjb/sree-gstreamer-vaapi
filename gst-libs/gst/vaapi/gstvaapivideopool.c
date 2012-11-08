@@ -1,5 +1,5 @@
 /*
- *  gstvaapisurfacepool.c - Gst VA surface pool
+ *  gstvaapivideopool.c - Gst VA video pool
  *
  *  Copyright (C) 2010-2011 Splitted-Desktop Systems
  *
@@ -20,17 +20,17 @@
  */
 
 /**
- * SECTION:gstvaapisurfacepool
+ * SECTION:gstvaapivideopool
  * @short_description: VA surface pool
  */
 
 #include "sysdeps.h"
-#include "gstvaapisurfacepool.h"
+#include "gstvaapivideopool.h"
 #include "gstvaapisurfaceproxy.h"
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
-struct _GstVaapiSurfacePoolPrivate {
+struct _GstVaapiVideoPoolPrivate {
     GstAllocator 	*allocator;
   
     GstVaapiImageFormat yuv_format; 
@@ -38,46 +38,46 @@ struct _GstVaapiSurfacePoolPrivate {
 
     GstVideoInfo	info;
     guint		add_videometa          :1;
-    guint		add_vaapi_surface_meta :1; 
+    guint		add_vaapi_video_meta   :1; 
 };
 
 G_DEFINE_TYPE(
-    GstVaapiSurfacePool,
-    gst_vaapi_surface_pool,
+    GstVaapiVideoPool,
+    gst_vaapi_video_pool,
     GST_TYPE_BUFFER_POOL)
 
-#define GST_VAAPI_SURFACE_POOL_GET_PRIVATE(obj)                 \
+#define GST_VAAPI_VIDEO_POOL_GET_PRIVATE(obj)                 \
     (G_TYPE_INSTANCE_GET_PRIVATE((obj),                         \
-                                 GST_VAAPI_TYPE_SURFACE_POOL,	\
-                                 GstVaapiSurfacePoolPrivate))
+                                 GST_VAAPI_TYPE_VIDEO_POOL,	\
+                                 GstVaapiVideoPoolPrivate))
 
 static const gchar **
-gst_vaapi_surface_pool_get_options (GstBufferPool * pool)
+gst_vaapi_video_pool_get_options (GstBufferPool * pool)
 {
   static const gchar *options[] = { GST_BUFFER_POOL_OPTION_VIDEO_META,
-    GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META, NULL
+    GST_BUFFER_POOL_OPTION_VAAPI_VIDEO_META, NULL
   };
 
   return options;
 }
 
 static gboolean
-ensure_surface_memory (GstBufferPool *pool, GstVideoInfo *info)
+ensure_vaapi_video_memory (GstBufferPool *pool, GstVideoInfo *info)
 {
-    GstVaapiSurfacePool *surface_pool = GST_VAAPI_SURFACE_POOL (pool);
-    GstVaapiSurfacePoolPrivate *priv  = surface_pool->priv;
+    GstVaapiVideoPool *video_pool = GST_VAAPI_VIDEO_POOL (pool);
+    GstVaapiVideoPoolPrivate *priv  = video_pool->priv;
     
-    GstVaapiDisplay *display = surface_pool->display;
+    GstVaapiDisplay *display = video_pool->display;
  
     if(!priv->allocator) 
-       priv->allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);
+       priv->allocator = gst_allocator_find(GST_VAAPI_VIDEO_ALLOCATOR_NAME);
 }
 
 static gboolean
-gst_vaapi_surface_pool_set_config (GstBufferPool * pool, GstStructure * config)
+gst_vaapi_video_pool_set_config (GstBufferPool * pool, GstStructure * config)
 {
-    GstVaapiSurfacePool *surface_pool = GST_VAAPI_SURFACE_POOL (pool);
-    GstVaapiSurfacePoolPrivate *priv = surface_pool->priv;
+    GstVaapiVideoPool *video_pool = GST_VAAPI_VIDEO_POOL (pool);
+    GstVaapiVideoPoolPrivate *priv = video_pool->priv;
     GstVaapiDisplay *display;
     GstAllocationParams params;
     GstVideoInfo info;
@@ -100,11 +100,11 @@ gst_vaapi_surface_pool_set_config (GstBufferPool * pool, GstStructure * config)
     priv->info 		= info;
     
     /*Fixme: move this to vaapisink:propose_allocation*/
-    gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META);
+    gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VAAPI_VIDEO_META);
     gst_buffer_pool_config_add_option (config, GST_BUFFER_POOL_OPTION_VIDEO_META);
     
     if (!priv->allocator)    
-        priv->allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);
+        priv->allocator = gst_allocator_find(GST_VAAPI_VIDEO_ALLOCATOR_NAME);
 
     gst_allocation_params_init(&params);
     gst_buffer_pool_config_set_allocator(config, priv->allocator, &params);
@@ -115,10 +115,10 @@ gst_vaapi_surface_pool_set_config (GstBufferPool * pool, GstStructure * config)
         GST_BUFFER_POOL_OPTION_VIDEO_META);
 
     /* parse extra alignment info */
-    priv->add_vaapi_surface_meta = gst_buffer_pool_config_has_option (config,
-        GST_BUFFER_POOL_OPTION_VAAPI_SURFACE_META);
+    priv->add_vaapi_video_meta = gst_buffer_pool_config_has_option (config,
+        GST_BUFFER_POOL_OPTION_VAAPI_VIDEO_META);
 
-    return GST_BUFFER_POOL_CLASS (gst_vaapi_surface_pool_parent_class)->set_config (pool, config);
+    return GST_BUFFER_POOL_CLASS (gst_vaapi_video_pool_parent_class)->set_config (pool, config);
 
     /* ERRORS */
 wrong_config:
@@ -142,38 +142,38 @@ wrong_caps:
 }
   
 static GstFlowReturn
-gst_vaapi_surface_pool_alloc (GstBufferPool * pool, GstBuffer ** buffer,
+gst_vaapi_video_pool_alloc (GstBufferPool * pool, GstBuffer ** buffer,
     GstBufferPoolAcquireParams * buf_alloc_params)
 {
 
-   GstBuffer *surface_buffer;
+   GstBuffer *video_buffer;
    GstVaapiDisplay *display;
-   GstMemory *surface_mem;
+   GstMemory *video_mem;
    GstAllocationParams params;
-   GstVaapiSurfaceMeta *meta;
+   GstVaapiVideoMeta *meta;
    GstVideoInfo *info;
 
-   GstVaapiSurfacePool *surface_pool = GST_VAAPI_SURFACE_POOL (pool);
-   GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL(pool)->priv;
+   GstVaapiVideoPool *video_pool = GST_VAAPI_VIDEO_POOL (pool);
+   GstVaapiVideoPoolPrivate *priv = video_pool->priv;
 
    info = &priv->info;
 
-   display = surface_pool->display;
+   display = video_pool->display;
 
-   if (!(surface_mem = gst_vaapi_surface_memory_new(display,info))) {
-	GST_ERROR("Failed to create the VA Surface Memory");
+   if (!(video_mem = gst_vaapi_video_memory_new(display,info))) {
+	GST_ERROR("Failed to create the VA video Memory");
 	return FALSE;
    }
 
-   surface_buffer = gst_buffer_new ();
-   gst_buffer_insert_memory (surface_buffer, -1, (GstMemory *)surface_mem);
-   GST_BUFFER_OFFSET(surface_buffer) = 0;
-   GST_BUFFER_TIMESTAMP(surface_buffer) = 0;
+   video_buffer = gst_buffer_new ();
+   gst_buffer_insert_memory (video_buffer, -1, (GstMemory *)video_mem);
+   GST_BUFFER_OFFSET(video_buffer) = 0;
+   GST_BUFFER_TIMESTAMP(video_buffer) = 0;
   
-   if(priv->add_vaapi_surface_meta) {
-       meta = gst_buffer_add_vaapi_surface_meta (surface_buffer, display);
+   if(priv->add_vaapi_video_meta) {
+       meta = gst_buffer_add_vaapi_video_meta (video_buffer, display);
        if (!meta) {
-           gst_buffer_unref(surface_buffer);
+           gst_buffer_unref(video_buffer);
            goto no_buffer;
        }
    }
@@ -183,14 +183,14 @@ gst_vaapi_surface_pool_alloc (GstBufferPool * pool, GstBuffer ** buffer,
 
        GST_DEBUG_OBJECT (pool, "adding GstVideoMeta");
        /* these are just the defaults for now */
-       vmeta = gst_buffer_add_video_meta (surface_buffer, 0, GST_VIDEO_INFO_FORMAT (info),
+       vmeta = gst_buffer_add_video_meta (video_buffer, 0, GST_VIDEO_INFO_FORMAT (info),
            GST_VIDEO_INFO_WIDTH (info), GST_VIDEO_INFO_HEIGHT (info));
        
        vmeta->map   = gst_vaapi_video_memory_map;
        vmeta->unmap = gst_vaapi_video_memory_unmap;
    }
  
-   *buffer = surface_buffer;
+   *buffer = video_buffer;
    return GST_FLOW_OK;
 
 /* ERROR */
@@ -202,10 +202,10 @@ no_buffer:
 }
 
 static void
-gst_vaapi_surface_pool_finalize(GObject *object)
+gst_vaapi_video_pool_finalize(GObject *object)
 {
-    GstVaapiSurfacePool *pool = GST_VAAPI_SURFACE_POOL (object);
-    GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL_GET_PRIVATE(pool);
+    GstVaapiVideoPool *pool = GST_VAAPI_VIDEO_POOL (object);
+    GstVaapiVideoPoolPrivate *priv = GST_VAAPI_VIDEO_POOL_GET_PRIVATE(pool);
 
     if (priv->allocator)
 	gst_object_unref (GST_OBJECT(priv->allocator));
@@ -213,55 +213,55 @@ gst_vaapi_surface_pool_finalize(GObject *object)
     if (pool->display)
 	g_object_unref (pool->display);
 
-    G_OBJECT_CLASS(gst_vaapi_surface_pool_parent_class)->finalize(object);
+    G_OBJECT_CLASS(gst_vaapi_video_pool_parent_class)->finalize(object);
 }
 
 static void
-gst_vaapi_surface_pool_class_init(GstVaapiSurfacePoolClass *klass)
+gst_vaapi_video_pool_class_init(GstVaapiVideoPoolClass *klass)
 {
     GObjectClass * const object_class = G_OBJECT_CLASS(klass);
     GstBufferPoolClass *gstbufferpool_class = (GstBufferPoolClass *) klass;
 
-    g_type_class_add_private(klass, sizeof(GstVaapiSurfacePoolPrivate));
+    g_type_class_add_private(klass, sizeof(GstVaapiVideoPoolPrivate));
 
-    object_class->finalize      = gst_vaapi_surface_pool_finalize;
+    object_class->finalize      = gst_vaapi_video_pool_finalize;
 
-    gstbufferpool_class->get_options  = gst_vaapi_surface_pool_get_options;
-    gstbufferpool_class->set_config   = gst_vaapi_surface_pool_set_config;
-    gstbufferpool_class->alloc_buffer = gst_vaapi_surface_pool_alloc;
+    gstbufferpool_class->get_options  = gst_vaapi_video_pool_get_options;
+    gstbufferpool_class->set_config   = gst_vaapi_video_pool_set_config;
+    gstbufferpool_class->alloc_buffer = gst_vaapi_video_pool_alloc;
 }
 
 static void
-gst_vaapi_surface_pool_init(GstVaapiSurfacePool *pool)
+gst_vaapi_video_pool_init(GstVaapiVideoPool *pool)
 {
-    GstVaapiSurfacePoolPrivate *priv = GST_VAAPI_SURFACE_POOL_GET_PRIVATE(pool);
+    GstVaapiVideoPoolPrivate *priv = GST_VAAPI_VIDEO_POOL_GET_PRIVATE(pool);
 
     pool->priv                   = priv;
     priv->chroma_type   	 = 0;
     priv->allocator     	 = NULL;
     priv->add_videometa 	 = FALSE;
-    priv->add_vaapi_surface_meta = FALSE;
+    priv->add_vaapi_video_meta   = FALSE;
 }
 
 /**
- * gst_vaapi_surface_pool_new:
+ * gst_vaapi_video_pool_new:
  * @display: a #GstVaapiDisplay
  *
- * Creates a new #GstVaapiSurfacePool 
+ * Creates a new #GstVaapiVideoPool 
  *
  * Return value: the newly allocated #GstVaapiVideoPool
  */
 GstBufferPool *
-gst_vaapi_surface_pool_new(GstVaapiDisplay *display)
+gst_vaapi_video_pool_new(GstVaapiDisplay *display)
 {
-    GstVaapiSurfacePool *pool;
+    GstVaapiVideoPool *pool;
     GstVideoInfo info;
     
-    pool = g_object_new(GST_VAAPI_TYPE_SURFACE_POOL,
+    pool = g_object_new(GST_VAAPI_TYPE_VIDEO_POOL,
 			NULL);
     pool->display = g_object_ref(display);
 
-    gst_vaapi_surface_memory_allocator_setup();
+    gst_vaapi_video_memory_allocator_setup();
 
     return GST_BUFFER_POOL_CAST(pool);
 }

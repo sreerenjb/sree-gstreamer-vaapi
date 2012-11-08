@@ -50,7 +50,7 @@
 # include <gst/vaapi/gstvaapiwindow_wayland.h>
 #endif
 
-#include <gst/vaapi/gstvaapisurfacepool.h>
+#include <gst/vaapi/gstvaapivideopool.h>
 
 /* Supported interfaces */
 #include <gst/video/videooverlay.h>
@@ -613,12 +613,12 @@ gst_vaapisink_set_caps(GstBaseSink *base_sink, GstCaps *caps)
     GST_DEBUG_OBJECT(sink, "window size %ux%u", win_width, win_height);
 
     /* create a new pool for the new configuration */
-    GST_DEBUG_OBJECT(sink, "Creating new Vaapi Surface Pool");
-    newpool = gst_vaapi_surface_pool_new (sink->display);
+    GST_DEBUG_OBJECT(sink, "Creating new Vaapi Video Pool");
+    newpool = gst_vaapi_video_pool_new (sink->display);
     size = info.size;
     structure = gst_buffer_pool_get_config (newpool);
     gst_buffer_pool_config_set_params (structure, caps, size, 6, 0);
-    allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);   
+    allocator = gst_allocator_find(GST_VAAPI_VIDEO_ALLOCATOR_NAME);   
     gst_buffer_pool_config_set_allocator (structure, allocator, &params);
     if (!gst_buffer_pool_set_config (newpool, structure))
         goto config_failed;
@@ -685,20 +685,20 @@ gst_vaapisink_propose_allocation (GstBaseSink * bsink, GstQuery * query)
             goto invalid_caps;
 
     	GST_DEBUG_OBJECT (vaapisink, "create new pool");
-	pool = gst_vaapi_surface_pool_new (vaapisink->display);
+	pool = gst_vaapi_video_pool_new (vaapisink->display);
     	/* the normal size of a frame */
     	size = info.size;
 
     	config = gst_buffer_pool_get_config (pool);
 	
     	gst_buffer_pool_config_set_params (config, caps, size, 0, 0);
-        allocator = gst_allocator_find(GST_VAAPI_SURFACE_ALLOCATOR_NAME);   
+        allocator = gst_allocator_find(GST_VAAPI_VIDEO_ALLOCATOR_NAME);   
     	gst_buffer_pool_config_set_allocator (config, allocator, &params);
     	
 	if (!gst_buffer_pool_set_config (pool, config))
       	    goto config_failed;
     }
-/*Fixme: Add VAAPI_SURFACE_META option*/
+/*Fixme: Add VAAPI_VIDEO_META option*/
     if (pool) {
         /* we need at least 6 buffer except for h264 decoder */
     	gst_query_add_allocation_pool (query, pool, size, 6, 0);
@@ -909,29 +909,29 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
     GstBuffer *buffer;
     GstVaapiSurface *surface;
     GstVaapiImage   *image;
-    GstVaapiSurfaceMemoryMapFlag surface_map_flag;
+    GstVaapiVideoMemoryMapFlag surface_map_flag;
     guint flags;
     gboolean success;
     GstVideoOverlayComposition *composition = NULL;
     GstVideoOverlayCompositionMeta *c_meta = NULL;
     GstMapInfo map_info;
-    GstVaapiSurfaceMeta *meta;
+    GstVaapiVideoMeta *meta;
 
     if (!sink->window)
         return GST_FLOW_EOS;
 
     gst_vaapisink_ensure_rotation(sink, TRUE);
    
-    meta = gst_buffer_get_vaapi_surface_meta (buf); 
+    meta = gst_buffer_get_vaapi_video_meta (buf); 
     if (meta) {
         if (sink->display != meta->display) {
             g_clear_object(&sink->display);
             sink->display = g_object_ref (meta->display);
         }
-	surface = gst_vaapi_surface_meta_get_surface(meta);
- 	image   = gst_vaapi_surface_meta_get_image(meta);
+	surface = gst_vaapi_video_meta_get_surface(meta);
+ 	image   = gst_vaapi_video_meta_get_image(meta);
         flags   = meta->render_flags;
-	surface_map_flag = meta->surface_mem->flag;
+	surface_map_flag = meta->video_mem->flag;
     }
     if(!meta) {
 	/*Fixme: first buffer is comming without meta sometimes..*/
@@ -946,8 +946,8 @@ gst_vaapisink_show_frame(GstBaseSink *base_sink, GstBuffer *buf)
         composition  = c_meta->overlay;
     
     /*upload yuv data to surface if the memory has been mapped */ 
-    if(image && (surface_map_flag == GST_VAAPI_SURFACE_MEMORY_MAPPED))
-	gst_vaapi_surface_put_image(surface, meta->surface_mem->image);
+    if(image && (surface_map_flag == GST_VAAPI_VIDEO_MEMORY_MAPPED))
+	gst_vaapi_surface_put_image(surface, meta->video_mem->image);
     
     if(composition)
         if (!gst_vaapi_surface_set_subpictures_from_composition(surface,

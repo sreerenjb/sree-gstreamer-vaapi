@@ -58,12 +58,12 @@ libgstvaapi_source_c =				\
 	gstvaapiprofile.c			\
 	gstvaapisubpicture.c			\
 	gstvaapisurface.c			\
-	gstvaapisurfacepool.c			\
+	gstvaapivideopool.c			\
 	gstvaapisurfaceproxy.c			\
 	gstvaapiutils.c				\
 	gstvaapivalue.c				\
-        gstvaapisurfacememory.c			\
-        gstvaapisurfacemeta.c			\
+        gstvaapivideomemory.c			\
+        gstvaapivideometa.c			\
 	gstvaapiwindow.c			\
 	$(NULL)
 
@@ -82,12 +82,12 @@ libgstvaapi_source_h =				\
 	gstvaapiprofile.h			\
 	gstvaapisubpicture.h			\
 	gstvaapisurface.h			\
-	gstvaapisurfacepool.h			\
+	gstvaapivideopool.h			\
 	gstvaapisurfaceproxy.h			\
 	gstvaapitypes.h				\
 	gstvaapivalue.h				\
-	gstvaapisurfacememory.h			\
-        gstvaapisurfacemeta.h			\
+	gstvaapivideomemory.h			\
+        gstvaapivideometa.h			\
 	gstvaapiwindow.h			\
 	$(NULL)
 

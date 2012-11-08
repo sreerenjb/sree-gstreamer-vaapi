@@ -720,7 +720,7 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
     GstBuffer *buffer;
     GstFlowReturn ret = GST_FLOW_OK;
     GstVaapiDecoderStatus status;
-    GstVaapiSurfaceMeta *meta;
+    GstVaapiVideoMeta *meta;
 
     dec = GST_VAAPIDECODE(bdec);
 
@@ -736,7 +736,7 @@ gst_vaapi_dec_handle_frame(GstVideoDecoder * bdec, GstVideoCodecFrame * frame)
 
             GST_BUFFER_TIMESTAMP(buffer) = GST_VAAPI_SURFACE_PROXY_TIMESTAMP(proxy);
  
-  	    meta = gst_buffer_get_vaapi_surface_meta (buffer);
+  	    meta = gst_buffer_get_vaapi_video_meta (buffer);
 
 	    /*Fixme: add to videometa? */	    
 	    if (GST_VAAPI_SURFACE_PROXY_INTERLACED(proxy)) {

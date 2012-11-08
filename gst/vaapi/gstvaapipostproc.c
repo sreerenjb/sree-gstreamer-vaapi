@@ -226,12 +226,12 @@ gst_vaapipostproc_process(GstVaapiPostproc *postproc, GstBuffer *buf)
     GstBuffer *outbuf = NULL;
     guint outbuf_flags, flags = 0;
     gboolean interlaced, tff;
-    GstVaapiSurfaceMeta *meta;
+    GstVaapiVideoMeta *meta;
   
     if(!buf)
 	return GST_FLOW_EOS;
 
-    meta = gst_buffer_get_vaapi_surface_meta (buf);
+    meta = gst_buffer_get_vaapi_video_meta (buf);
 
     if(!meta) {
         /*Fixme:  buffer is comming without meta sometimes..*/

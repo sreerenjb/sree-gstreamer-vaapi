@@ -421,7 +421,7 @@ ensure_context(GstVaapiDecoderMpeg2 *decoder, GstBufferPool *pool)
         info.width      = priv->width;
         info.height     = priv->height;
         info.ref_frames = 2;
-  	info.pool	= GST_VAAPI_SURFACE_POOL(pool);
+  	info.pool	= GST_VAAPI_VIDEO_POOL(pool);
         reset_context   = gst_vaapi_decoder_ensure_context(
             GST_VAAPI_DECODER(decoder),
             &info

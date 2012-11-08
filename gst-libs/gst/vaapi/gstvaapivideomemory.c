@@ -1,5 +1,5 @@
 /*
- *  gstvaapisurfacememory - Gst VA surface memory
+ *  gstvaapivideomemory - Gst VA video memory
  *
  *  Copyright (C) 2011-2012 Intel Corporation
  *  Copyright (C) : Sreerenj Balachandran <sreerenj.balachandran@intel.com>
@@ -21,28 +21,28 @@
  */
 
 /**
- * SECTION:gstvaapisurfacememory
- * @short_description: VA surface memory
+ * SECTION:gstvaapivideomemory
+ * @short_description: VA video memory
  */
 
 #include "sysdeps.h"
-#include "gstvaapisurfacememory.h"
+#include "gstvaapivideomemory.h"
 #define DEBUG 1
 #include "gstvaapidebug.h"
 
-static GstAllocator *_surface_allocator;
+static GstAllocator *_video_allocator;
 
-G_DEFINE_TYPE (GstVaapiSurfaceAllocator, gst_vaapi_surface_allocator, GST_TYPE_ALLOCATOR);
+G_DEFINE_TYPE (GstVaapiVideoAllocator, gst_vaapi_video_allocator, GST_TYPE_ALLOCATOR);
 
 static GstMemory*
-_gst_vaapi_surface_mem_new (GstAllocator *allocator, GstMemory *parent,
+_gst_vaapi_video_mem_new (GstAllocator *allocator, GstMemory *parent,
     GstVaapiDisplay *display, GstVideoInfo *info)
 {
-    GstVaapiSurfaceMemory *mem;
+    GstVaapiVideoMemory *mem;
     GstVaapiSurface *surface;
 
     GST_DEBUG ("alloc from allocator %p", allocator);
-    mem = g_slice_new (GstVaapiSurfaceMemory);
+    mem = g_slice_new (GstVaapiVideoMemory);
 
     gst_memory_init (GST_MEMORY_CAST (mem), GST_MEMORY_FLAG_READONLY , allocator, parent,
       GST_VIDEO_INFO_SIZE(info), 0, 0, GST_VIDEO_INFO_SIZE(info));
@@ -68,70 +68,70 @@ _gst_vaapi_surface_mem_new (GstAllocator *allocator, GstMemory *parent,
 }
 
 static GstMemory*
-_gst_vaapi_surface_mem_alloc (GstAllocator *allocator, gsize size, GstAllocationParams * params)
+_gst_vaapi_video_mem_alloc (GstAllocator *allocator, gsize size, GstAllocationParams * params)
 {
-     g_warning ("use gst_vaapi_surface_memory_alloc () to allocate from this "
-      "GstVaapiSurfaceMemory allocator");
+     g_warning ("use gst_vaapi_video_memory_alloc () to allocate from this "
+      "GstVaapiVideoMemory allocator");
      return NULL;
 }
 
 static void
-_gst_vaapi_surface_mem_free (GstAllocator *allocator, GstMemory *mem)
+_gst_vaapi_video_mem_free (GstAllocator *allocator, GstMemory *mem)
 {
-    GstVaapiSurfaceMemory *surface_mem = (GstVaapiSurfaceMemory *)mem; 
+    GstVaapiVideoMemory *video_mem = (GstVaapiVideoMemory *)mem; 
 
-    if (!surface_mem)
+    if (!video_mem)
 	return;
-    if (surface_mem->surface) {
-	g_object_unref(G_OBJECT(surface_mem->surface));
-        surface_mem->surface = NULL;
+    if (video_mem->surface) {
+	g_object_unref(G_OBJECT(video_mem->surface));
+        video_mem->surface = NULL;
     }
-    if (surface_mem->image) {
-	g_object_unref(G_OBJECT(surface_mem->image));
-	surface_mem->image = NULL;
+    if (video_mem->image) {
+	g_object_unref(G_OBJECT(video_mem->image));
+	video_mem->image = NULL;
     }
-    if (surface_mem->display) {
-	g_object_unref(G_OBJECT(surface_mem->display));
-	surface_mem->display = NULL;
+    if (video_mem->display) {
+	g_object_unref(G_OBJECT(video_mem->display));
+	video_mem->display = NULL;
     }
-    if (surface_mem->raw_image) {
-	g_slice_free(GstVaapiImageRaw, surface_mem->raw_image);
-	surface_mem->raw_image = NULL;
+    if (video_mem->raw_image) {
+	g_slice_free(GstVaapiImageRaw, video_mem->raw_image);
+	video_mem->raw_image = NULL;
     }
     
-    g_slice_free (GstVaapiSurfaceMemory, surface_mem);
-    GST_DEBUG ("%p: freed", surface_mem);
+    g_slice_free (GstVaapiVideoMemory, video_mem);
+    GST_DEBUG ("%p: freed", video_mem);
 }
 
 static gboolean
-ensure_data (GstVaapiSurfaceMemory * surface_mem)
+ensure_data (GstVaapiVideoMemory * video_mem)
 {
     GstMapInfo map_info;
     GstMemory *memory;
     GstVideoInfo *info;
     guint num_planes, i;
  
-    info       = surface_mem->info;
+    info       = video_mem->info;
     
-    if (!gst_vaapi_surface_get_image(surface_mem->surface, surface_mem->image))
+    if (!gst_vaapi_surface_get_image(video_mem->surface, video_mem->image))
     {
         GST_ERROR("Failed to get the image from surface");
 	return FALSE;
     }
     
-    if (!gst_vaapi_image_map_to_raw_image(surface_mem->image, surface_mem->raw_image)){
+    if (!gst_vaapi_image_map_to_raw_image(video_mem->image, video_mem->raw_image)){
 	GST_ERROR("Failed to map GstVaapiImage to GstVaapiImageRaw");	
 	return FALSE;
     }	
-    gst_vaapi_image_unmap(surface_mem->image);
+    gst_vaapi_image_unmap(video_mem->image);
   
-    surface_mem->flag = GST_VAAPI_SURFACE_MEMORY_MAPPED;
+    video_mem->flag = GST_VAAPI_VIDEO_MEMORY_MAPPED;
     
     return TRUE;
 }
 
 static gpointer
-_gst_vaapi_surface_mem_map (GstVaapiSurfaceMemory *mem, gsize maxsize, GstMapFlags flags)
+_gst_vaapi_video_mem_map (GstVaapiVideoMemory *mem, gsize maxsize, GstMapFlags flags)
 {
      GST_DEBUG ("surface:%d, maxsize:%d, flags:%d", mem->surface,
       maxsize, flags);
@@ -142,27 +142,27 @@ _gst_vaapi_surface_mem_map (GstVaapiSurfaceMemory *mem, gsize maxsize, GstMapFla
 }
 
 static void
-_gst_vaapi_surface_mem_unmap (GstVaapiSurfaceMemory *mem)
+_gst_vaapi_video_mem_unmap (GstVaapiVideoMemory *mem)
 {
     GST_DEBUG("%p unmapped", mem->surface);
 }
 
 static GstMemory *
-_gst_vaapi_surface_mem_share (GstVaapiSurfaceMemory *mem, gssize offset, gsize size)
+_gst_vaapi_video_mem_share (GstVaapiVideoMemory *mem, gssize offset, gsize size)
 {
     /*Fixme*/
     return NULL;
 }
 
 static GstMemory *
-_gst_vaapi_surface_mem_copy (GstVaapiSurfaceMemory * src, gssize offset, gssize size)
+_gst_vaapi_video_mem_copy (GstVaapiVideoMemory * src, gssize offset, gssize size)
 {
     /*Fixme*/
     return NULL;
 }
 
 static gboolean
-_gst_vaapi_surface_mem_is_span (GstVaapiSurfaceMemory * mem1, GstVaapiSurfaceMemory * mem2,
+_gst_vaapi_video_mem_is_span (GstVaapiVideoMemory * mem1, GstVaapiVideoMemory * mem2,
     gsize * offset)
 {
     /*Fixme*/
@@ -170,47 +170,47 @@ _gst_vaapi_surface_mem_is_span (GstVaapiSurfaceMemory * mem1, GstVaapiSurfaceMem
 }
 
 static void
-gst_vaapi_surface_allocator_class_init (GstVaapiSurfaceAllocatorClass * klass)
+gst_vaapi_video_allocator_class_init (GstVaapiVideoAllocatorClass * klass)
 {
     GstAllocatorClass *allocator_class;
 
     allocator_class = (GstAllocatorClass *) klass;
 
-    allocator_class->alloc = _gst_vaapi_surface_mem_alloc;
-    allocator_class->free = _gst_vaapi_surface_mem_free;
+    allocator_class->alloc = _gst_vaapi_video_mem_alloc;
+    allocator_class->free = _gst_vaapi_video_mem_free;
 }
 
 static void
-gst_vaapi_surface_allocator_init (GstVaapiSurfaceAllocator * allocator)
+gst_vaapi_video_allocator_init (GstVaapiVideoAllocator * allocator)
 {
     GstAllocator *alloc = GST_ALLOCATOR_CAST (allocator);
 
-    alloc->mem_type    = GST_VAAPI_SURFACE_MEMORY_NAME;
-    alloc->mem_map     = (GstMemoryMapFunction) _gst_vaapi_surface_mem_map;
-    alloc->mem_unmap   = (GstMemoryUnmapFunction) _gst_vaapi_surface_mem_unmap;
-    alloc->mem_share   = (GstMemoryShareFunction) _gst_vaapi_surface_mem_share;
-    //alloc->mem_copy    = (GstMemoryCopyFunction) _gst_vaapi_surface_mem_copy;
-    //alloc->mem_is_span = (GstMemoryIsSpanFunction) _gst_vaapi_surface_mem_is_span;
+    alloc->mem_type    = GST_VAAPI_VIDEO_MEMORY_NAME;
+    alloc->mem_map     = (GstMemoryMapFunction) _gst_vaapi_video_mem_map;
+    alloc->mem_unmap   = (GstMemoryUnmapFunction) _gst_vaapi_video_mem_unmap;
+    alloc->mem_share   = (GstMemoryShareFunction) _gst_vaapi_video_mem_share;
+    //alloc->mem_copy    = (GstMemoryCopyFunction) _gst_vaapi_video_mem_copy;
+    //alloc->mem_is_span = (GstMemoryIsSpanFunction) _gst_vaapi_video_mem_is_span;
 }
 
 GstMemory *
-gst_vaapi_surface_memory_new (GstVaapiDisplay *display, GstVideoInfo *info)
+gst_vaapi_video_memory_new (GstVaapiDisplay *display, GstVideoInfo *info)
 {
-    return (GstMemory *) _gst_vaapi_surface_mem_new (_surface_allocator, NULL, display,
+    return (GstMemory *) _gst_vaapi_video_mem_new (_video_allocator, NULL, display,
       info);
 }
 
 void
-gst_vaapi_surface_memory_allocator_setup (void)
+gst_vaapi_video_memory_allocator_setup (void)
 {
   static volatile gsize _init = 0;
 
   if (g_once_init_enter (&_init)) {
-    _surface_allocator =
-        g_object_new (gst_vaapi_surface_allocator_get_type (), NULL);
+    _video_allocator =
+        g_object_new (gst_vaapi_video_allocator_get_type (), NULL);
 
-    gst_allocator_register (GST_VAAPI_SURFACE_ALLOCATOR_NAME, 
-				gst_object_ref(_surface_allocator));
+    gst_allocator_register (GST_VAAPI_VIDEO_ALLOCATOR_NAME, 
+				gst_object_ref(_video_allocator));
     
     GST_DEBUG("VA Surface Memory allocator has been successfully initialized...!"); 
     g_once_init_leave (&_init, 1);
@@ -223,11 +223,11 @@ gst_vaapi_video_memory_map (GstVideoMeta * meta, guint plane, GstMapInfo * info,
     gpointer * data, gint * stride, GstMapFlags flags)
 {
   GstBuffer *buffer = meta->buffer;
-  GstVaapiSurfaceMemory *vmem =
-      (GstVaapiSurfaceMemory *) gst_buffer_get_memory (buffer, 0);
+  GstVaapiVideoMemory *vmem =
+      (GstVaapiVideoMemory *) gst_buffer_get_memory (buffer, 0);
 
   /* Only handle GstVdpVideoMemory */
-  g_return_val_if_fail (((GstMemory *) vmem)->allocator == _surface_allocator,
+  g_return_val_if_fail (((GstMemory *) vmem)->allocator == _video_allocator,
       FALSE);
   GST_DEBUG ("plane:%d", plane);
 

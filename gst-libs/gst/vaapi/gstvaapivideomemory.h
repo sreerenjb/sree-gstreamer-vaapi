@@ -1,5 +1,5 @@
 /*
- *  gstvaapisurfacememory.h - Gst VA surface memory
+ *  gstvaapivideomemory.h - Gst VA surfacez memory
  *
  *  Copyright (C) 2012 Intel Corporation
  *  Contact : Sreerenj Balachandran <sreerenj.balachandran@intel.com>
@@ -20,8 +20,8 @@
  *  Boston, MA 02110-1301 USA
  */
 
-#ifndef GST_VAAPI_SURFACE_MEMORY_H
-#define GST_VAAPI_SURFACE_MEMORY_H
+#ifndef GST_VAAPI_VIDEO_MEMORY_H
+#define GST_VAAPI_VIDEO_MEMORY_H
 
 #include <gst/vaapi/gstvaapisurface.h>
 #include <gst/video/video.h>
@@ -30,14 +30,14 @@
 G_BEGIN_DECLS
 
 typedef enum {
-   GST_VAAPI_SURFACE_MEMORY_NON_MAPPED = 0,
-   GST_VAAPI_SURFACE_MEMORY_MAPPED,
-   GST_VAAPI_SURFACE_MEMORY_DERIVED
-} GstVaapiSurfaceMemoryMapFlag;
+   GST_VAAPI_VIDEO_MEMORY_NON_MAPPED = 0,
+   GST_VAAPI_VIDEO_MEMORY_MAPPED,
+   GST_VAAPI_VIDEO_MEMORY_DERIVED
+} GstVaapiVideoMemoryMapFlag;
 
-typedef struct _GstVaapiSurfaceMemory GstVaapiSurfaceMemory;
+typedef struct _GstVaapiVideoMemory GstVaapiVideoMemory;
 
-struct _GstVaapiSurfaceMemory {
+struct _GstVaapiVideoMemory {
     GstMemory memory;
 
     GstVaapiDisplay *display;
@@ -55,7 +55,7 @@ struct _GstVaapiSurfaceMemory {
 
     GstVideoInfo        *info;
 
-    GstVaapiSurfaceMemoryMapFlag flag;
+    GstVaapiVideoMemoryMapFlag flag;
 
     /* Cached data for mapping, copied from gstvdpvideomemory */
     GstMapFlags        map_flags;
@@ -65,31 +65,31 @@ struct _GstVaapiSurfaceMemory {
     gint               destination_pitches[4];
 };
 
-#define  GST_VAAPI_SURFACE_MEMORY_NAME  "GstVaapiSurfaceMemory"
+#define  GST_VAAPI_VIDEO_MEMORY_NAME  "GstVaapiVideoMemory"
 
-/*------------- SurfaceAllocator -----------------*/
+/*------------- VaapiVideoAllocator -----------------*/
 
-#define GST_VAAPI_TYPE_SURFACE_ALLOCATOR        (gst_vaapi_surface_allocator_get_type())
-#define GST_IS_VAAPI_SURFACE_ALLOCATOR(obj)     (GST_IS_OBJECT_TYPE(obj, GST_VAAPI_TYPE_SURFACE_ALLOCATOR))
-#define GST_VAAPI_SURFACE_ALLOCATOR_CAST(obj)   ((GstVaapiSurfaceAllocator *)(obj))
-#define GST_VAAPI_SURFACE_ALLOCATOR(obj)        (GST_VAAPI_SURFACE_ALLOCATOR_CAST(obj))
+#define GST_VAAPI_TYPE_VIDEO_ALLOCATOR        (gst_vaapi_video_allocator_get_type())
+#define GST_IS_VAAPI_VIDEO_ALLOCATOR(obj)     (GST_IS_OBJECT_TYPE(obj, GST_VAAPI_TYPE_VIDEO_ALLOCATOR))
+#define GST_VAAPI_VIDEO_ALLOCATOR_CAST(obj)   ((GstVaapiVideoAllocator *)(obj))
+#define GST_VAAPI_VIDEO_ALLOCATOR(obj)        (GST_VAAPI_VIDEO_ALLOCATOR_CAST(obj))
 
-#define  GST_VAAPI_SURFACE_ALLOCATOR_NAME  "GstVaapiSurfaceAllocator"
+#define  GST_VAAPI_VIDEO_ALLOCATOR_NAME  "GstVaapiVideoAllocator"
 
-typedef struct _GstVaapiSurfaceAllocator GstVaapiSurfaceAllocator;
-typedef struct _GstVaapiSurfaceAllocatorClass GstVaapiSurfaceAllocatorClass;
+typedef struct _GstVaapiVideoAllocator GstVaapiVideoAllocator;
+typedef struct _GstVaapiVideoAllocatorClass GstVaapiVideoAllocatorClass;
 
-struct _GstVaapiSurfaceAllocator {
+struct _GstVaapiVideoAllocator {
     GstAllocator parent;
 };
 
-struct _GstVaapiSurfaceAllocatorClass
+struct _GstVaapiVideoAllocatorClass
 {
     GstAllocatorClass parent_class;
 };
 
 GstMemory *
-gst_vaapi_surface_memory_new (GstVaapiDisplay *display, GstVideoInfo *info);
+gst_vaapi_video_memory_new (GstVaapiDisplay *display, GstVideoInfo *info);
 
 gboolean gst_vaapi_video_memory_map(GstVideoMeta * meta, guint plane,
                                   GstMapInfo * info, gpointer * data,
@@ -98,9 +98,9 @@ gboolean gst_vaapi_video_memory_unmap(GstVideoMeta * meta, guint plane,
                                     GstMapInfo * info);
 
 GType
-gst_vaapi_surface_allocator_get_type (void);
+gst_vaapi_video_allocator_get_type (void);
 
 G_END_DECLS
 
-#endif /* GST_VAAPI_SURFACE_MEMORY_H */
+#endif /* GST_VAAPI_VIDEO_MEMORY_H */
 
