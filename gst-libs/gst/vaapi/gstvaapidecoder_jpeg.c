@@ -137,7 +137,7 @@ check_context_reset (GstVaapiDecoderJpeg *decoder)
         priv->profile = profiles[i];
     }
     if(priv->reset_context)
-        gst_vaapi_decoder_emit_caps_change(GST_VAAPI_DECODER_CAST(decoder), priv->width, priv->height);     
+        gst_vaapi_decoder_emit_caps_change(GST_VAAPI_DECODER_CAST(decoder), 0, priv->width, priv->height);     
 }
 
 static GstVaapiDecoderStatus

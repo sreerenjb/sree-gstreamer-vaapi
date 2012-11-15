@@ -135,7 +135,11 @@ GstCaps *
 gst_vaapi_decoder_get_caps(GstVaapiDecoder *decoder);
 
 void
-gst_vaapi_decoder_emit_caps_change(GstVaapiDecoder *decoder, guint width, guint height);
+gst_vaapi_decoder_emit_caps_change(
+    GstVaapiDecoder *decoder, 
+    GstVideoFormat format,
+    guint width, 
+    guint height);
  
 gboolean
 gst_vaapi_decoder_start(GstVaapiDecoder * decoder);

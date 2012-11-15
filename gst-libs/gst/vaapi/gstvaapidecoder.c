@@ -705,11 +705,17 @@ gst_vaapi_decoder_set_interlaced(GstVaapiDecoder *decoder, gboolean interlaced)
 void
 gst_vaapi_decoder_emit_caps_change(
     GstVaapiDecoder   *decoder,
+    GstVideoFormat format,
     guint width,
     guint height
 )
 {
-    gst_vaapi_decoder_set_picture_size(decoder, width, height);
+    if (format)
+	gst_vaapi_decoder_set_video_format (decoder, format);
+
+    if (width && height)
+        gst_vaapi_decoder_set_picture_size(decoder, width, height);
+
     g_object_notify_by_pspec(G_OBJECT(decoder), g_properties[PROP_CAPS]);
 }
 

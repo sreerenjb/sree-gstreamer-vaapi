@@ -178,7 +178,7 @@ check_context_reset (GstVaapiDecoderVC1 *decoder)
         priv->reset_context      = TRUE;
     }
      if(priv->reset_context)
-        gst_vaapi_decoder_emit_caps_change(GST_VAAPI_DECODER_CAST(decoder), priv->width, priv->height);
+        gst_vaapi_decoder_emit_caps_change(GST_VAAPI_DECODER_CAST(decoder), 0, priv->width, priv->height);
 
 }
 

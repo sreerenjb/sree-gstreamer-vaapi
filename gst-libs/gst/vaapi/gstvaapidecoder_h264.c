@@ -693,7 +693,7 @@ ensure_context(GstVaapiDecoderH264 *decoder, GstH264SPS *sps)
         dpb_reset(decoder, sps);
 
     if(priv->reset_context)
-        gst_vaapi_decoder_emit_caps_change(GST_VAAPI_DECODER_CAST(decoder), priv->width, priv->height);
+        gst_vaapi_decoder_emit_caps_change(GST_VAAPI_DECODER_CAST(decoder), 0, priv->width, priv->height);
 
     return GST_VAAPI_DECODER_STATUS_SUCCESS;
 }
