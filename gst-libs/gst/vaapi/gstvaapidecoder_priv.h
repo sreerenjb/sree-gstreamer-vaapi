@@ -118,6 +118,7 @@ struct _GstVaapiDecoderPrivate {
     GstVaapiCodec       codec;
     GstBuffer          *codec_data;
     GstBufferPool      *pool;
+    GstVideoFormat	format;
     guint               width;
     guint               height;
     guint               fps_n;
@@ -127,6 +128,13 @@ struct _GstVaapiDecoderPrivate {
     GQueue             *surfaces;
     guint               is_interlaced   : 1;
 };
+
+G_GNUC_INTERNAL
+void
+gst_vaapi_decoder_set_video_format(
+    GstVaapiDecoder    *decoder,
+    GstVideoFormat     format
+);
 
 G_GNUC_INTERNAL
 void

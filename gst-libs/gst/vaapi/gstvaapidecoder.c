@@ -270,6 +270,7 @@ gst_vaapi_decoder_init(GstVaapiDecoder *decoder)
     priv->codec                 = 0;
     priv->codec_data            = NULL;
     priv->pool			= NULL;
+    priv->format		= 0;
     priv->width                 = 0;
     priv->height                = 0;
     priv->fps_n                 = 0;
@@ -581,6 +582,28 @@ gst_vaapi_decoder_stop(GstVaapiDecoder *decoder)
 	GST_DEBUG("stop() virtual method is not implemented");
      
      return TRUE;
+}
+
+void
+gst_vaapi_decoder_set_video_format(
+    GstVaapiDecoder    *decoder,
+    GstVideoFormat     format
+)
+{
+    GstVaapiDecoderPrivate * const priv = decoder->priv;
+    gboolean format_changed = FALSE;
+    const gchar *format_string;
+
+    if (priv->format != format) {
+        GST_DEBUG("picture format changed to %d", format);
+        priv->format = format;
+        format_string = gst_video_format_to_string(format);
+        gst_caps_set_simple(priv->caps, "format", G_TYPE_STRING, format_string, NULL);
+        format_changed = TRUE;
+    }
+
+    if (format_changed)
+        g_object_notify_by_pspec(G_OBJECT(decoder), g_properties[PROP_CAPS]);
 }
 
 void
