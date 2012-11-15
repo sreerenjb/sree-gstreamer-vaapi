@@ -398,6 +398,28 @@ gst_vaapi_surface_get_height(GstVaapiSurface *surface)
 
     return surface->priv->height;
 }
+/**
+ * gst_vaapi_surface_get_format:
+ * @surface: a #GstVaapiSurface
+ *
+ * Returns the @image_format of surface
+ *
+ * Return value: the surface format.
+ */
+GstVaapiImageFormat
+gst_vaapi_surface_get_format(GstVaapiSurface *surface)
+{
+    GstVaapiImage *image;
+    GstVaapiImageFormat format = GST_VAAPI_IMAGE_NV12;
+
+    /* XXX: NV12 is assumed by default */
+    image = gst_vaapi_surface_derive_image(surface);
+    if (image) {
+        format = gst_vaapi_image_get_format(image);
+        g_object_unref(image);
+    }
+    return format;
+}
 
 /**
  * gst_vaapi_surface_get_size:

@@ -185,6 +185,9 @@ gst_vaapi_surface_get_width(GstVaapiSurface *surface);
 guint
 gst_vaapi_surface_get_height(GstVaapiSurface *surface);
 
+GstVaapiImageFormat
+gst_vaapi_surface_get_format(GstVaapiSurface *surface);
+
 void
 gst_vaapi_surface_get_size(
     GstVaapiSurface *surface,
