@@ -78,6 +78,9 @@ gst_vaapi_image_format_from_fourcc(guint32 fourcc);
 GstVaapiImageFormat
 gst_vaapi_image_format_from_video(GstVideoFormat format);
 
+GstVideoFormat
+gst_vaapi_image_format_get_video_format(GstVaapiImageFormat format);
+
 const VAImageFormat *
 gst_vaapi_image_format_get_va_format(GstVaapiImageFormat format);
 

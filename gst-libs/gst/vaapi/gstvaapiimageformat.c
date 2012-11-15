@@ -280,6 +280,35 @@ gst_vaapi_image_format_from_video(GstVideoFormat format)
 }
 
 /**
+ * gst_vaapi_image_format_get_video_format:
+ * @format: a #GstVaapiImageFormat
+ *
+ * Converts a #GstVaapiImageFormat into the corresponding
+ * #GstVideoFormat.  If the vidoe format cannot be represented by
+ * #GstVideoFormat, then zero is returned.
+ *
+ * Return value: the #GstVidoeFormat describing the video format
+ */
+GstVideoFormat
+gst_vaapi_image_format_get_video_format(GstVaapiImageFormat format)
+{
+    GstVideoFormat v_format;
+
+    switch (format) {
+    case GST_VAAPI_IMAGE_NV12: v_format = GST_VIDEO_FORMAT_NV12;   break;
+    case GST_VAAPI_IMAGE_YV12: v_format = GST_VIDEO_FORMAT_YV12;   break;
+    case GST_VAAPI_IMAGE_I420: v_format = GST_VIDEO_FORMAT_I420;   break;
+    case GST_VAAPI_IMAGE_AYUV: v_format = GST_VIDEO_FORMAT_AYUV;   break;
+    case GST_VAAPI_IMAGE_ARGB: v_format = GST_VIDEO_FORMAT_ARGB;   break;
+    case GST_VAAPI_IMAGE_RGBA: v_format = GST_VIDEO_FORMAT_RGBA;   break;
+    case GST_VAAPI_IMAGE_ABGR: v_format = GST_VIDEO_FORMAT_ABGR;   break;
+    case GST_VAAPI_IMAGE_BGRA: v_format = GST_VIDEO_FORMAT_BGRA;   break;
+    default:                   v_format = (GstVideoFormat)0; break;
+    }
+    return v_format;
+}
+
+/**
  * gst_vaapi_image_format_get_va_format:
  * @format: a #GstVaapiImageFormat
  *
