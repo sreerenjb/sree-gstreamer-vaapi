@@ -444,9 +444,10 @@ gst_vaapi_decoder_decide_allocation(
   	        GST_DEBUG_OBJECT(decoder, "vaapisink is the renderer, use the pool supplied by vaapisink");
 		gst_structure_free (config);
 		/* decoder is keeping an extra ref to the pool*/
-		g_object_ref(pool);
+		/* gst_query_parse_nth_allocation_pool() produced one extra ref already*/
 	        break;
 	    } else {
+		gst_object_unref(pool);
 		gst_structure_free(config);
 	        pool = NULL;
 	    }
