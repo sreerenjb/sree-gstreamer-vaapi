@@ -301,6 +301,23 @@ do_decode(VADisplay dpy, VAContextID ctx, VABufferID *buf_id, void **buf_ptr)
     return TRUE;
 }
 
+static void
+ensure_surface_format (GstVaapiPicture *picture)
+{
+    GstVaapiDecoder *decoder = GET_DECODER(picture);
+    GstVaapiSurface *surface = picture->surface;
+    GstVaapiImageFormat image_format;
+    GstVideoFormat video_format;
+    guint width, height;
+    
+    image_format = gst_vaapi_surface_get_format (surface);
+    video_format = gst_vaapi_image_format_get_video_format(image_format);
+    gst_vaapi_surface_get_size(surface, &width, &height);
+
+    GST_DEBUG_OBJECT (picture, "ensure surface format, emit caps change");
+    gst_vaapi_decoder_emit_caps_change (decoder, video_format, width, height); 
+}
+
 gboolean
 gst_vaapi_picture_decode(GstVaapiPicture *picture)
 {
@@ -360,6 +377,12 @@ gst_vaapi_picture_decode(GstVaapiPicture *picture)
     }
 
     status = vaEndPicture(va_display, va_context);
+
+    /*ensure that the surface format is same as that of 
+      negotiated o/p video format*/
+    if (!picture->frame_id)
+       ensure_surface_format (picture);
+
     if (!vaapi_check_status(status, "vaEndPicture()"))
         return FALSE;
     return TRUE;
