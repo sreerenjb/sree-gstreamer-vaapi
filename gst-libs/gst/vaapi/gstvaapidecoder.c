@@ -400,7 +400,7 @@ gst_vaapi_decoder_decide_allocation(
     GstStructure *config;
     GstVideoInfo info;
     guint size = 0, min_buffers = 0, max_buffers = 0;
-    gboolean  result;
+    gboolean result = TRUE;
     guint num_pools;
     guint i;
     static GstAllocationParams params = { 0, 15, 0, 0, };
@@ -465,14 +465,13 @@ gst_vaapi_decoder_decide_allocation(
     	gst_buffer_pool_config_set_allocator (config, allocator, &params);
 	if (!gst_buffer_pool_set_config (pool, config))
             goto failed_config;
+
+        gst_query_add_allocation_pool (query, pool, info.size, min_buffers, max_buffers);
+
+        priv->pool = pool;
+
+        result = GST_VAAPI_DECODER_GET_CLASS(decoder)->decide_allocation(decoder, pool);
     }
-
-    gst_query_add_allocation_pool (query, pool, info.size, min_buffers, max_buffers);
-
-    priv->pool = pool;
-
-    result = GST_VAAPI_DECODER_GET_CLASS(decoder)->decide_allocation(decoder, pool);
-
     GST_DEBUG("decide_allocation status: %d ",result);
     return result;
 
