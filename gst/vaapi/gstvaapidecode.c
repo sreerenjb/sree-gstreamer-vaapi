@@ -133,9 +133,11 @@ gst_vaapidecode_update_sink_caps(GstVaapiDecode *decode, GstCaps *caps)
 static gboolean
 gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
 {
+    GstVideoInfo info;
     GstStructure *structure;
     GstCaps *other_caps;
-    const GValue *v_width, *v_height, *v_framerate, *v_par, *v_interlace_mode;
+    const GValue *v_format, *v_width, *v_height;
+    const GValue *v_framerate, *v_par, *v_interlace_mode;
     gboolean success = TRUE;
 
     if (!decode->srcpad_caps) {
@@ -144,7 +146,15 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
             return FALSE;
     }
     
+    gst_video_info_from_caps (&info, caps);
     structure    = gst_caps_get_structure(caps, 0);
+
+    /*eg: wmv might come up with format==WVC1 */
+    if(GST_VIDEO_INFO_FORMAT(&info) == GST_VIDEO_FORMAT_ENCODED)
+	v_format = 0;
+    else
+	v_format = gst_structure_get_value(structure, "format");
+
     v_width      = gst_structure_get_value(structure, "width");
     v_height     = gst_structure_get_value(structure, "height");
     v_framerate  = gst_structure_get_value(structure, "framerate");
@@ -155,7 +165,12 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
     decode->srcpad_caps = gst_caps_copy(decode->srcpad_caps);
     gst_caps_unref(other_caps);
 
-    structure = gst_caps_get_structure(decode->srcpad_caps, 0); 
+    structure = gst_caps_get_structure(decode->srcpad_caps, 0);
+    if (v_format) 
+        gst_structure_set_value(structure, "format", v_format);
+    else
+       gst_structure_set(structure, "format", G_TYPE_STRING, "NV12", NULL);
+ 
     if (v_width && v_height) {
         gst_structure_set_value(structure, "width", v_width);
         gst_structure_set_value(structure, "height", v_height);
@@ -165,17 +180,21 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
     if (v_par)
         gst_structure_set_value(structure, "pixel-aspect-ratio", v_par);
     
-    /*Fixme: setting a new "va-interlace-mode" to get the interlacing working with vaapipostproc element*/
+    /*Fixme: 
+     setting a new "va-interlace-mode" to get the interlacing working 
+     with vaapipostproc element. Also set the interlace-mode to progressive , 
+     otherwise deinterlace element which is autoplugging in playbin will do the 
+     deinterlacing which will end up with unnecessary vaSurface mapping. 
+
+     upstream bug: https://bugzilla.gnome.org/show_bug.cgi?id=687182
+    */
     if (v_interlace_mode) 
         gst_structure_set_value(structure, "va-interlace-mode", v_interlace_mode);
     else
         gst_structure_set(structure, "va-interlace-mode", G_TYPE_STRING, "progressive", NULL);
-
-    /*Fixme: setting interlace-mode to progressive , otherwise deinterlace element which is autoplugging 
-	     in playbin will do the deinterlacing which will end up with unnecessary vaSurface mapping. */
     gst_structure_set(structure, "interlace-mode", G_TYPE_STRING, "progressive", NULL);
-    /*Fixme: setting format to NV12 for now*/
-    gst_structure_set(structure, "format", G_TYPE_STRING, "NV12", NULL); /*Fixme*/
+
+    /*Fixme: all these will go away once we have a preoper solution for #GstSurfaceConverter*/
     gst_structure_set(structure, "type", G_TYPE_STRING, "vaapi", NULL);
     gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_GLX, NULL);
 
