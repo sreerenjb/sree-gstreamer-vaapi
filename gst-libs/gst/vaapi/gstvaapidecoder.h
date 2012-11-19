@@ -134,6 +134,9 @@ gst_vaapi_decoder_get_codec(GstVaapiDecoder *decoder);
 GstCaps *
 gst_vaapi_decoder_get_caps(GstVaapiDecoder *decoder);
 
+GstVideoInfo *
+gst_vaapi_decoder_get_video_info(GstVaapiDecoder *decoder);
+
 void
 gst_vaapi_decoder_emit_caps_change(
     GstVaapiDecoder *decoder, 

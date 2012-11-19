@@ -130,6 +130,15 @@ set_caps(GstVaapiDecoder *decoder, GstCaps *caps)
     v_codec_data = gst_structure_get_value(structure, "codec_data");
     if (v_codec_data)
         set_codec_data(decoder, gst_value_get_buffer(v_codec_data));
+
+    /*Set the output_video_frame properties.
+      Set the default video_output format to NV12, which is the driver default
+      at least for GenX drivers. Actual format will be dervied after the decoding
+      of first buffer
+    */
+    if (gst_video_info_from_caps (&priv->info, caps))
+        gst_video_info_set_format(&priv->info, GST_VIDEO_FORMAT_NV12, 
+				priv->width, priv->height);
 }
 
 static void
@@ -279,6 +288,8 @@ gst_vaapi_decoder_init(GstVaapiDecoder *decoder)
     priv->par_d                 = 0;
     priv->surfaces              = g_queue_new();
     priv->is_interlaced         = FALSE;
+
+    gst_video_info_init(&priv->info);
 }
 
 /**
@@ -295,6 +306,21 @@ gst_vaapi_decoder_get_codec(GstVaapiDecoder *decoder)
     g_return_val_if_fail(GST_VAAPI_IS_DECODER(decoder), (GstVaapiCodec)0);
 
     return decoder->priv->codec;
+}
+
+/**
+ * gst_vaapi_decoder_get_video_info:
+ * @decoder: a #GstVaapiDecoder
+ *
+ * Retrieves the @decoder output video info
+ * Decoder still owns the returned info.
+ *
+ * Return value: the #GstVideoInfo  for @decoder output
+ */
+GstVideoInfo*
+gst_vaapi_decoder_get_video_info(GstVaapiDecoder *decoder)
+{
+    return &decoder->priv->info;
 }
 
 /**
@@ -592,13 +618,11 @@ gst_vaapi_decoder_set_video_format(
 {
     GstVaapiDecoderPrivate * const priv = decoder->priv;
     gboolean format_changed = FALSE;
-    const gchar *format_string;
 
     if (priv->format != format) {
+	priv->format = format;
         GST_DEBUG("picture format changed to %d", format);
-        priv->format = format;
-        format_string = gst_video_format_to_string(format);
-        gst_caps_set_simple(priv->caps, "format", G_TYPE_STRING, format_string, NULL);
+	gst_video_info_set_format(&priv->info, format, priv->width, priv->height);
         format_changed = TRUE;
     }
 
@@ -630,8 +654,10 @@ gst_vaapi_decoder_set_picture_size(
         size_changed = TRUE;
     }
 
-    if (size_changed)
+    if (size_changed) {
+	gst_video_info_set_format(&priv->info, priv->format, width, height);
         g_object_notify_by_pspec(G_OBJECT(decoder), g_properties[PROP_CAPS]);
+    }
 }
 
 void
@@ -655,6 +681,8 @@ gst_vaapi_decoder_set_framerate(
             "framerate", GST_TYPE_FRACTION, fps_n, fps_d,
             NULL
         );
+	GST_VIDEO_INFO_FPS_N(&priv->info) = fps_n;
+	GST_VIDEO_INFO_FPS_D(&priv->info) = fps_d;
         g_object_notify_by_pspec(G_OBJECT(decoder), g_properties[PROP_CAPS]);
     }
 }
@@ -680,6 +708,8 @@ gst_vaapi_decoder_set_pixel_aspect_ratio(
             "pixel-aspect-ratio", GST_TYPE_FRACTION, par_n, par_d,
             NULL
         );
+	GST_VIDEO_INFO_PAR_N(&priv->info) = par_n;
+	GST_VIDEO_INFO_PAR_D(&priv->info) = par_d;
         g_object_notify_by_pspec(G_OBJECT(decoder), g_properties[PROP_CAPS]);
     }
 }
@@ -698,6 +728,8 @@ gst_vaapi_decoder_set_interlaced(GstVaapiDecoder *decoder, gboolean interlaced)
             "interlace-mode", G_TYPE_STRING, (interlaced ? "mixed" : "progressive"),
             NULL
         );
+        GST_VIDEO_INFO_INTERLACE_MODE(&priv->info) = (interlaced ? 
+	    GST_VIDEO_INTERLACE_MODE_MIXED : GST_VIDEO_INTERLACE_MODE_PROGRESSIVE);
         g_object_notify_by_pspec(G_OBJECT(decoder), g_properties[PROP_CAPS]);
     }
 }

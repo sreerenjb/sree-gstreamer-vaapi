@@ -106,19 +106,19 @@ static GstFlowReturn gst_vaapi_dec_handle_frame (GstVideoDecoder * decoder,
     GstVideoCodecFrame * frame);
 
 static gboolean
-gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps);
+gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstVideoInfo *info);
 
 static void
 gst_vaapi_decoder_notify_caps(GObject *obj, GParamSpec *pspec, void *user_data)
 {
     GstVaapiDecode * const decode = GST_VAAPIDECODE(user_data);
-    GstCaps *caps;
+    GstVideoInfo *info;
 
     g_assert(decode->decoder == GST_VAAPI_DECODER(obj));
 
-    caps = gst_vaapi_decoder_get_caps(decode->decoder);
+    info = gst_vaapi_decoder_get_video_info(decode->decoder);
     /*negotiate with downstream once the caps property of GstVideoDecoder has changed*/
-    gst_vaapidecode_update_src_caps(decode, caps);
+    gst_vaapidecode_update_src_caps(decode, info);
 }
 
 static inline gboolean
@@ -131,55 +131,23 @@ gst_vaapidecode_update_sink_caps(GstVaapiDecode *decode, GstCaps *caps)
 }
 
 static gboolean
-gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
+gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstVideoInfo *info)
 {
-    GstVideoInfo info;
     GstStructure *structure;
     GstCaps *other_caps;
-    const GValue *v_format, *v_width, *v_height;
-    const GValue *v_framerate, *v_par, *v_interlace_mode;
-    gboolean success = TRUE;
-
-    if (!decode->srcpad_caps) {
-        decode->srcpad_caps = gst_caps_from_string("video/x-raw");
-        if (!decode->srcpad_caps)
-            return FALSE;
-    }
     
-    gst_video_info_from_caps (&info, caps);
-    structure    = gst_caps_get_structure(caps, 0);
-
-    /*eg: wmv might come up with format==WVC1 */
-    if(GST_VIDEO_INFO_FORMAT(&info) == GST_VIDEO_FORMAT_ENCODED)
-	v_format = 0;
-    else
-	v_format = gst_structure_get_value(structure, "format");
-
-    v_width      = gst_structure_get_value(structure, "width");
-    v_height     = gst_structure_get_value(structure, "height");
-    v_framerate  = gst_structure_get_value(structure, "framerate");
-    v_par        = gst_structure_get_value(structure, "pixel-aspect-ratio");
-    v_interlace_mode = gst_structure_get_value(structure, "interlace-mode");
-
+    if (!info)
+	return FALSE;
+    
     other_caps = decode->srcpad_caps;
-    decode->srcpad_caps = gst_caps_copy(decode->srcpad_caps);
-    gst_caps_unref(other_caps);
+    decode->srcpad_caps = gst_video_info_to_caps(info);
+    if (other_caps)
+        gst_caps_unref(other_caps);
+
+    if (!decode->srcpad_caps)
+        return FALSE;
 
     structure = gst_caps_get_structure(decode->srcpad_caps, 0);
-    if (v_format) 
-        gst_structure_set_value(structure, "format", v_format);
-    else
-       gst_structure_set(structure, "format", G_TYPE_STRING, "NV12", NULL);
- 
-    if (v_width && v_height) {
-        gst_structure_set_value(structure, "width", v_width);
-        gst_structure_set_value(structure, "height", v_height);
-    }
-    if (v_framerate)
-        gst_structure_set_value(structure, "framerate", v_framerate);
-    if (v_par)
-        gst_structure_set_value(structure, "pixel-aspect-ratio", v_par);
-    
     /*Fixme: 
      setting a new "va-interlace-mode" to get the interlacing working 
      with vaapipostproc element. Also set the interlace-mode to progressive , 
@@ -188,8 +156,8 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
 
      upstream bug: https://bugzilla.gnome.org/show_bug.cgi?id=687182
     */
-    if (v_interlace_mode) 
-        gst_structure_set_value(structure, "va-interlace-mode", v_interlace_mode);
+    if (GST_VIDEO_INFO_IS_INTERLACED(info))
+        gst_structure_set(structure, "va-interlace-mode", G_TYPE_STRING, "mixed", NULL);
     else
         gst_structure_set(structure, "va-interlace-mode", G_TYPE_STRING, "progressive", NULL);
     gst_structure_set(structure, "interlace-mode", G_TYPE_STRING, "progressive", NULL);
@@ -198,6 +166,11 @@ gst_vaapidecode_update_src_caps(GstVaapiDecode *decode, GstCaps *caps)
     gst_structure_set(structure, "type", G_TYPE_STRING, "vaapi", NULL);
     gst_structure_set(structure, "opengl", G_TYPE_BOOLEAN, USE_GLX, NULL);
 
+    gst_video_info_from_caps(&decode->info, decode->srcpad_caps);
+    if(GST_VIDEO_INFO_FORMAT(&decode->info) == GST_VIDEO_FORMAT_ENCODED){
+	gst_structure_set(structure, "format", G_TYPE_STRING, "NV12", NULL);
+    	gst_video_info_from_caps(&decode->info, decode->srcpad_caps);
+    } 
     return TRUE;
 }
 
@@ -592,7 +565,7 @@ gst_vaapi_dec_set_format(GstVideoDecoder * bdec, GstVideoCodecState * state)
     dec = GST_VAAPIDECODE (bdec);
     if (!state)
         return FALSE;
- 
+
     /* Keep a copy of the input state */
     if (dec->input_state)
         gst_video_codec_state_unref (dec->input_state);
@@ -606,10 +579,10 @@ gst_vaapi_dec_set_format(GstVideoDecoder * bdec, GstVideoCodecState * state)
     if (!gst_vaapidecode_update_sink_caps(dec, caps))
         return FALSE;
 
-    if (!gst_vaapidecode_update_src_caps(dec, caps))
-        return FALSE;
-
     if (!gst_vaapidecode_reset(dec, dec->sinkpad_caps))
+        return FALSE;
+    
+    if (!gst_vaapidecode_update_src_caps(dec, &info))
         return FALSE;
     
     /*Fixme: add codec_dat hadling from state->codec_data*/
@@ -697,23 +670,24 @@ gst_vaapi_dec_decide_allocation (GstVideoDecoder * decoder, GstQuery * query)
 static void
 gst_vaapi_dec_negotiate(GstVideoDecoder *dec)
 { 
-    GstVaapiDecode *vaapi_dec;
+    GstVaapiDecode *decode;
     GstVideoCodecState *outstate;
-    GstVideoInfo srcpad_info, outstate_info;
-    GstVideoFormat format;
-    GstCaps *caps;
+    GstVideoInfo *out_info;
+    GstVideoFormat  format;
+    guint width, height;
 
-    vaapi_dec = GST_VAAPIDECODE(dec);
-    
-    if(vaapi_dec->srcpad_caps)   
-        gst_video_info_from_caps(&srcpad_info, vaapi_dec->srcpad_caps);
+    decode = GST_VAAPIDECODE(dec);
+   
+    format = GST_VIDEO_INFO_FORMAT(&decode->info);
+    width  = GST_VIDEO_INFO_WIDTH(&decode->info);
+    height = GST_VIDEO_INFO_HEIGHT(&decode->info);
 
     outstate = gst_video_decoder_get_output_state (GST_VIDEO_DECODER (dec));
     if (outstate) {
-        gst_video_info_from_caps(&outstate_info, outstate->caps);
-        if (srcpad_info.width  		        == outstate_info.width &&
-            srcpad_info.height 		        == outstate_info.height &&
-	    GST_VIDEO_INFO_FORMAT(&srcpad_info)	== GST_VIDEO_INFO_FORMAT(&outstate_info)) {
+	out_info = &outstate->info;
+        if (width   == GST_VIDEO_INFO_WIDTH  (out_info) &&
+            height  == GST_VIDEO_INFO_HEIGHT (out_info) &&
+	    format  == GST_VIDEO_INFO_FORMAT (out_info)) {
 
 	    gst_video_codec_state_unref (outstate);
             return;
@@ -721,11 +695,11 @@ gst_vaapi_dec_negotiate(GstVideoDecoder *dec)
         gst_video_codec_state_unref (outstate);
     }
     /*Fixme: Setting o/p state has no effect now since we manually set the output_state->caps to srcpad_caps */
-    vaapi_dec->output_state =
-        gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec), GST_VIDEO_FORMAT_NV12,
-        srcpad_info.width, srcpad_info.height, vaapi_dec->input_state);
+    decode->output_state =
+        gst_video_decoder_set_output_state (GST_VIDEO_DECODER (dec), format,
+        width, height, decode->input_state);
 
-    vaapi_dec->output_state->caps = vaapi_dec->srcpad_caps;
+    decode->output_state->caps = decode->srcpad_caps;
     gst_video_decoder_negotiate (dec); 
 }
 

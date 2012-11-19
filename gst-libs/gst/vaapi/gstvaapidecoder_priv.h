@@ -118,6 +118,7 @@ struct _GstVaapiDecoderPrivate {
     GstVaapiCodec       codec;
     GstBuffer          *codec_data;
     GstBufferPool      *pool;
+    GstVideoInfo	info;
     GstVideoFormat	format;
     guint               width;
     guint               height;

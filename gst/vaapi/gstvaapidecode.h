@@ -64,6 +64,7 @@ struct _GstVaapiDecode {
 
     GstVideoCodecState *input_state;
     GstVideoCodecState *output_state;
+    GstVideoInfo	info;
 
     GstCaps	       *sinkpad_caps;
     GstCaps	       *srcpad_caps;
