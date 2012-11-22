@@ -45,9 +45,6 @@ G_BEGIN_DECLS
                              GST_VAAPI_TYPE_VIDEO_POOL,       \
                              GstVaapiVideoPoolClass))
 
-#define GST_VAAPI_IS_VIDEO_POOL(obj) \
-    (G_TYPE_CHECK_INSTANCE_TYPE((obj), GST_VAAPI_TYPE_VIDEO_POOL))
-
 #define GST_VAAPI_IS_VIDEO_POOL_CLASS(klass) \
     (G_TYPE_CHECK_CLASS_TYPE((klass), GST_VAAPI_TYPE_VIDEO_POOL))
 

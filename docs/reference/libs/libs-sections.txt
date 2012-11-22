@@ -1,34 +1,8 @@
 <SECTION>
-<FILE>gstvaapisurfacepool</FILE>
-<TITLE>GstVaapiSurfacePool</TITLE>
-GstVaapiSurfacePool
-GstVaapiSurfacePoolClass
-gst_vaapi_surface_pool_new
-<SUBSECTION Standard>
-GST_VAAPI_SURFACE_POOL
-GST_VAAPI_IS_SURFACE_POOL
-GST_VAAPI_TYPE_SURFACE_POOL
-gst_vaapi_surface_pool_get_type
-GST_VAAPI_SURFACE_POOL_CLASS
-GST_VAAPI_IS_SURFACE_POOL_CLASS
-GST_VAAPI_SURFACE_POOL_GET_CLASS
-</SECTION>
-
-<SECTION>
 <FILE>gstvaapivideopool</FILE>
 <TITLE>GstVaapiVideoPool</TITLE>
 GstVaapiVideoPool
 GstVaapiVideoPoolClass
-gst_vaapi_video_pool_get_display
-gst_vaapi_video_pool_get_caps
-gst_vaapi_video_pool_get_object
-gst_vaapi_video_pool_put_object
-gst_vaapi_video_pool_add_object
-gst_vaapi_video_pool_add_objects
-gst_vaapi_video_pool_get_capacity
-gst_vaapi_video_pool_set_capacity
-gst_vaapi_video_pool_get_size
-gst_vaapi_video_pool_reserve
 <SUBSECTION Standard>
 GST_VAAPI_VIDEO_POOL
 GST_VAAPI_IS_VIDEO_POOL
@@ -151,54 +125,6 @@ GST_VAAPI_DISPLAY_GET_CLASS
 </SECTION>
 
 <SECTION>
-<FILE>gstvaapiimagepool</FILE>
-<TITLE>GstVaapiImagePool</TITLE>
-GstVaapiImagePool
-GstVaapiImagePoolClass
-gst_vaapi_image_pool_new
-<SUBSECTION Standard>
-GST_VAAPI_IMAGE_POOL
-GST_VAAPI_IS_IMAGE_POOL
-GST_VAAPI_TYPE_IMAGE_POOL
-gst_vaapi_image_pool_get_type
-GST_VAAPI_IMAGE_POOL_CLASS
-GST_VAAPI_IS_IMAGE_POOL_CLASS
-GST_VAAPI_IMAGE_POOL_GET_CLASS
-</SECTION>
-
-<SECTION>
-<FILE>gstvaapivideobuffer</FILE>
-<TITLE>GstVaapiVideoBuffer</TITLE>
-GstVaapiVideoBuffer
-GstVaapiVideoBufferClass
-gst_vaapi_video_buffer_typed_new
-gst_vaapi_video_buffer_typed_new_from_pool
-gst_vaapi_video_buffer_typed_new_from_buffer
-gst_vaapi_video_buffer_typed_new_with_image
-gst_vaapi_video_buffer_typed_new_with_surface
-gst_vaapi_video_buffer_typed_new_with_surface_proxy
-gst_vaapi_video_buffer_get_display
-gst_vaapi_video_buffer_get_image
-gst_vaapi_video_buffer_set_image
-gst_vaapi_video_buffer_set_image_from_pool
-gst_vaapi_video_buffer_get_surface
-gst_vaapi_video_buffer_get_surface_proxy
-gst_vaapi_video_buffer_set_surface
-gst_vaapi_video_buffer_set_surface_proxy
-gst_vaapi_video_buffer_set_surface_from_pool
-gst_vaapi_video_buffer_get_render_flags
-gst_vaapi_video_buffer_set_render_flags
-<SUBSECTION Standard>
-GST_VAAPI_VIDEO_BUFFER
-GST_VAAPI_IS_VIDEO_BUFFER
-GST_VAAPI_TYPE_VIDEO_BUFFER
-gst_vaapi_video_buffer_get_type
-GST_VAAPI_VIDEO_BUFFER_CLASS
-GST_VAAPI_IS_VIDEO_BUFFER_CLASS
-GST_VAAPI_VIDEO_BUFFER_GET_CLASS
-</SECTION>
-
-<SECTION>
 <FILE>gstvaapitypes</FILE>
 <TITLE>Basic data structures</TITLE>
 GstVaapiID
@@ -290,6 +216,7 @@ gst_vaapi_image_get_size
 gst_vaapi_image_is_linear
 gst_vaapi_image_is_mapped
 gst_vaapi_image_map
+gst_vaapi_image_map_to_raw_image
 gst_vaapi_image_unmap
 gst_vaapi_image_get_plane_count
 gst_vaapi_image_get_plane
@@ -319,6 +246,7 @@ GstVaapiSurfaceClass
 gst_vaapi_surface_new
 gst_vaapi_surface_get_id
 gst_vaapi_surface_get_chroma_type
+gst_vaapi_surface_get_format
 gst_vaapi_surface_get_width
 gst_vaapi_surface_get_height
 gst_vaapi_surface_get_size
@@ -368,6 +296,7 @@ gst_vaapi_image_format
 gst_vaapi_image_format_from_caps
 gst_vaapi_image_format_from_fourcc
 gst_vaapi_image_format_from_video
+gst_vaapi_image_format_get_video_format
 gst_vaapi_image_format_get_va_format
 gst_vaapi_image_format_get_caps
 gst_vaapi_image_format_get_score
@@ -424,9 +353,9 @@ gst_vaapi_context_get_profile
 gst_vaapi_context_set_profile
 gst_vaapi_context_get_entrypoint
 gst_vaapi_context_get_size
-gst_vaapi_context_get_surface
-gst_vaapi_context_get_surface_count
-gst_vaapi_context_put_surface
+gst_vaapi_context_put_surface_buffer
+gst_vaapi_context_get_surface_buffer
+gst_vaapi_context_get_video_pool
 gst_vaapi_context_find_surface_by_id
 gst_vaapi_context_apply_composition
 <SUBSECTION Standard>
@@ -445,8 +374,13 @@ GstVaapiDecoderStatus
 <TITLE>GstVaapiDecoder</TITLE>
 GstVaapiDecoder
 GstVaapiDecoderClass
+gst_vaapi_decoder_get_codec
 gst_vaapi_decoder_get_caps
-gst_vaapi_decoder_put_buffer
+gst_vaapi_decoder_get_video_info
+gst_vaapi_decoder_emit_caps_change
+gst_vaapi_decoder_start
+gst_vaapi_decoder_parse
+gst_vaapi_decoder_decide_allocation
 gst_vaapi_decoder_get_surface
 <SUBSECTION Standard>
 GST_VAAPI_DECODER
@@ -547,14 +481,20 @@ gst_vaapi_surface_proxy_new
 gst_vaapi_surface_proxy_get_context
 gst_vaapi_surface_proxy_set_context
 gst_vaapi_surface_proxy_get_surface
+gst_vaapi_surface_proxy_get_surface_buffer
 gst_vaapi_surface_proxy_get_surface_id
 gst_vaapi_surface_proxy_set_surface
+gst_vaapi_surface_proxy_set_surface_buffer
 gst_vaapi_surface_proxy_get_timestamp
 gst_vaapi_surface_proxy_set_timestamp
+gst_vaapi_surface_proxy_get_duration
+gst_vaapi_surface_proxy_set_duration
 gst_vaapi_surface_proxy_get_interlaced
 gst_vaapi_surface_proxy_set_interlaced
 gst_vaapi_surface_proxy_get_tff
 gst_vaapi_surface_proxy_set_tff
+gst_vaapi_surface_proxy_get_frame_id
+gst_vaapi_surface_proxy_set_frame_id
 <SUBSECTION Standard>
 GST_VAAPI_SURFACE_PROXY
 GST_VAAPI_IS_SURFACE_PROXY
@@ -563,4 +503,35 @@ gst_vaapi_surface_proxy_get_type
 GST_VAAPI_SURFACE_PROXY_CLASS
 GST_VAAPI_IS_SURFACE_PROXY_CLASS
 GST_VAAPI_SURFACE_PROXY_GET_CLASS
+</SECTION>
+
+<SECTION>
+<FILE>gstvaapivideomemory</FILE>
+<TITLE>GstVaapiVideoMemory</TITLE>
+GstVaapiVideoMemory
+GstVaapiVideoAllocator
+GstVaapiVideoAllocatorClass
+gst_vaapi_video_memory_new
+gst_vaapi_video_memory_map
+gst_vaapi_video_memory_unmap
+<SUBSECTION Standard>
+GST_VAAPI_VIDEO_ALLOCATOR
+GST_IS_VAAPI_VIDEO_ALLOCATOR
+GST_VAAPI_TYPE_VIDEO_ALLOCATOR
+gst_vaapi_video_allocator_get_type
+</SECTION>
+
+<SECTION>
+<FILE>gstvaapivideometa</FILE>
+<TITLE>GstVaapiVideoMeta</TITLE>
+GstVaapiVideoMeta
+gst_buffer_get_vaapi_video_meta
+gst_buffer_add_vaapi_video_meta
+gst_vaapi_video_meta_get_surface
+gst_vaapi_video_meta_get_image
+<SUBSECTION Standard>
+GST_VAAPI_VIDEO_META_API_TYPE
+GST_VAAPI_VIDEO_META_INFO
+gst_vaapi_video_meta_get_type
+gst_vaapi_video_meta_get_info
 </SECTION>
